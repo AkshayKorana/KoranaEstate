@@ -1,0 +1,31 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Coffee {
+  id          String   @id
+  coffeeType  String
+  quantity    Int
+  pricePerKg  Float
+  location    String
+  description String?
+  createdAt   DateTime @default(now())
+}
+
+model Commodity {
+  id        String   @id @default(uuid())
+  type      String                 // Coffee, Pepper, Cardamom, etc.
+  name      String                 // Arabica, Robusta, etc.
+  variety   String?                // Optional: variety or grade
+  price     Float
+  location  String?                // Market or city
+  source    String?                // Where the price came from
+  createdAt DateTime @default(now())
+
+  @@index([name, variety])         // Optional: fast lookups
+}
