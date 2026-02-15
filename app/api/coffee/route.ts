@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma"
 import { generateCoffeeDescription } from "@/lib/ai"
+import { randomUUID } from "crypto"
 
 export async function GET() {
   try {
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
     }
 
     const newCoffee = await prisma.coffee.create({
-      data: { coffeeType, quantity, pricePerKg, location, description }
+      data: { id: randomUUID(), coffeeType, quantity, pricePerKg, location, description }
     })
 
     return new Response(JSON.stringify(newCoffee), { status: 201 })

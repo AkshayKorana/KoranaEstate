@@ -1,202 +1,82 @@
-// app/api/commodities/route.ts
-/*
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import OpenAI from 'openai'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
+type CommodityPoint = { date: Date; price: number }
+type CommodityResponse = {
+  name: string
+  currentPrice: number
+  historicalPrices: CommodityPoint[]
+  source: string
+}
 
-// Supported commodities
-const COMMODITIES = ['Arabica', 'Robusta', 'Pepper', 'Cardamom']
-
-// Example free sources (placeholders)
-const COFFEE_API = 'https://indiancoffee.nic.in/api/latest.json'
-const SPICE_API = 'https://agmarknet.gov.in/api/prices.json'
-
-export async function GET(req: NextRequest) {
-  try {
-    let data: any[] = []
-
-    // 1️⃣ Fetch Coffee prices
-    try {
-      const res = await fetch(COFFEE_API)
-      const coffeeData = await res.json()
-      data = data.concat(
-        coffeeData.map((c: any) => ({
-          type: 'Coffee',
-          name: c.variety || 'Unknown',
-          price: parseFloat(c.price) || 0,
-          location: c.location || '',
-          source: 'Gov',
-        }))
-      )
-    } catch (err) {
-      console.warn('Coffee API fetch failed:', err)
-    }
-
-    // 2️⃣ Fetch Spices
-    try {
-      const res = await fetch(SPICE_API)
-      const spiceData = await res.json()
-      data = data.concat(
-        spiceData.map((s: any) => ({
-          type: 'Spice',
-          name: s.commodity || 'Unknown',
-          variety: s.variety || '',
-          price: parseFloat(s.price) || 0,
-          location: s.market || '',
-          source: 'Agmarknet',
-        }))
-      )
-    } catch (err) {
-      console.warn('Spice API fetch failed:', err)
-    }
-
-    // 3️⃣ Store in Prisma
-    for (const item of data) {
-      await prisma.commodity.create({
-        data: {
-          type: item.type,
-          name: item.name,
-          variety: item.variety,
-          price: item.price,
-          location: item.location,
-          source: item.source,
-        },
-      })
-    }
-
-    // 4️⃣ Historical + AI insights
-    const result = []
-    const insights: Record<string, string> = {}
-
-    for (const commodityName of COMMODITIES) {
-      // Last 7 entries
-      const history = await prisma.commodity.findMany({
-        where: { name: commodityName },
-        orderBy: { createdAt: 'desc' },
-        take: 7,
-      })
-
-      if (!history.length) continue
-
-      const historicalPrices = history
-        .map((h) => ({ date: h.createdAt, price: h.price }))
-        .reverse()
-
-      // AI prediction
-      const pricesArray = historicalPrices.map((h) => h.price)
-      const prompt = `
-        Last 7 days prices for ${commodityName}: ${pricesArray.join(
-        ', '
-      )}. Predict next-day trend in 1 short sentence (up, down, or stable).
-      `
-      try {
-        const response = await openai.createChatCompletion({
-          model: 'gpt-4',
-          messages: [{ role: 'user', content: prompt }],
-          max_tokens: 40,
-        })
-        insights[commodityName] =
-          response.data.choices[0].message?.content || 'Prediction unavailable'
-      } catch (err) {
-        insights[commodityName] = 'Prediction unavailable'
-      }
-
-      // Prepare final result
-      result.push({
-        name: commodityName,
-        historicalPrices,
-        currentPrice: historicalPrices[historicalPrices.length - 1].price,
-        source: history[0].source,
-      })
-    }
-
-    return NextResponse.json({
-      data: result,
-      insights,
-      lastUpdated: new Date(),
-    })
-  } catch (err) {
-    console.error('Commodities API error:', err)
-    return NextResponse.json(
-      { data: [], insights: {}, lastUpdated: new Date() },
-      { status: 500 }
-    )
-  }
-} */
-// app/api/commodities/route.ts
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import OpenAI from 'openai'
-
-// Initialize OpenAI
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
-
-// Mock data for development/testing
-const MOCK_COMMODITIES = [
-  { type: 'Coffee', name: 'Arabica', price: 520, location: 'Chikmagalur', source: 'Mock' },
-  { type: 'Coffee', name: 'Robusta', price: 450, location: 'Coorg', source: 'Mock' },
-  { type: 'Spice', name: 'Pepper', price: 650, location: 'Kerala', source: 'Mock' },
-  { type: 'Spice', name: 'Cardamom', price: 1200, location: 'Kerala', source: 'Mock' },
+const COMMODITIES = [
+  { name: 'Arabica', type: 'Coffee', fallbackPrice: 520 },
+  { name: 'Robusta', type: 'Coffee', fallbackPrice: 450 },
+  { name: 'Pepper', type: 'Spice', fallbackPrice: 650 },
+  { name: 'Cardamom', type: 'Spice', fallbackPrice: 1200 },
 ]
 
-export async function GET(req: NextRequest) {
-  try {
-    // 1️⃣ Store mock data in DB for history
-    for (const item of MOCK_COMMODITIES) {
-      await prisma.commodity.create({
-        data: {
-          type: item.type,
-          name: item.name,
-          price: item.price,
-          location: item.location,
-          source: item.source,
-        },
-      })
+function fallbackSeries(basePrice: number): CommodityPoint[] {
+  const now = Date.now()
+  return Array.from({ length: 7 }, (_, i) => {
+    const dayOffset = 6 - i
+    const drift = Math.round(basePrice * (Math.sin(i * 1.3) * 0.015))
+    return {
+      date: new Date(now - dayOffset * 24 * 60 * 60 * 1000),
+      price: Math.max(1, basePrice + drift),
     }
+  })
+}
 
-    // 2️⃣ Prepare response
-    const result = []
+export async function GET() {
+  try {
+    const data: CommodityResponse[] = []
     const insights: Record<string, string> = {}
 
-    for (const commodity of MOCK_COMMODITIES) {
-      // Get last 7 historical entries
+    for (const commodity of COMMODITIES) {
       const history = await prisma.commodity.findMany({
-        where: { name: commodity.name },
+        where: { name: commodity.name, type: commodity.type },
         orderBy: { createdAt: 'desc' },
         take: 7,
       })
 
-      const historicalPrices = history
-        .map((h) => ({ date: h.createdAt, price: h.price }))
-        .reverse()
+      const historicalPrices =
+        history.length > 0
+          ? history
+              .map((h) => ({ date: h.createdAt, price: h.price }))
+              .reverse()
+          : fallbackSeries(commodity.fallbackPrice)
 
-      // AI prediction placeholder
-      insights[commodity.name] = 'Prediction unavailable'
+      const currentPrice = historicalPrices[historicalPrices.length - 1]?.price ?? commodity.fallbackPrice
+      const previousPrice = historicalPrices[historicalPrices.length - 2]?.price
 
-      result.push({
+      if (previousPrice == null) {
+        insights[commodity.name] = 'Insufficient data for trend; monitoring.'
+      } else if (currentPrice > previousPrice) {
+        insights[commodity.name] = 'Short-term trend: up.'
+      } else if (currentPrice < previousPrice) {
+        insights[commodity.name] = 'Short-term trend: down.'
+      } else {
+        insights[commodity.name] = 'Short-term trend: stable.'
+      }
+
+      data.push({
         name: commodity.name,
-        currentPrice: historicalPrices[historicalPrices.length - 1].price,
+        currentPrice,
         historicalPrices,
-        source: commodity.source,
+        source: history[0]?.source || 'Synthetic',
       })
     }
 
-    // 3️⃣ Return JSON schema
     return NextResponse.json({
-      data: result,
+      data,
       insights,
-      lastUpdated: new Date(),
+      lastUpdated: new Date().toISOString(),
     })
   } catch (err) {
     console.error('Commodities API error:', err)
     return NextResponse.json(
-      { data: [], insights: {}, lastUpdated: new Date() },
+      { data: [], insights: {}, lastUpdated: new Date().toISOString() },
       { status: 500 }
     )
   }

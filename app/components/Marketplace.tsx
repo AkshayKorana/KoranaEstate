@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 
 type Item = {
   id: string
@@ -12,16 +12,11 @@ type Item = {
 }
 
 export default function Marketplace() {
-  const [items, setItems] = useState<Item[]>([])
-
-  useEffect(() => {
-    // fetch marketplace items from API (or mock for now)
-    setItems([
-      { id: '1', name: 'Arabica Coffee', type: 'Coffee', price: 520, quantity: 50, location: 'Coorg' },
-      { id: '2', name: 'Robusta Coffee', type: 'Coffee', price: 450, quantity: 30, location: 'Chikmagalur' },
-      { id: '3', name: 'Pepper', type: 'Spice', price: 650, quantity: 20, location: 'Kerala' },
-    ])
-  }, [])
+  const [items] = useState<Item[]>([
+    { id: '1', name: 'Arabica Coffee', type: 'Coffee', price: 520, quantity: 50, location: 'Coorg' },
+    { id: '2', name: 'Robusta Coffee', type: 'Coffee', price: 450, quantity: 30, location: 'Chikmagalur' },
+    { id: '3', name: 'Pepper', type: 'Spice', price: 650, quantity: 20, location: 'Kerala' },
+  ])
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">

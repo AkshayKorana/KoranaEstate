@@ -13,6 +13,8 @@ import {
   Legend,
 } from 'chart.js'
 import Hero from './components/Hero'
+import Navbar from './components/Navbar'
+import Footer from './components/Footer'
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend)
 const Line = dynamic(() => import('react-chartjs-2').then(mod => mod.Line), { ssr: false })
 
@@ -22,20 +24,15 @@ interface MarketplaceItem { id: string; name: string; type: string; price: numbe
 
 export default function HomePage() {
   const [activeTab, setActiveTab] = useState<'Marketplace'|'Dashboard'>('Marketplace')
-  const [items, setItems] = useState<MarketplaceItem[]>([])
+  const [items] = useState<MarketplaceItem[]>([
+    { id:'1', name:'Arabica Coffee', type:'Coffee', price:520, quantity:50, location:'Coorg' },
+    { id:'2', name:'Robusta Coffee', type:'Coffee', price:450, quantity:30, location:'Chikmagalur' },
+    { id:'3', name:'Pepper', type:'Spice', price:650, quantity:20, location:'Kerala' },
+    { id:'4', name:'Cardamom', type:'Spice', price:1200, quantity:15, location:'Kerala' },
+  ])
   const [commodities, setCommodities] = useState<Commodity[]>([])
   const [insights, setInsights] = useState<Record<string,string>>({})
   const [selectedCommodity, setSelectedCommodity] = useState<Commodity|null>(null)
-
-  useEffect(() => {
-    // Mock Marketplace Items
-    setItems([
-      { id:'1', name:'Arabica Coffee', type:'Coffee', price:520, quantity:50, location:'Coorg' },
-      { id:'2', name:'Robusta Coffee', type:'Coffee', price:450, quantity:30, location:'Chikmagalur' },
-      { id:'3', name:'Pepper', type:'Spice', price:650, quantity:20, location:'Kerala' },
-      { id:'4', name:'Cardamom', type:'Spice', price:1200, quantity:15, location:'Kerala' },
-    ])
-  }, [])
 
   useEffect(() => {
     async function fetchCommodities() {
@@ -50,10 +47,16 @@ export default function HomePage() {
     fetchCommodities()
   }, [])
 
+  const historicalPrices = selectedCommodity?.historicalPrices ?? []
+
   return (
     <div className="space-y-12">
+      <Navbar />
+
       {/* Hero Section */}
-      <Hero />
+      <div className="pt-24">
+        <Hero />
+      </div>
 
       {/* Tabs */}
       <div className="container mx-auto px-6 space-y-6">
@@ -104,14 +107,14 @@ export default function HomePage() {
               <p className="mt-2 text-gray-700 text-lg font-semibold">Current Price: ₹{selectedCommodity.price?.toLocaleString()||'-'}</p>
               <p className="text-gray-500 italic text-sm">AI Prediction: {insights[selectedCommodity.name]||'Loading...'}</p>
 
-              {selectedCommodity.historicalPrices?.length>0 && (
+              {historicalPrices.length > 0 && (
                 <div className="mt-5">
                   <Line
                     data={{
-                      labels: selectedCommodity.historicalPrices.map(h=>new Date(h.date).toLocaleDateString()),
+                      labels: historicalPrices.map(h=>new Date(h.date).toLocaleDateString()),
                       datasets:[{
                         label: `${selectedCommodity.name} Price (₹)`,
-                        data: selectedCommodity.historicalPrices.map(h=>h.price),
+                        data: historicalPrices.map(h=>h.price),
                         borderColor:'rgb(139,92,246)',
                         backgroundColor:'rgba(139,92,246,0.2)',
                         tension:0.3
@@ -125,6 +128,7 @@ export default function HomePage() {
           </section>
         )}
       </div>
+      <Footer />
     </div>
   )
 }
