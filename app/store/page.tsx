@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import type { Product, CreateProductInput, CreateOrderInput } from '@/types/marketplace'
+import Navbar from '@/app/components/Navbar'
 
 const CATEGORIES = ['Coffee Powder', 'Roasted Beans', 'Pepper Powder', 'Cardamom Powder', 'Ground Spices', 'Gift Packs']
 
@@ -107,6 +108,7 @@ export default function StorePage() {
 
   return (
     <div className="min-h-screen pt-24 pb-12">
+      <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8 slide-in-up">

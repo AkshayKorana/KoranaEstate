@@ -21,7 +21,7 @@ function CoffeeIcon({ className = 'h-8 w-8' }: { className?: string }) {
 }
 
 const navItems = [
-  { href: '/', label: 'Dashboard', icon: '📊' },
+  { href: '/', label: 'Home', icon: '🏠' },
   { href: '/raw-marketplace', label: 'Raw Marketplace', icon: '🌱' },
   { href: '/store', label: 'Store', icon: '🛒' },
   { href: '/messages', label: 'Messages', icon: '💬' },
@@ -201,4 +201,3 @@ export default function Navbar() {
     </header>
   )
 }
-

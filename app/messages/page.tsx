@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import type { Conversation, Message } from '@/types/marketplace'
+import Navbar from '@/app/components/Navbar'
 
 export default function MessagesPage() {
   const { data: session, status } = useSession()
@@ -122,6 +123,7 @@ export default function MessagesPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pt-20">
+      <Navbar />
       <div className="h-[calc(100vh-5rem)] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className="h-full bg-white rounded-lg shadow-sm flex overflow-hidden">
           {/* Conversations List */}
