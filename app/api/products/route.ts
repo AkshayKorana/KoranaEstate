@@ -56,26 +56,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+    const user = await prisma.user.upsert({
+      where: { email: session.user.email },
+      update: {
+        name: session.user.name ?? undefined,
+      },
+      create: {
+        email: session.user.email,
+        name: session.user.name ?? null,
+        // Placeholder for non-credentials users; credentials signup sets real hash.
+        passwordHash: 'oauth_user_no_password',
+      },
     })
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
 
     const body = await request.json()
     const { name, category, price, stock, description, imageUrl } = body
+    const nameStr = typeof name === 'string' ? name.trim() : ''
+    const categoryStr = typeof category === 'string' ? category.trim() : ''
+    const priceNum = Number(price)
+    const stockNum = Number(stock)
 
     // Validation
-    if (!name || !category || !price || stock === undefined) {
+    if (!nameStr || !categoryStr || !Number.isFinite(priceNum) || !Number.isFinite(stockNum)) {
       return NextResponse.json(
         { error: 'Missing required fields: name, category, price, stock' },
         { status: 400 }
       )
     }
 
-    if (price <= 0 || stock < 0) {
+    if (priceNum <= 0 || stockNum < 0) {
       return NextResponse.json(
         { error: 'Price must be positive and stock cannot be negative' },
         { status: 400 }
@@ -85,10 +94,10 @@ export async function POST(request: NextRequest) {
     const product = await prisma.product.create({
       data: {
         sellerId: user.id,
-        name,
-        category,
-        price: parseFloat(price),
-        stock: parseInt(stock),
+        name: nameStr,
+        category: categoryStr,
+        price: Number(priceNum.toFixed(2)),
+        stock: Math.floor(stockNum),
         description,
         imageUrl
       },

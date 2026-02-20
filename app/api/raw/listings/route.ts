@@ -50,26 +50,35 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+    const user = await prisma.user.upsert({
+      where: { email: session.user.email },
+      update: {
+        name: session.user.name ?? undefined,
+      },
+      create: {
+        email: session.user.email,
+        name: session.user.name ?? null,
+        // Placeholder for non-credentials users; credentials signup sets real hash.
+        passwordHash: 'oauth_user_no_password',
+      },
     })
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
 
     const body = await request.json()
     const { commodity, grade, quantityKg, pricePerKg, location, description } = body
+    const commodityStr = typeof commodity === 'string' ? commodity.trim() : ''
+    const locationStr = typeof location === 'string' ? location.trim() : ''
+    const quantityNum = Number(quantityKg)
+    const priceNum = Number(pricePerKg)
 
     // Validation
-    if (!commodity || !quantityKg || !pricePerKg || !location) {
+    if (!commodityStr || !locationStr || !Number.isFinite(quantityNum) || !Number.isFinite(priceNum)) {
       return NextResponse.json(
         { error: 'Missing required fields: commodity, quantityKg, pricePerKg, location' },
         { status: 400 }
       )
     }
 
-    if (quantityKg <= 0 || pricePerKg <= 0) {
+    if (quantityNum <= 0 || priceNum <= 0) {
       return NextResponse.json(
         { error: 'Quantity and price must be positive' },
         { status: 400 }
@@ -79,11 +88,11 @@ export async function POST(request: NextRequest) {
     const listing = await prisma.rawListing.create({
       data: {
         sellerId: user.id,
-        commodity,
+        commodity: commodityStr,
         grade,
-        quantityKg: parseFloat(quantityKg),
-        pricePerKg: parseFloat(pricePerKg),
-        location,
+        quantityKg: Number(quantityNum.toFixed(2)),
+        pricePerKg: Number(priceNum.toFixed(2)),
+        location: locationStr,
         description
       },
       include: {
