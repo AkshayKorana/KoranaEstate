@@ -47,11 +47,11 @@ function SocialIcon({ href, label, children }: SocialIconProps) {
 
 export default function Footer() {
   return (
-    <footer className="bg-coffee-50 dark:bg-coffee-900/30 pt-16 pb-8 border-t border-coffee-100 dark:border-coffee-800">
+    <footer id="site-footer" className="bg-coffee-50 dark:bg-coffee-900/30 pt-16 pb-8 border-t border-coffee-100 dark:border-coffee-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10 mb-12">
-          <div className="space-y-4">
-            <Link href="/" className="flex items-center space-x-2 text-primary">
+          <div id="footer-brand-target" className="space-y-4 target-highlight">
+            <Link href="/#top" className="flex items-center space-x-2 text-primary">
               <CoffeeIcon className="h-7 w-7" />
               <span className="text-xl font-semibold">Korana Estate</span>
             </Link>
@@ -75,15 +75,15 @@ export default function Footer() {
           <div>
             <h3 className="text-md font-semibold mb-4 text-gray-900 dark:text-gray-100">Quick Links</h3>
             <ul className="space-y-2">
-              <li><Link href="/" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">Home</Link></li>
+              <li><Link href="/#top" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">Home</Link></li>
               <li><Link href="/marketplace" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">Marketplace</Link></li>
               <li><Link href="/services" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">Services</Link></li>
-              <li><Link href="/about" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">About Us</Link></li>
-              <li><Link href="/contact" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">Contact</Link></li>
+              <li><Link href="/#footer-brand-target" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">About Us</Link></li>
+              <li><Link href="/#footer-contact-target" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">Contact</Link></li>
             </ul>
           </div>
 
-          <div>
+          <div id="footer-contact-target" className="target-highlight">
             <h3 className="text-md font-semibold mb-4 text-gray-900 dark:text-gray-100">Contact Us</h3>
             <ul className="space-y-3">
               <li className="flex items-start">

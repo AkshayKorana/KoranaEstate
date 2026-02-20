@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { prisma } from '@/lib/prisma'
+import { sendPasswordResetEmail } from '@/lib/email'
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,16 +19,36 @@ export async function POST(req: NextRequest) {
 
     const resetToken = crypto.randomBytes(32).toString('hex')
     const resetTokenExpiry = new Date(Date.now() + 1000 * 60 * 30)
+    const baseUrl = process.env.NEXTAUTH_URL || req.nextUrl.origin
+    const resetLink = `${baseUrl}/auth?tab=reset-password&token=${resetToken}`
 
     await prisma.user.update({
       where: { id: user.id },
       data: { resetToken, resetTokenExpiry },
     })
 
+    const emailResult = await sendPasswordResetEmail({
+      to: email,
+      resetLink,
+    })
+
+    if (!emailResult.ok) {
+      console.error('Forgot password email send failed:', emailResult.error)
+      return NextResponse.json(
+        {
+          error: 'Unable to send reset email. Please try again later.',
+          detail: process.env.NODE_ENV === 'development' ? emailResult.error : undefined,
+          // Development-only fallback so local testing can continue even without email service.
+          resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined,
+        },
+        { status: 500 }
+      )
+    }
+
     return NextResponse.json({
       ok: true,
-      // Development-only convenience. In production, email this token instead.
-      resetToken: process.env.NODE_ENV !== 'production' ? resetToken : undefined,
+      // Optional dev debug visibility.
+      resetToken: process.env.NODE_ENV === 'development' ? resetToken : undefined,
     })
   } catch (error) {
     console.error('Forgot password error:', error)

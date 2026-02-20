@@ -9,11 +9,22 @@ function Icon({ label }: { label: string }) {
   return <span aria-hidden="true" className="text-sm font-semibold leading-none">{label}</span>
 }
 
+function CoffeeIcon({ className = 'h-7 w-7' }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={className} aria-hidden="true">
+      <path d="M3 8h12v5a5 5 0 0 1-5 5H8a5 5 0 0 1-5-5V8Z" />
+      <path d="M15 10h2a3 3 0 0 1 0 6h-2" />
+      <path d="M7 3h2" />
+      <path d="M11 3h2" />
+    </svg>
+  )
+}
+
 const navItems = [
-  { href: '/', label: 'Home' },
+  { href: '/#top', label: 'Home' },
   { href: '/marketplace', label: 'Marketplace' },
   { href: '/services', label: 'Services' },
-  { href: '/about', label: 'About' },
+  { href: '/#footer-brand-target', label: 'About' },
 ]
 
 export default function Navbar() {
@@ -22,7 +33,7 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
-  const isActivePath = (path: string) => pathname === path
+  const isActivePath = (path: string) => (path.startsWith('/#') ? pathname === '/' : pathname === path)
 
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 10)
@@ -40,8 +51,8 @@ export default function Navbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4 md:py-6">
-          <Link href="/" className="flex items-center space-x-2 text-primary">
-            <Icon label="CO" />
+          <Link href="/#top" className="flex items-center space-x-2 text-primary">
+            <CoffeeIcon className="h-7 w-7" />
             <span className="text-xl font-semibold">Korana Estate</span>
           </Link>
 

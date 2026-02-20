@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 
+export async function GET() {
+  return NextResponse.json({ ok: true, route: 'api/auth/signup' }, { status: 200 })
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
@@ -39,6 +43,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ user }, { status: 201 })
   } catch (error) {
     console.error('Signup error:', error)
-    return NextResponse.json({ error: 'Failed to create user.' }, { status: 500 })
+    const message = error instanceof Error ? error.message : 'Unknown error'
+    return NextResponse.json(
+      {
+        error: 'Failed to create user.',
+        detail: process.env.NODE_ENV === 'development' ? message : undefined,
+      },
+      { status: 500 }
+    )
   }
 }

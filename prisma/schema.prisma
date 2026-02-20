@@ -40,3 +40,79 @@ model User {
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
 }
+
+model PriceObservation {
+  id            String   @id @default(cuid())
+  commodityName String
+  grade         String?
+  priceType     String   // benchmark | mandi | listing
+  source        String
+  marketCenter  String?
+  state         String?
+  district      String?
+  unit          String   // inr_per_kg
+  inrPerKg      Float
+  originalValue Float?
+  originalUnit  String?
+  sourceUrl     String?
+  reliability   Float?
+  observedAt    DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([commodityName, priceType, observedAt])
+  @@index([source, observedAt])
+}
+
+model ForecastRun {
+  id             String   @id @default(cuid())
+  commodityName  String
+  modelVersion   String
+  horizonDays    Int
+  mape           Float?
+  mae            Float?
+  rmse           Float?
+  trendText      String
+  pctMove        Float?
+  lowerPct       Float?
+  upperPct       Float?
+  labelsJson     String
+  actualJson     String
+  forecastJson   String
+  generatedAt    DateTime @default(now())
+  createdAt      DateTime @default(now())
+
+  @@index([commodityName, generatedAt])
+  @@index([modelVersion, generatedAt])
+}
+
+model ModelLeaderboardSnapshot {
+  id           String   @id @default(cuid())
+  commodityName String
+  modelVersion String
+  horizonDays  Int
+  mape         Float?
+  mae          Float?
+  rmse         Float?
+  sampleCount  Int
+  windowStart  DateTime?
+  windowEnd    DateTime?
+  generatedAt  DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  @@index([commodityName, horizonDays, generatedAt])
+  @@index([modelVersion, horizonDays, generatedAt])
+}
+
+model AnalyticsEvent {
+  id         String   @id @default(cuid())
+  eventName  String
+  page       String?
+  commodity  String?
+  horizonDays Int?
+  lang       String?
+  metaJson   String?
+  createdAt  DateTime @default(now())
+
+  @@index([eventName, createdAt])
+  @@index([commodity, createdAt])
+}

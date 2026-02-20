@@ -29,7 +29,7 @@ export default function ForgotPasswordForm({ onCancel }: ForgotPasswordFormProps
       setIsLoading(false)
 
       if (!response.ok) {
-        setError(data?.error || 'Failed to process request.')
+        setError(data?.detail ? `${data?.error || 'Failed to process request.'} (${data.detail})` : (data?.error || 'Failed to process request.'))
         return
       }
 
