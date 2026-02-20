@@ -5,7 +5,7 @@ import { getIstDayRangeUtc, toIstDisplay } from '@/lib/india-market'
 
 const MODEL_VERSION = 'hybrid-v3'
 const HORIZONS = [3, 7, 14] as const
-const DEFAULT_COMMODITIES = ['Arabica', 'Robusta', 'Pepper', 'Cardamom'] as const
+const DEFAULT_COMMODITIES = ['Arabica Cherry', 'Arabica Parchment', 'Robusta Cherry', 'Robusta Parchment', 'Cardamom', 'Arecanut', 'Pepper'] as const
 
 type CommodityName = (typeof DEFAULT_COMMODITIES)[number]
 

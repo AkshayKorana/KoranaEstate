@@ -34,10 +34,10 @@ export async function POST(req: NextRequest) {
     steps.push(await runStep(origin, '/api/price-intel'))
 
     // 3) Recompute forecasts (3/7/14 days) + persist metrics.
-    steps.push(await runStep(origin, '/api/forecast?commodities=Arabica,Robusta,Pepper,Cardamom'))
+    steps.push(await runStep(origin, '/api/forecast?commodities=Arabica%20Cherry,Arabica%20Parchment,Robusta%20Cherry,Robusta%20Parchment,Cardamom,Arecanut,Pepper'))
 
     // 4) Recompute leaderboard (linear-v1 vs hybrid-v2) with OOS tracking.
-    steps.push(await runStep(origin, '/api/model-leaderboard?commodities=Arabica,Robusta,Pepper,Cardamom'))
+    steps.push(await runStep(origin, '/api/model-leaderboard?commodities=Arabica%20Cherry,Arabica%20Parchment,Robusta%20Cherry,Robusta%20Parchment,Cardamom,Arecanut,Pepper'))
 
     return NextResponse.json({
       ok: true,

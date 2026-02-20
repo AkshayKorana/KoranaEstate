@@ -3,9 +3,10 @@ import { prisma } from '@/lib/prisma'
 import { convertToInrPerKg, getIstDayRangeUtc, toIstDisplay } from '@/lib/india-market'
 
 const YAHOO_CHART_BASE_URL = 'https://query1.finance.yahoo.com/v8/finance/chart'
+const FOREX_API_URL = 'https://api.exchangerate-api.com/v4/latest/USD'
 const ARABICA_SYMBOL = 'KC=F'
 const ROBUSTA_SYMBOL = 'RC=F'
-const USD_TO_INR = Number(process.env.USD_TO_INR ?? 83)
+const FALLBACK_USD_TO_INR = Number(process.env.USD_TO_INR ?? 83)
 const FALLBACK_ARABICA_USD_PER_LB = 1.85
 const FALLBACK_ROBUSTA_USD_PER_LB = 1.45
 
@@ -18,6 +19,13 @@ type MarketQuote = {
   usdPerLb: number | null
   inrPerKg: number | null
   history: MarketPoint[]
+  source: string
+}
+
+type ForexRate = {
+  usdToInr: number
+  source: string
+  timestamp: string
 }
 
 type YahooChartResponse = {
@@ -28,6 +36,33 @@ type YahooChartResponse = {
       }
     }>
     error?: { description?: string }
+  }
+}
+
+async function fetchLiveForexRate(): Promise<ForexRate> {
+  try {
+    const response = await fetch(FOREX_API_URL, { cache: 'no-store' })
+    if (!response.ok) throw new Error(`Forex API failed: ${response.status}`)
+    
+    const data = await response.json()
+    const usdToInr = data.rates?.INR
+    
+    if (typeof usdToInr !== 'number' || Number.isNaN(usdToInr)) {
+      throw new Error('Invalid INR rate in forex response')
+    }
+    
+    return {
+      usdToInr: Number(usdToInr.toFixed(4)),
+      source: 'ExchangeRate-API (Live)',
+      timestamp: new Date().toISOString(),
+    }
+  } catch (error) {
+    console.warn('Live forex fetch failed, using fallback:', error)
+    return {
+      usdToInr: FALLBACK_USD_TO_INR,
+      source: 'Static Fallback',
+      timestamp: new Date().toISOString(),
+    }
   }
 }
 
@@ -53,8 +88,8 @@ async function fetchYahooQuote(symbol: string): Promise<number> {
   return price
 }
 
-function toInrPerKg(usdPerLb: number): number {
-  return convertToInrPerKg(usdPerLb, 'usd_per_lb', USD_TO_INR)
+function toInrPerKg(usdPerLb: number, usdToInr: number): number {
+  return convertToInrPerKg(usdPerLb, 'usd_per_lb', usdToInr)
 }
 
 function buildSyntheticHistory(baseInrPerKg: number): MarketPoint[] {
@@ -70,6 +105,7 @@ function buildSyntheticHistory(baseInrPerKg: number): MarketPoint[] {
 }
 
 async function upsertDailyCommodityPrice(name: 'Arabica' | 'Robusta', priceInrPerKg: number) {
+  try {
   const { startUtc: startOfTodayUtc, endUtc: endOfTodayUtc } = getIstDayRangeUtc()
 
   const existing = await prisma.commodity.findFirst({
@@ -100,9 +136,13 @@ async function upsertDailyCommodityPrice(name: 'Arabica' | 'Robusta', priceInrPe
       source: 'Yahoo Finance',
     },
   })
+  } catch (error) {
+    console.error(`Failed to upsert daily commodity price for ${name}:`, error)
+  }
 }
 
 async function upsertBenchmarkObservation(name: 'Arabica' | 'Robusta', usdPerLb: number, inrPerKg: number) {
+  try {
   const { startUtc, endUtc } = getIstDayRangeUtc()
   const existing = await prisma.priceObservation.findFirst({
     where: {
@@ -138,26 +178,35 @@ async function upsertBenchmarkObservation(name: 'Arabica' | 'Robusta', usdPerLb:
   }
 
   await prisma.priceObservation.create({ data: payload })
+  } catch (error) {
+    console.error(`Failed to upsert benchmark observation for ${name}:`, error)
+  }
 }
 
 async function getHistory(name: 'Arabica' | 'Robusta'): Promise<MarketPoint[]> {
-  const rows = await prisma.commodity.findMany({
-    where: { type: 'Coffee', name, source: 'Yahoo Finance' },
-    orderBy: { createdAt: 'desc' },
-    take: 14,
-  })
+  try {
+    const rows = await prisma.commodity.findMany({
+      where: { type: 'Coffee', name, source: 'Yahoo Finance' },
+      orderBy: { createdAt: 'desc' },
+      take: 14,
+    })
 
-  return rows
-    .map(row => ({
-      date: row.createdAt.toISOString(),
-      inrPerKg: Number(row.price.toFixed(2)),
-    }))
-    .reverse()
+    return rows
+      .map(row => ({
+        date: row.createdAt.toISOString(),
+        inrPerKg: Number(row.price.toFixed(2)),
+      }))
+      .reverse()
+  } catch (error) {
+    console.error(`Failed to read history for ${name}:`, error)
+    return []
+  }
 }
 
 export async function GET() {
-  let arabica: MarketQuote = { usdPerLb: null, inrPerKg: null, history: [] }
-  let robusta: MarketQuote = { usdPerLb: null, inrPerKg: null, history: [] }
+  const forex = await fetchLiveForexRate()
+  let arabica: MarketQuote = { usdPerLb: null, inrPerKg: null, history: [], source: 'Yahoo Finance (ICE Futures)' }
+  let robusta: MarketQuote = { usdPerLb: null, inrPerKg: null, history: [], source: 'Yahoo Finance (ICE Futures)' }
   let source = 'Yahoo Finance'
 
   try {
@@ -166,8 +215,8 @@ export async function GET() {
       fetchYahooQuote(ROBUSTA_SYMBOL),
     ])
 
-    const arabicaInrPerKg = toInrPerKg(arabicaUsdPerLb)
-    const robustaInrPerKg = toInrPerKg(robustaUsdPerLb)
+    const arabicaInrPerKg = toInrPerKg(arabicaUsdPerLb, forex.usdToInr)
+    const robustaInrPerKg = toInrPerKg(robustaUsdPerLb, forex.usdToInr)
 
     await Promise.all([
       upsertDailyCommodityPrice('Arabica', arabicaInrPerKg),
@@ -181,8 +230,8 @@ export async function GET() {
       getHistory('Robusta'),
     ])
 
-    arabica = { usdPerLb: Number(arabicaUsdPerLb.toFixed(4)), inrPerKg: arabicaInrPerKg, history: arabicaHistory }
-    robusta = { usdPerLb: Number(robustaUsdPerLb.toFixed(4)), inrPerKg: robustaInrPerKg, history: robustaHistory }
+    arabica = { usdPerLb: Number(arabicaUsdPerLb.toFixed(4)), inrPerKg: arabicaInrPerKg, history: arabicaHistory, source: 'Yahoo Finance (ICE Futures)' }
+    robusta = { usdPerLb: Number(robustaUsdPerLb.toFixed(4)), inrPerKg: robustaInrPerKg, history: robustaHistory, source: 'Yahoo Finance (ICE Futures)' }
   } catch (error) {
     console.error('GET /api/market failed:', error)
     const [arabicaHistory, robustaHistory] = await Promise.all([
@@ -190,18 +239,20 @@ export async function GET() {
       getHistory('Robusta'),
     ])
 
-    const arabicaFallbackInr = toInrPerKg(FALLBACK_ARABICA_USD_PER_LB)
-    const robustaFallbackInr = toInrPerKg(FALLBACK_ROBUSTA_USD_PER_LB)
+    const arabicaFallbackInr = toInrPerKg(FALLBACK_ARABICA_USD_PER_LB, forex.usdToInr)
+    const robustaFallbackInr = toInrPerKg(FALLBACK_ROBUSTA_USD_PER_LB, forex.usdToInr)
 
     arabica = {
       usdPerLb: FALLBACK_ARABICA_USD_PER_LB,
       inrPerKg: arabicaHistory.at(-1)?.inrPerKg ?? arabicaFallbackInr,
       history: arabicaHistory.length > 0 ? arabicaHistory : buildSyntheticHistory(arabicaFallbackInr),
+      source: 'Yahoo Finance (Fallback - API Error)',
     }
     robusta = {
       usdPerLb: FALLBACK_ROBUSTA_USD_PER_LB,
       inrPerKg: robustaHistory.at(-1)?.inrPerKg ?? robustaFallbackInr,
       history: robustaHistory.length > 0 ? robustaHistory : buildSyntheticHistory(robustaFallbackInr),
+      source: 'Yahoo Finance (Fallback - API Error)',
     }
     source = 'Yahoo Finance (fallback)'
   }
@@ -210,7 +261,11 @@ export async function GET() {
     arabica,
     robusta,
     unit: 'inr_per_kg',
-    fx: { usdToInr: USD_TO_INR },
+    fx: {
+      usdToInr: forex.usdToInr,
+      source: forex.source,
+      timestamp: forex.timestamp,
+    },
     updatedAt: new Date().toISOString(),
     updatedAtIst: toIstDisplay(new Date()),
     source,

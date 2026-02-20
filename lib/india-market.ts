@@ -3,10 +3,13 @@ const LB_TO_KG = 2.2046226218
 const DEFAULT_BAG_WEIGHT_KG = 50
 
 const BAG_WEIGHT_BY_COMMODITY: Record<string, number> = {
-  Arabica: 50,
-  Robusta: 50,
-  Pepper: 50,
+  'Arabica Cherry': 50,
+  'Arabica Parchment': 50,
+  'Robusta Cherry': 50,
+  'Robusta Parchment': 50,
   Cardamom: 25,
+  Arecanut: 50,
+  Pepper: 50,
 }
 
 export type PriceUnit = 'inr_per_kg' | 'inr_per_50kg' | 'inr_per_quintal' | 'usd_per_lb'

@@ -5,7 +5,7 @@ import { getIstDayRangeUtc, toIstDisplay } from '@/lib/india-market'
 
 const MODELS = ['linear-v1', 'hybrid-v2', 'hybrid-v3'] as const
 const HORIZONS = [7, 14] as const
-const COMMODITIES = ['Arabica', 'Robusta', 'Pepper', 'Cardamom'] as const
+const COMMODITIES = ['Arabica Cherry', 'Arabica Parchment', 'Robusta Cherry', 'Robusta Parchment', 'Cardamom', 'Arecanut', 'Pepper'] as const
 
 type CommodityName = (typeof COMMODITIES)[number]
 type ModelName = (typeof MODELS)[number]
