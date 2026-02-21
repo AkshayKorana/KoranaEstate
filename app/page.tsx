@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import dynamic from 'next/dynamic'
+import { useRouter } from 'next/navigation'
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -41,9 +42,30 @@ interface MarketplaceItem {
   id: string
   name: string
   type: string
+  kind: 'raw' | 'product'
   price: number
   quantity: number
   location?: string
+}
+
+interface RawListingsApiResponse {
+  listings?: Array<{
+    id: string
+    commodity: string
+    quantityKg: number
+    pricePerKg: number
+    location: string
+  }>
+}
+
+interface ProductsApiResponse {
+  products?: Array<{
+    id: string
+    name: string
+    category: string
+    price: number
+    stock: number
+  }>
 }
 
 interface MarketPoint {
@@ -63,6 +85,38 @@ interface MarketResponse {
   updatedAt: string
   updatedAtIst?: string
   source: string
+  fx?: {
+    usdToInr: number
+    source: string
+  }
+}
+
+interface IndianMarketSource {
+  name: string
+  status: 'success' | 'error'
+  prices: Array<{ priceInrPerKg: number }>
+  error?: string
+}
+
+interface IndianMarketItem {
+  commodity: string
+  currentPrice: number
+  minPrice: number
+  maxPrice: number
+  avgPrice: number
+  sampleCount: number
+  sources: IndianMarketSource[]
+}
+
+interface IndianMarketsResponse {
+  markets: IndianMarketItem[]
+  updatedAt: string
+  updatedAtIst?: string
+  filtersApplied?: {
+    district?: string
+    state?: string
+    commodity?: string | null
+  }
 }
 
 interface ForecastCommodity {
@@ -122,25 +176,21 @@ type UiLang = 'en' | 'kn'
 type ActionSignal = 'SELL_NOW' | 'WAIT' | 'HOLD'
 
 export default function HomePage() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<'Marketplace' | 'Dashboard'>('Marketplace')
   const [selectedCommodityName, setSelectedCommodityName] = useState<string>('Arabica Cherry')
   const [selectedHorizon, setSelectedHorizon] = useState<number>(3)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [uiLang, setUiLang] = useState<UiLang>('en')
 
-  const [items] = useState<MarketplaceItem[]>([
-    { id: '1', name: 'Arabica Coffee', type: 'Coffee', price: 520, quantity: 50, location: 'Coorg' },
-    { id: '2', name: 'Robusta Coffee', type: 'Coffee', price: 450, quantity: 30, location: 'Chikmagalur' },
-    { id: '3', name: 'Pepper', type: 'Spice', price: 650, quantity: 20, location: 'Kerala' },
-    { id: '4', name: 'Cardamom', type: 'Spice', price: 1200, quantity: 15, location: 'Kerala' },
-    { id: '5', name: 'Arecanut', type: 'Nut', price: 580, quantity: 25, location: 'Shivamogga' },
-  ])
+  const [items, setItems] = useState<MarketplaceItem[]>([])
+  const [itemsLoading, setItemsLoading] = useState(true)
 
   const [commodities, setCommodities] = useState<Commodity[]>([])
   const [insights, setInsights] = useState<Record<string, string>>({})
   const [market, setMarket] = useState<MarketResponse | null>(null)
   const [marketError, setMarketError] = useState<string | null>(null)
-  const [indianMarkets, setIndianMarkets] = useState<any>(null)
+  const [indianMarkets, setIndianMarkets] = useState<IndianMarketsResponse | null>(null)
   const [indianMarketsError, setIndianMarketsError] = useState<string | null>(null)
   const [forecastData, setForecastData] = useState<ForecastResponse | null>(null)
   const [forecastError, setForecastError] = useState<string | null>(null)
@@ -167,6 +217,49 @@ export default function HomePage() {
       keepalive: true,
     }).catch(() => {})
   }
+
+  useEffect(() => {
+    async function fetchMarketplaceItems() {
+      try {
+        const [rawRes, productsRes] = await Promise.all([
+          fetch('/api/raw/listings?limit=12', { cache: 'no-store' }),
+          fetch('/api/products?limit=12', { cache: 'no-store' }),
+        ])
+
+        const rawJson: RawListingsApiResponse = rawRes.ok ? await rawRes.json() : {}
+        const productsJson: ProductsApiResponse = productsRes.ok ? await productsRes.json() : {}
+
+        const rawItems: MarketplaceItem[] = (rawJson.listings ?? []).map((row) => ({
+          id: `raw-${row.id}`,
+          name: row.commodity,
+          type: 'Raw Listing',
+          kind: 'raw',
+          price: row.pricePerKg,
+          quantity: row.quantityKg,
+          location: row.location,
+        }))
+
+        const productItems: MarketplaceItem[] = (productsJson.products ?? []).map((row) => ({
+          id: `product-${row.id}`,
+          name: row.name,
+          type: row.category,
+          kind: 'product',
+          price: row.price,
+          quantity: row.stock,
+          location: 'Store',
+        }))
+
+        setItems([...rawItems, ...productItems])
+      } catch (error) {
+        console.error('Failed to fetch marketplace items:', error)
+        setItems([])
+      } finally {
+        setItemsLoading(false)
+      }
+    }
+
+    fetchMarketplaceItems()
+  }, [])
 
   useEffect(() => {
     async function fetchCommodities() {
@@ -238,9 +331,9 @@ export default function HomePage() {
 
     async function fetchIndianMarkets() {
       try {
-        const res = await fetch('/api/indian-markets', { cache: 'no-store' })
+        const res = await fetch('/api/indian-markets?district=Kodagu&state=Karnataka', { cache: 'no-store' })
         if (!res.ok) throw new Error(`Failed with status ${res.status}`)
-        const json = await res.json()
+        const json: IndianMarketsResponse = await res.json()
         setIndianMarkets(json)
         setIndianMarketsError(null)
       } catch (err) {
@@ -418,30 +511,59 @@ export default function HomePage() {
         </div>
 
         {activeTab === 'Marketplace' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-4">
+            {itemsLoading && (
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+                Loading live listings...
+              </div>
+            )}
+
+            {!itemsLoading && items.length === 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                No live listings found. Add items in Raw Marketplace or Store to see them here.
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {items.map(item => (
               <div key={item.id} className="bg-black/20 backdrop-blur-md p-6 rounded-2xl shadow-lg hover:shadow-2xl transition transform hover:-translate-y-1">
                 <h3 className="text-xl font-bold text-white mb-1">{item.name}</h3>
                 <span className="inline-block mb-2 px-3 py-1 text-sm font-medium bg-gradient-to-r from-green-400 to-green-600 text-white rounded-full">{item.type}</span>
-                <p className="text-white/90 font-semibold">Price: ₹{item.price.toLocaleString()}</p>
-                <p className="text-white/80">Qty: {item.quantity}</p>
+                <p className="text-white/90 font-semibold">
+                  Price: ₹{item.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  {item.kind === 'raw' ? '/kg' : ''}
+                </p>
+                <p className="text-white/80">{item.kind === 'raw' ? 'Qty (kg)' : 'Stock'}: {item.quantity}</p>
                 <p className="text-white/70">Location: {item.location || 'India'}</p>
                 <div className="mt-4 flex gap-2">
                   <button
                     className="flex-1 py-2 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 shadow"
-                    onClick={() => trackEvent('marketplace_buy_click', { commodity: item.name, meta: { itemId: item.id, price: item.price } })}
+                    onClick={() => {
+                      trackEvent('marketplace_view_click', {
+                        commodity: item.name,
+                        meta: { itemId: item.id, price: item.price, kind: item.kind },
+                      })
+                      router.push(item.kind === 'raw' ? '/raw-marketplace' : '/store')
+                    }}
                   >
-                    Buy
+                    View
                   </button>
                   <button
                     className="flex-1 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 shadow"
-                    onClick={() => trackEvent('marketplace_sell_click', { commodity: item.name, meta: { itemId: item.id, price: item.price } })}
+                    onClick={() => {
+                      trackEvent('marketplace_view_market_click', {
+                        commodity: item.name,
+                        meta: { itemId: item.id, price: item.price, kind: item.kind },
+                      })
+                      router.push(item.kind === 'raw' ? '/raw-marketplace' : '/store')
+                    }}
                   >
-                    Sell
+                    View Market
                   </button>
                 </div>
               </div>
             ))}
+            </div>
           </div>
         )}
 
@@ -540,22 +662,54 @@ export default function HomePage() {
 
                 {/* Indian Market Prices */}
                 {indianMarkets && indianMarkets.markets && (() => {
-                  const marketData = indianMarkets.markets.find((m: any) => m.commodity === selectedCommodityName)
+                  const marketData = indianMarkets.markets.find((m) => m.commodity === selectedCommodityName)
                   if (marketData && marketData.sampleCount > 0) {
                     return (
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <div className="bg-white rounded p-2 border border-green-200">
+                      <div className="space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                          <div className="bg-white rounded p-2 border border-green-200">
                           <p className="text-xs text-gray-600">🇮🇳 Indian Mandi Avg</p>
                           <p className="text-lg font-semibold text-green-700">{formatInr(marketData.currentPrice)}</p>
                           <p className="text-xs text-gray-500">{marketData.sampleCount} sources</p>
-                        </div>
-                        <div className="bg-white rounded p-2 border border-amber-200">
+                          </div>
+                          <div className="bg-white rounded p-2 border border-amber-200">
                           <p className="text-xs text-gray-600">📉 Min</p>
                           <p className="text-lg font-semibold text-amber-700">{formatInr(marketData.minPrice)}</p>
-                        </div>
-                        <div className="bg-white rounded p-2 border border-red-200">
+                          </div>
+                          <div className="bg-white rounded p-2 border border-red-200">
                           <p className="text-xs text-gray-600">📈 Max</p>
                           <p className="text-lg font-semibold text-red-700">{formatInr(marketData.maxPrice)}</p>
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-blue-200 bg-blue-50 p-3">
+                          <p className="text-xs font-semibold text-blue-900 mb-2">Source-wise Feed ({indianMarkets.filtersApplied?.district || 'Kodagu'})</p>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {marketData.sources.map((source) => {
+                              const prices = source.prices.map((p) => p.priceInrPerKg)
+                              const hasData = source.status === 'success' && prices.length > 0
+                              const avg = hasData
+                                ? prices.reduce((sum, val) => sum + val, 0) / prices.length
+                                : null
+                              const min = hasData ? Math.min(...prices) : null
+                              const max = hasData ? Math.max(...prices) : null
+
+                              return (
+                                <div key={source.name} className="rounded bg-white border border-blue-100 p-2">
+                                  <p className="text-xs font-semibold text-gray-800">{source.name}</p>
+                                  {hasData ? (
+                                    <>
+                                      <p className="text-sm text-emerald-700 font-semibold">Avg: {formatInr(avg)}</p>
+                                      <p className="text-xs text-gray-600">Range: {formatInr(min)} - {formatInr(max)}</p>
+                                      <p className="text-xs text-gray-500">Samples: {prices.length}</p>
+                                    </>
+                                  ) : (
+                                    <p className="text-xs text-gray-500 italic">No fresh observations</p>
+                                  )}
+                                </div>
+                              )
+                            })}
+                          </div>
                         </div>
                       </div>
                     )

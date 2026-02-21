@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { getIstDayRangeUtc, toIstDisplay } from '@/lib/india-market'
 
@@ -162,6 +162,56 @@ async function fetchRegionalMandiPrices(commodity: string): Promise<MandiPrice[]
   }
 }
 
+async function fetchMarketplaceListingPrices(
+  commodity: string,
+  district?: string,
+  state?: string
+): Promise<MandiPrice[]> {
+  try {
+    const config = COMMODITY_CONFIG.find(c => c.name === commodity)
+    if (!config) return []
+
+    const names = [commodity, ...config.aliases]
+    const since = new Date()
+    since.setDate(since.getDate() - 7)
+
+    const listings = await prisma.rawListing.findMany({
+      where: {
+        commodity: { in: names },
+        isActive: true,
+        createdAt: { gte: since },
+      },
+      orderBy: { createdAt: 'desc' },
+      take: 25,
+    })
+
+    const districtNeedle = district?.trim().toLowerCase()
+    const stateNeedle = state?.trim().toLowerCase()
+
+    const filtered = listings.filter((row) => {
+      const location = row.location?.toLowerCase() || ''
+      const districtOk = districtNeedle ? location.includes(districtNeedle) : true
+      const stateOk = stateNeedle ? location.includes(stateNeedle) : true
+      return districtOk && stateOk
+    })
+
+    return filtered.map(row => ({
+      commodity,
+      market: row.location || 'Local Marketplace',
+      state: state || 'Karnataka',
+      district: district || null,
+      priceInrPerKg: Number(row.pricePerKg.toFixed(2)),
+      grade: row.grade || config.grade || 'Commercial',
+      source: 'Korana Marketplace Listings',
+      observedAt: row.createdAt.toISOString(),
+      reliability: 0.6,
+    }))
+  } catch (error) {
+    console.error(`Marketplace listing fetch failed for ${commodity}:`, error)
+    return []
+  }
+}
+
 function aggregatePrices(allPrices: MandiPrice[]): { currentPrice: number; minPrice: number; maxPrice: number; avgPrice: number } {
   if (allPrices.length === 0) {
     return { currentPrice: 0, minPrice: 0, maxPrice: 0, avgPrice: 0 }
@@ -190,18 +240,30 @@ function aggregatePrices(allPrices: MandiPrice[]): { currentPrice: number; minPr
   }
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const { searchParams } = new URL(request.url)
+    const district = searchParams.get('district')?.trim() || 'Kodagu'
+    const state = searchParams.get('state')?.trim() || 'Karnataka'
+    const commodityFilter = searchParams.get('commodity')?.trim()
+
+    const selectedCommodities = commodityFilter
+      ? COMMODITY_CONFIG.filter(
+          config => config.name === commodityFilter || config.aliases.includes(commodityFilter)
+        )
+      : COMMODITY_CONFIG
+
     const results: AggregatedPrice[] = []
 
-    for (const config of COMMODITY_CONFIG) {
+    for (const config of selectedCommodities) {
       const sources: MarketSource[] = []
 
       // Fetch from all sources
-      const [agmarknetPrices, boardPrices, mandiPrices] = await Promise.allSettled([
+      const [agmarknetPrices, boardPrices, mandiPrices, listingPrices] = await Promise.allSettled([
         fetchAgmarknetPrices(config.name),
         fetchCommodityBoardPrices(config.name),
         fetchRegionalMandiPrices(config.name),
+        fetchMarketplaceListingPrices(config.name, district, state),
       ])
 
       if (agmarknetPrices.status === 'fulfilled') {
@@ -249,6 +311,21 @@ export async function GET() {
         })
       }
 
+      if (listingPrices.status === 'fulfilled') {
+        sources.push({
+          name: 'Korana Marketplace Listings',
+          prices: listingPrices.value,
+          status: 'success',
+        })
+      } else {
+        sources.push({
+          name: 'Korana Marketplace Listings',
+          prices: [],
+          status: 'error',
+          error: String(listingPrices.reason),
+        })
+      }
+
       const allPrices = sources.flatMap(s => s.prices)
       const aggregated = aggregatePrices(allPrices)
 
@@ -265,6 +342,7 @@ export async function GET() {
       markets: results,
       updatedAt: new Date().toISOString(),
       updatedAtIst: toIstDisplay(new Date()),
+      filtersApplied: { district, state, commodity: commodityFilter || null },
       note: 'Aggregated from multiple Indian mandi and commodity board sources',
     })
   } catch (error) {
