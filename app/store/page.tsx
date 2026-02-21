@@ -5,12 +5,14 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import type { Product, CreateProductInput, CreateOrderInput } from '@/types/marketplace'
 import Navbar from '@/app/components/Navbar'
+import { useLanguage } from '@/app/language-context'
 
 const CATEGORIES = ['Coffee Powder', 'Roasted Beans', 'Pepper Powder', 'Cardamom Powder', 'Ground Spices', 'Gift Packs']
 
 export default function StorePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const { t } = useLanguage()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -26,6 +28,18 @@ export default function StorePage() {
     stock: 0
   })
   const [orderData, setOrderData] = useState<CreateOrderInput>({ productId: '', quantity: 1 })
+
+  function categoryLabel(category: string) {
+    const map: Record<string, string> = {
+      'Coffee Powder': t('Coffee Powder', 'ಕಾಫಿ ಪುಡಿ'),
+      'Roasted Beans': t('Roasted Beans', 'ಹುರಿದ ಬೀಜಗಳು'),
+      'Pepper Powder': t('Pepper Powder', 'ಮೆಣಸು ಪುಡಿ'),
+      'Cardamom Powder': t('Cardamom Powder', 'ಏಲಕ್ಕಿ ಪುಡಿ'),
+      'Ground Spices': t('Ground Spices', 'ಪುಡಿ ಮಸಾಲೆಗಳು'),
+      'Gift Packs': t('Gift Packs', 'ಗಿಫ್ಟ್ ಪ್ಯಾಕ್‌ಗಳು'),
+    }
+    return map[category] || category
+  }
 
   useEffect(() => {
     fetchProducts()
@@ -67,11 +81,11 @@ export default function StorePage() {
         fetchProducts()
       } else {
         const error = await res.json()
-        alert(error.error || 'Failed to create product')
+        alert(error.error || t('Failed to create product', 'ಉತ್ಪನ್ನ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
       }
     } catch (error) {
       console.error('Error creating product:', error)
-      alert('Failed to create product')
+      alert(t('Failed to create product', 'ಉತ್ಪನ್ನ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
     }
   }
 
@@ -94,15 +108,15 @@ export default function StorePage() {
       if (res.ok) {
         setShowOrderModal(false)
         setOrderData({ productId: '', quantity: 1 })
-        alert('Order placed successfully!')
+        alert(t('Order placed successfully!', 'ಆರ್ಡರ್ ಯಶಸ್ವಿಯಾಗಿ ಮಾಡಲಾಗಿದೆ!'))
         fetchProducts() // Refresh to show updated stock
       } else {
         const error = await res.json()
-        alert(error.error || 'Failed to place order')
+        alert(error.error || t('Failed to place order', 'ಆರ್ಡರ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'))
       }
     } catch (error) {
       console.error('Error placing order:', error)
-      alert('Failed to place order')
+      alert(t('Failed to place order', 'ಆರ್ಡರ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'))
     }
   }
 
@@ -120,9 +134,9 @@ export default function StorePage() {
             </div>
             <div>
               <h1 className="text-4xl font-bold bg-gradient-to-r from-amber-700 via-amber-600 to-emerald-600 bg-clip-text text-transparent">
-                Korana Store
+                {t('Korana Store', 'ಕೊರಾನಾ ಸ್ಟೋರ್')}
               </h1>
-              <p className="mt-2 text-gray-600 text-lg">Premium roasted coffee, ground spices, and gift packs ☕</p>
+              <p className="mt-2 text-gray-600 text-lg">{t('Premium roasted coffee, ground spices, and gift packs ☕', 'ಪ್ರೀಮಿಯಂ ರೋಸ್ಟ್ ಕಾಫಿ, ಪುಡಿ ಮಸಾಲೆಗಳು ಮತ್ತು ಗಿಫ್ಟ್ ಪ್ಯಾಕ್‌ಗಳು ☕')}</p>
             </div>
           </div>
         </div>
@@ -135,7 +149,7 @@ export default function StorePage() {
                 <svg className="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                 </svg>
-                <h2 className="font-bold text-xl bg-gradient-to-r from-amber-700 to-amber-900 bg-clip-text text-transparent">Categories</h2>
+                <h2 className="font-bold text-xl bg-gradient-to-r from-amber-700 to-amber-900 bg-clip-text text-transparent">{t('Categories', 'ವರ್ಗಗಳು')}</h2>
               </div>
               
               <div className="space-y-2">
@@ -147,7 +161,7 @@ export default function StorePage() {
                       : 'bg-white/50 text-gray-700 hover:bg-amber-50 hover:text-amber-700'
                   }`}
                 >
-                  📦 All Products
+                  📦 {t('All Products', 'ಎಲ್ಲಾ ಉತ್ಪನ್ನಗಳು')}
                 </button>
                 {CATEGORIES.map(cat => (
                   <button
@@ -159,7 +173,7 @@ export default function StorePage() {
                         : 'bg-white/50 text-gray-700 hover:bg-amber-50 hover:text-amber-700'
                     }`}
                   >
-                    {cat}
+                    {categoryLabel(cat)}
                   </button>
                 ))}
               </div>
@@ -168,7 +182,7 @@ export default function StorePage() {
               <div className="mt-6 pt-6 border-t-2 border-amber-100">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-amber-700">{products.length}</p>
-                  <p className="text-sm text-gray-600 mt-1">Available Products</p>
+                  <p className="text-sm text-gray-600 mt-1">{t('Available Products', 'ಲಭ್ಯ ಉತ್ಪನ್ನಗಳು')}</p>
                 </div>
               </div>
             </div>
@@ -178,7 +192,9 @@ export default function StorePage() {
           <main className="flex-1">
             <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 slide-in-up">
               <p className="text-gray-600 font-medium">
-                {loading ? 'Loading...' : `${products.length} ${products.length === 1 ? 'product' : 'products'} available`}
+                {loading
+                  ? t('Loading...', 'ಲೋಡ್ ಆಗುತ್ತಿದೆ...')
+                  : `${products.length} ${products.length === 1 ? t('product', 'ಉತ್ಪನ್ನ') : t('products', 'ಉತ್ಪನ್ನಗಳು')} ${t('available', 'ಲಭ್ಯ')}`}
               </p>
               <button
                 onClick={() => {
@@ -193,7 +209,7 @@ export default function StorePage() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                <span>Add Product</span>
+                <span>{t('Add Product', 'ಉತ್ಪನ್ನ ಸೇರಿಸಿ')}</span>
               </button>
             </div>
 
@@ -204,7 +220,7 @@ export default function StorePage() {
                   <div className="w-3 h-3 bg-amber-700 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                   <div className="w-3 h-3 bg-amber-800 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                 </div>
-                <p className="text-gray-600 font-medium">Loading store...</p>
+                <p className="text-gray-600 font-medium">{t('Loading store...', 'ಸ್ಟೋರ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
               </div>
             ) : products.length === 0 ? (
               <div className="text-center py-20 glass rounded-2xl shadow-xl fade-in">
@@ -213,8 +229,8 @@ export default function StorePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-700 mb-2">No Products Yet</h3>
-                <p className="text-gray-500 mb-6">List your first product and start selling!</p>
+                <h3 className="text-2xl font-bold text-gray-700 mb-2">{t('No Products Yet', 'ಇನ್ನೂ ಉತ್ಪನ್ನಗಳಿಲ್ಲ')}</h3>
+                <p className="text-gray-500 mb-6">{t('List your first product and start selling!', 'ನಿಮ್ಮ ಮೊದಲ ಉತ್ಪನ್ನವನ್ನು ಲಿಸ್ಟ್ ಮಾಡಿ ಮತ್ತು ಮಾರಾಟ ಪ್ರಾರಂಭಿಸಿ!')}</p>
                 <button
                   onClick={() => status === 'authenticated' ? setShowCreateModal(true) : router.push('/auth')}
                   className="gradient-coffee-cream text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all inline-flex items-center space-x-2"
@@ -222,7 +238,7 @@ export default function StorePage() {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  <span>Add First Product</span>
+                  <span>{t('Add First Product', 'ಮೊದಲ ಉತ್ಪನ್ನ ಸೇರಿಸಿ')}</span>
                 </button>
               </div>
             ) : (
@@ -240,12 +256,12 @@ export default function StorePage() {
                       ) : (
                         <div className="text-center">
                           <span className="text-6xl float-animation">☕</span>
-                          <p className="text-sm text-gray-500 mt-2 font-medium">{product.category}</p>
+                          <p className="text-sm text-gray-500 mt-2 font-medium">{categoryLabel(product.category)}</p>
                         </div>
                       )}
                       {product.stock === 0 && (
                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                          <span className="text-white font-bold text-xl">OUT OF STOCK</span>
+                          <span className="text-white font-bold text-xl">{t('OUT OF STOCK', 'ಸ್ಟಾಕ್ ಇಲ್ಲ')}</span>
                         </div>
                       )}
                     </div>
@@ -254,7 +270,7 @@ export default function StorePage() {
                       <div className="flex justify-between items-start mb-3">
                         <h3 className="font-bold text-lg text-gray-800 line-clamp-2">{product.name}</h3>
                         <span className="gradient-emerald text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-md whitespace-nowrap ml-2">
-                          {product.category}
+                          {categoryLabel(product.category)}
                         </span>
                       </div>
                       
@@ -266,16 +282,16 @@ export default function StorePage() {
                       
                       <div className="space-y-2 mb-4">
                         <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50">
-                          <span className="text-sm font-medium text-gray-600">📦 Stock</span>
+                          <span className="text-sm font-medium text-gray-600">📦 {t('Stock', 'ಸ್ಟಾಕ್')}</span>
                           <span className={`text-sm font-bold ${product.stock > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
-                            {product.stock > 0 ? `${product.stock} units` : 'Out'}
+                            {product.stock > 0 ? `${product.stock} ${t('units', 'ಯೂನಿಟ್‌ಗಳು')}` : t('Out', 'ಖಾಲಿ')}
                           </span>
                         </div>
                         <div className="flex items-center space-x-2 text-sm text-gray-600">
                           <div className="w-7 h-7 rounded-full gradient-coffee-cream flex items-center justify-center text-white font-bold text-xs">
                             {product.seller?.name?.[0]?.toUpperCase() || 'S'}
                           </div>
-                          <span className="font-medium">{product.seller?.name || 'Store'}</span>
+                          <span className="font-medium">{product.seller?.name || t('Store', 'ಸ್ಟೋರ್')}</span>
                         </div>
                       </div>
 
@@ -286,7 +302,7 @@ export default function StorePage() {
                       <button
                         onClick={() => {
                           if (product.stock === 0) {
-                            alert('This product is out of stock')
+                            alert(t('This product is out of stock', 'ಈ ಉತ್ಪನ್ನ ಸ್ಟಾಕ್‌ನಲ್ಲಿ ಇಲ್ಲ'))
                             return
                           }
                           if (status !== 'authenticated') {
@@ -307,7 +323,7 @@ export default function StorePage() {
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                         </svg>
-                        <span>{product.stock > 0 ? 'Buy Now' : 'Out of Stock'}</span>
+                        <span>{product.stock > 0 ? t('Buy Now', 'ಈಗ ಖರೀದಿ') : t('Out of Stock', 'ಸ್ಟಾಕ್ ಇಲ್ಲ')}</span>
                       </button>
                     </div>
                   </div>
@@ -329,25 +345,25 @@ export default function StorePage() {
                 </svg>
               </div>
               <h2 className="text-3xl font-bold bg-gradient-to-r from-amber-700 to-amber-900 bg-clip-text text-transparent">
-                Add New Product
+                {t('Add New Product', 'ಹೊಸ ಉತ್ಪನ್ನ ಸೇರಿಸಿ')}
               </h2>
             </div>
 
             <form onSubmit={handleCreateProduct} className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Product Name *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Product Name', 'ಉತ್ಪನ್ನದ ಹೆಸರು')} *</label>
                 <input
                   required
                   type="text"
                   className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
-                  placeholder="e.g., Premium Arabica Powder 250g"
+                  placeholder={t('e.g., Premium Arabica Powder 250g', 'ಉದಾ., ಪ್ರೀಮಿಯಂ ಅರಬಿಕಾ ಪುಡಿ 250g')}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Category *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Category', 'ವರ್ಗ')} *</label>
                 <select
                   required
                   className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
@@ -355,14 +371,14 @@ export default function StorePage() {
                   onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 >
                   {CATEGORIES.map(c => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c} value={c}>{categoryLabel(c)}</option>
                   ))}
                 </select>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Price (₹) *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Price (₹)', 'ಬೆಲೆ (₹)')} *</label>
                   <input
                     required
                     type="number"
@@ -375,7 +391,7 @@ export default function StorePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Stock (units) *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Stock (units)', 'ಸ್ಟಾಕ್ (ಯೂನಿಟ್‌ಗಳು)')} *</label>
                   <input
                     required
                     type="number"
@@ -389,26 +405,26 @@ export default function StorePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Description (optional)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Description (optional)', 'ವಿವರಣೆ (ಐಚ್ಛಿಕ)')}</label>
                 <textarea
                   className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                   rows={3}
-                  placeholder="Product details..."
+                  placeholder={t('Product details...', 'ಉತ್ಪನ್ನದ ವಿವರಗಳು...')}
                   value={formData.description || ''}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Image URL (optional)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Image URL (optional)', 'ಚಿತ್ರ URL (ಐಚ್ಛಿಕ)')}</label>
                 <input
                   type="url"
                   className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
-                  placeholder="https://example.com/image.jpg"
+                  placeholder={t('https://example.com/image.jpg', 'https://example.com/image.jpg')}
                   value={formData.imageUrl || ''}
                   onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
                 />
-                <p className="text-xs text-gray-500 mt-1">Enter a direct link to your product image</p>
+                <p className="text-xs text-gray-500 mt-1">{t('Enter a direct link to your product image', 'ನಿಮ್ಮ ಉತ್ಪನ್ನದ ಚಿತ್ರಕ್ಕೆ ನೇರ ಲಿಂಕ್ ನಮೂದಿಸಿ')}</p>
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -417,13 +433,13 @@ export default function StorePage() {
                   onClick={() => setShowCreateModal(false)}
                   className="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all"
                 >
-                  Cancel
+                  {t('Cancel', 'ರದ್ದುಮಾಡಿ')}
                 </button>
                 <button
                   type="submit"
                   className="flex-1 gradient-coffee-cream text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                 >
-                  Add Product
+                  {t('Add Product', 'ಉತ್ಪನ್ನ ಸೇರಿಸಿ')}
                 </button>
               </div>
             </form>
@@ -443,7 +459,7 @@ export default function StorePage() {
               </div>
               <div>
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">
-                  Place Order
+                  {t('Place Order', 'ಆರ್ಡರ್ ಮಾಡಿ')}
                 </h2>
                 <p className="text-gray-600 text-sm">{selectedProduct.name}</p>
               </div>
@@ -451,12 +467,12 @@ export default function StorePage() {
 
             <form onSubmit={handlePlaceOrder} className="space-y-5">
               <div className="p-4 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200">
-                <p className="text-sm font-medium text-gray-600 mb-1">Unit Price</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">{t('Unit Price', 'ಯೂನಿಟ್ ಬೆಲೆ')}</p>
                 <p className="text-2xl font-bold text-amber-700">₹{selectedProduct.price.toFixed(2)}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Quantity *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Quantity', 'ಪ್ರಮಾಣ')} *</label>
                 <input
                   required
                   type="number"
@@ -467,26 +483,26 @@ export default function StorePage() {
                   value={orderData.quantity}
                   onChange={(e) => setOrderData({ ...orderData, quantity: parseInt(e.target.value) })}
                 />
-                <p className="text-xs text-gray-500 mt-1">Available: {selectedProduct.stock} units</p>
+                <p className="text-xs text-gray-500 mt-1">{t('Available', 'ಲಭ್ಯ')}: {selectedProduct.stock} {t('units', 'ಯೂನಿಟ್‌ಗಳು')}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">📍 Shipping Address</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">📍 {t('Shipping Address', 'ಶಿಪ್ಪಿಂಗ್ ವಿಳಾಸ')}</label>
                 <textarea
                   className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
                   rows={3}
-                  placeholder="Enter your complete delivery address..."
+                  placeholder={t('Enter your complete delivery address...', 'ನಿಮ್ಮ ಸಂಪೂರ್ಣ ವಿತರಣಾ ವಿಳಾಸ ನಮೂದಿಸಿ...')}
                   value={orderData.shippingAddress || ''}
                   onChange={(e) => setOrderData({ ...orderData, shippingAddress: e.target.value })}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">📞 Phone Number</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">📞 {t('Phone Number', 'ಫೋನ್ ಸಂಖ್ಯೆ')}</label>
                 <input
                   type="tel"
                   className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
-                  placeholder="+91 XXXXX XXXXX"
+                  placeholder={t('+91 XXXXX XXXXX', '+91 XXXXX XXXXX')}
                   value={orderData.phone || ''}
                   onChange={(e) => setOrderData({ ...orderData, phone: e.target.value })}
                 />
@@ -495,17 +511,17 @@ export default function StorePage() {
               <div className="p-6 rounded-xl gradient-emerald-coffee">
                 <div className="space-y-2 text-white/90 text-sm mb-3">
                   <div className="flex justify-between">
-                    <span>Price per unit:</span>
+                    <span>{t('Price per unit:', 'ಪ್ರತಿ ಯೂನಿಟ್ ಬೆಲೆ:')}</span>
                     <span>₹{selectedProduct.price.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Quantity:</span>
+                    <span>{t('Quantity:', 'ಪ್ರಮಾಣ:')}</span>
                     <span>{orderData.quantity}</span>
                   </div>
                 </div>
                 <div className="pt-3 border-t-2 border-white/20">
                   <div className="flex justify-between items-center">
-                    <span className="text-white/80 text-sm">Total Amount</span>
+                    <span className="text-white/80 text-sm">{t('Total Amount', 'ಒಟ್ಟು ಮೊತ್ತ')}</span>
                     <span className="text-3xl font-bold text-white">₹{(selectedProduct.price * orderData.quantity).toFixed(2)}</span>
                   </div>
                 </div>

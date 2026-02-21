@@ -5,12 +5,14 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import type { RawListing, RawListingFilters, CreateRawListingInput } from '@/types/marketplace'
 import Navbar from '@/app/components/Navbar'
+import { useLanguage } from '@/app/language-context'
 
 const COMMODITIES = ['Arabica Cherry', 'Arabica Parchment', 'Robusta Cherry', 'Robusta Parchment', 'Cardamom', 'Arecanut', 'Pepper']
 
 export default function RawMarketplacePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const { t } = useLanguage()
   const [listings, setListings] = useState<RawListing[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -68,11 +70,11 @@ export default function RawMarketplacePage() {
         fetchListings()
       } else {
         const error = await res.json()
-        alert(error.error || 'Failed to create listing')
+        alert(error.error || t('Failed to create listing', 'ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
       }
     } catch (error) {
       console.error('Error creating listing:', error)
-      alert('Failed to create listing')
+      alert(t('Failed to create listing', 'ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
     }
   }
 
@@ -98,14 +100,14 @@ export default function RawMarketplacePage() {
       if (res.ok) {
         setShowOfferModal(false)
         setOfferData({ offerPrice: 0, quantity: 0, message: '' })
-        alert('Offer submitted successfully!')
+        alert(t('Offer submitted successfully!', 'ಆಫರ್ ಯಶಸ್ವಿಯಾಗಿ ಸಲ್ಲಿಸಲಾಗಿದೆ!'))
       } else {
         const error = await res.json()
-        alert(error.error || 'Failed to create offer')
+        alert(error.error || t('Failed to create offer', 'ಆಫರ್ ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ'))
       }
     } catch (error) {
       console.error('Error creating offer:', error)
-      alert('Failed to create offer')
+      alert(t('Failed to create offer', 'ಆಫರ್ ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ'))
     }
   }
 
@@ -123,9 +125,9 @@ export default function RawMarketplacePage() {
             </div>
             <div>
               <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 via-green-600 to-amber-700 bg-clip-text text-transparent">
-                Raw Commodity Marketplace
+                {t('Raw Commodity Marketplace', 'ರಾ ಕಮೋಡಿಟಿ ಮಾರುಕಟ್ಟೆ')}
               </h1>
-              <p className="mt-2 text-gray-600 text-lg">Buy and sell raw coffee, pepper, cardamom, and arecanut directly from farmers 🌱</p>
+              <p className="mt-2 text-gray-600 text-lg">{t('Buy and sell raw coffee, pepper, cardamom, and arecanut directly from farmers 🌱', 'ರೈತರಿಂದ ನೇರವಾಗಿ ರಾ ಕಾಫಿ, ಮೆಣಸು, ಏಲಕ್ಕಿ ಮತ್ತು ಅಡಿಕೆ ಖರೀದಿ/ಮಾರಾಟ ಮಾಡಿ 🌱')}</p>
             </div>
           </div>
         </div>
@@ -138,18 +140,18 @@ export default function RawMarketplacePage() {
                 <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
-                <h2 className="font-bold text-xl bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">Filters</h2>
+                <h2 className="font-bold text-xl bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">{t('Filters', 'ಫಿಲ್ಟರ್‌ಗಳು')}</h2>
               </div>
               
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">🌾 Commodity</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">🌾 {t('Commodity', 'ವಸ್ತು')}</label>
                   <select
                     className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
                     value={filters.commodity || ''}
                     onChange={(e) => setFilters({ ...filters, commodity: e.target.value || undefined })}
                   >
-                    <option value="">All Commodities</option>
+                    <option value="">{t('All Commodities', 'ಎಲ್ಲಾ ವಸ್ತುಗಳು')}</option>
                     {COMMODITIES.map(c => (
                       <option key={c} value={c}>{c}</option>
                     ))}
@@ -157,11 +159,11 @@ export default function RawMarketplacePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">📍 Location</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">📍 {t('Location', 'ಸ್ಥಳ')}</label>
                   <input
                     type="text"
                     className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
-                    placeholder="City or region"
+                    placeholder={t('City or region', 'ನಗರ ಅಥವಾ ಪ್ರದೇಶ')}
                     value={filters.location || ''}
                     onChange={(e) => setFilters({ ...filters, location: e.target.value || undefined })}
                   />
@@ -171,7 +173,7 @@ export default function RawMarketplacePage() {
                   onClick={() => setFilters({})}
                   className="w-full text-sm gradient-emerald text-white px-4 py-3 rounded-xl font-semibold hover:shadow-lg transition-all"
                 >
-                  Clear All Filters
+                  {t('Clear All Filters', 'ಎಲ್ಲಾ ಫಿಲ್ಟರ್‌ಗಳನ್ನು ತೆರವುಗೊಳಿಸಿ')}
                 </button>
               </div>
 
@@ -179,7 +181,7 @@ export default function RawMarketplacePage() {
               <div className="mt-6 pt-6 border-t-2 border-emerald-100">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-emerald-600">{listings.length}</p>
-                  <p className="text-sm text-gray-600 mt-1">Active Listings</p>
+                  <p className="text-sm text-gray-600 mt-1">{t('Active Listings', 'ಸಕ್ರಿಯ ಲಿಸ್ಟಿಂಗ್‌ಗಳು')}</p>
                 </div>
               </div>
             </div>
@@ -189,7 +191,9 @@ export default function RawMarketplacePage() {
           <main className="flex-1">
             <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 slide-in-up">
               <p className="text-gray-600 font-medium">
-                {loading ? 'Loading...' : `${listings.length} ${listings.length === 1 ? 'listing' : 'listings'} found`}
+                {loading
+                  ? t('Loading...', 'ಲೋಡ್ ಆಗುತ್ತಿದೆ...')
+                  : `${listings.length} ${listings.length === 1 ? t('listing', 'ಲಿಸ್ಟಿಂಗ್') : t('listings', 'ಲಿಸ್ಟಿಂಗ್‌ಗಳು')} ${t('found', 'ಕಂಡುಬಂದವು')}`}
               </p>
               <button
                 onClick={() => {
@@ -204,7 +208,7 @@ export default function RawMarketplacePage() {
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
-                <span>List Your Product</span>
+                <span>{t('List Your Product', 'ನಿಮ್ಮ ಉತ್ಪನ್ನವನ್ನು ಲಿಸ್ಟ್ ಮಾಡಿ')}</span>
               </button>
             </div>
 
@@ -215,7 +219,7 @@ export default function RawMarketplacePage() {
                   <div className="w-3 h-3 bg-emerald-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                   <div className="w-3 h-3 bg-emerald-700 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                 </div>
-                <p className="text-gray-600 font-medium">Loading marketplace...</p>
+                <p className="text-gray-600 font-medium">{t('Loading marketplace...', 'ಮಾರುಕಟ್ಟೆ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
               </div>
             ) : listings.length === 0 ? (
               <div className="text-center py-20 glass rounded-2xl shadow-xl fade-in">
@@ -224,8 +228,8 @@ export default function RawMarketplacePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-700 mb-2">No Listings Yet</h3>
-                <p className="text-gray-500 mb-6">Be the first to list your commodity!</p>
+                <h3 className="text-2xl font-bold text-gray-700 mb-2">{t('No Listings Yet', 'ಇನ್ನೂ ಲಿಸ್ಟಿಂಗ್‌ಗಳಿಲ್ಲ')}</h3>
+                <p className="text-gray-500 mb-6">{t('Be the first to list your commodity!', 'ನಿಮ್ಮ ವಸ್ತುವನ್ನು ಮೊದಲು ಲಿಸ್ಟ್ ಮಾಡಿ!')}</p>
                 <button
                   onClick={() => status === 'authenticated' ? setShowCreateModal(true) : router.push('/auth')}
                   className="gradient-emerald text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all inline-flex items-center space-x-2"
@@ -233,7 +237,7 @@ export default function RawMarketplacePage() {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                   </svg>
-                  <span>Create First Listing</span>
+                  <span>{t('Create First Listing', 'ಮೊದಲ ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಿ')}</span>
                 </button>
               </div>
             ) : (
@@ -258,18 +262,18 @@ export default function RawMarketplacePage() {
                     
                     <div className="space-y-3 mb-5">
                       <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50">
-                        <span className="text-sm font-medium text-gray-600">Price</span>
+                        <span className="text-sm font-medium text-gray-600">{t('Price', 'ಬೆಲೆ')}</span>
                         <span className="text-lg font-bold text-emerald-600">₹{listing.pricePerKg}/kg</span>
                       </div>
                       <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50">
-                        <span className="text-sm font-medium text-gray-600">Quantity</span>
+                        <span className="text-sm font-medium text-gray-600">{t('Quantity', 'ಪ್ರಮಾಣ')}</span>
                         <span className="text-lg font-bold text-amber-700">{listing.quantityKg} kg</span>
                       </div>
                       <div className="flex items-center space-x-2 text-sm text-gray-600">
                         <div className="w-8 h-8 rounded-full gradient-coffee-cream flex items-center justify-center text-white font-bold text-xs">
                           {listing.seller?.name?.[0]?.toUpperCase() || 'S'}
                         </div>
-                        <span className="font-medium">{listing.seller?.name || 'Unknown Seller'}</span>
+                        <span className="font-medium">{listing.seller?.name || t('Unknown Seller', 'ಅಪರಿಚಿತ ಮಾರಾಟಗಾರ')}</span>
                       </div>
                     </div>
 
@@ -288,7 +292,7 @@ export default function RawMarketplacePage() {
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
-                      <span>Make Offer</span>
+                      <span>{t('Make Offer', 'ಆಫರ್ ಮಾಡಿ')}</span>
                     </button>
                   </div>
                 ))}
@@ -309,13 +313,13 @@ export default function RawMarketplacePage() {
                 </svg>
               </div>
               <h2 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">
-                Create New Listing
+                {t('Create New Listing', 'ಹೊಸ ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಿ')}
               </h2>
             </div>
 
             <form onSubmit={handleCreateListing} className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Commodity *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Commodity', 'ವಸ್ತು')} *</label>
                 <select
                   required
                   className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
@@ -329,11 +333,11 @@ export default function RawMarketplacePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Grade (optional)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Grade (optional)', 'ಗ್ರೇಡ್ (ಐಚ್ಛಿಕ)')}</label>
                 <input
                   type="text"
                   className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
-                  placeholder="e.g., A, AA, Premium"
+                  placeholder={t('e.g., A, AA, Premium', 'ಉದಾ., A, AA, ಪ್ರೀಮಿಯಂ')}
                   value={formData.grade || ''}
                   onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
                 />
@@ -341,7 +345,7 @@ export default function RawMarketplacePage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Quantity (kg) *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Quantity (kg)', 'ಪ್ರಮಾಣ (ಕೆಜಿ)')} *</label>
                   <input
                     required
                     type="number"
@@ -354,7 +358,7 @@ export default function RawMarketplacePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Price (₹/kg) *</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Price (₹/kg)', 'ಬೆಲೆ (₹/ಕೆಜಿ)')} *</label>
                   <input
                     required
                     type="number"
@@ -368,23 +372,23 @@ export default function RawMarketplacePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Location *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Location', 'ಸ್ಥಳ')} *</label>
                 <input
                   required
                   type="text"
                   className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
-                  placeholder="City or region"
+                  placeholder={t('City or region', 'ನಗರ ಅಥವಾ ಪ್ರದೇಶ')}
                   value={formData.location}
                   onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Description (optional)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Description (optional)', 'ವಿವರಣೆ (ಐಚ್ಛಿಕ)')}</label>
                 <textarea
                   className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
                   rows={3}
-                  placeholder="Additional details about your product..."
+                  placeholder={t('Additional details about your product...', 'ನಿಮ್ಮ ಉತ್ಪನ್ನದ ಹೆಚ್ಚುವರಿ ವಿವರಗಳು...')}
                   value={formData.description || ''}
                   onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                 />
@@ -396,13 +400,13 @@ export default function RawMarketplacePage() {
                   onClick={() => setShowCreateModal(false)}
                   className="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all"
                 >
-                  Cancel
+                  {t('Cancel', 'ರದ್ದುಮಾಡಿ')}
                 </button>
                 <button
                   type="submit"
                   className="flex-1 gradient-emerald text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                 >
-                  Create Listing
+                  {t('Create Listing', 'ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಿ')}
                 </button>
               </div>
             </form>
@@ -422,7 +426,7 @@ export default function RawMarketplacePage() {
               </div>
               <div>
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">
-                  Make an Offer
+                  {t('Make an Offer', 'ಆಫರ್ ನೀಡಿ')}
                 </h2>
                 <p className="text-gray-600 text-sm">{selectedListing.commodity} - {selectedListing.location}</p>
               </div>
@@ -430,12 +434,12 @@ export default function RawMarketplacePage() {
 
             <form onSubmit={handleMakeOffer} className="space-y-5">
               <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-200">
-                <p className="text-sm font-medium text-gray-600 mb-1">Seller's Asking Price</p>
+                <p className="text-sm font-medium text-gray-600 mb-1">{t("Seller's Asking Price", 'ಮಾರಾಟಗಾರರ ಕೇಳುವ ಬೆಲೆ')}</p>
                 <p className="text-2xl font-bold text-emerald-600">₹{selectedListing.pricePerKg}/kg</p>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Your Offer Price (₹/kg) *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Your Offer Price (₹/kg)', 'ನಿಮ್ಮ ಆಫರ್ ಬೆಲೆ (₹/ಕೆಜಿ)')} *</label>
                 <input
                   required
                   type="number"
@@ -448,7 +452,7 @@ export default function RawMarketplacePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Quantity (kg) *</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Quantity (kg)', 'ಪ್ರಮಾಣ (ಕೆಜಿ)')} *</label>
                 <input
                   required
                   type="number"
@@ -459,22 +463,22 @@ export default function RawMarketplacePage() {
                   value={offerData.quantity || ''}
                   onChange={(e) => setOfferData({ ...offerData, quantity: parseFloat(e.target.value) })}
                 />
-                <p className="text-xs text-gray-500 mt-1">Available: {selectedListing.quantityKg} kg</p>
+                <p className="text-xs text-gray-500 mt-1">{t('Available', 'ಲಭ್ಯ')}: {selectedListing.quantityKg} kg</p>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Message (optional)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Message (optional)', 'ಸಂದೇಶ (ಐಚ್ಛಿಕ)')}</label>
                 <textarea
                   className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
                   rows={3}
-                  placeholder="Add a message to the seller..."
+                  placeholder={t('Add a message to the seller...', 'ಮಾರಾಟಗಾರರಿಗೆ ಸಂದೇಶ ಸೇರಿಸಿ...')}
                   value={offerData.message}
                   onChange={(e) => setOfferData({ ...offerData, message: e.target.value })}
                 />
               </div>
 
               <div className="p-6 rounded-xl gradient-emerald-coffee">
-                <p className="text-white/80 text-sm mb-1">Total Offer Amount</p>
+                <p className="text-white/80 text-sm mb-1">{t('Total Offer Amount', 'ಒಟ್ಟು ಆಫರ್ ಮೊತ್ತ')}</p>
                 <p className="text-3xl font-bold text-white">₹{(offerData.offerPrice * offerData.quantity).toFixed(2)}</p>
               </div>
 
@@ -484,13 +488,13 @@ export default function RawMarketplacePage() {
                   onClick={() => setShowOfferModal(false)}
                   className="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all"
                 >
-                  Cancel
+                  {t('Cancel', 'ರದ್ದುಮಾಡಿ')}
                 </button>
                 <button
                   type="submit"
                   className="flex-1 gradient-emerald text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                 >
-                  Submit Offer
+                  {t('Submit Offer', 'ಆಫರ್ ಸಲ್ಲಿಸಿ')}
                 </button>
               </div>
             </form>

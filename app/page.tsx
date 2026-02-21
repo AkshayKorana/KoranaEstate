@@ -17,6 +17,7 @@ import Hero from './components/Hero'
 import Navbar from './components/Navbar'
 import Footer from './components/Footer'
 import { getStandardBagWeightKg, toInrPerBag, toInrPerQuintal } from '@/lib/india-market'
+import { useLanguage } from './language-context'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend)
 const Line = dynamic(() => import('react-chartjs-2').then(mod => mod.Line), { ssr: false })
@@ -172,7 +173,6 @@ const DASHBOARD_OPTIONS = [
   { group: 'Spices', names: ['Cardamom', 'Arecanut', 'Pepper'] },
 ] as const
 
-type UiLang = 'en' | 'kn'
 type ActionSignal = 'SELL_NOW' | 'WAIT' | 'HOLD'
 
 export default function HomePage() {
@@ -181,7 +181,7 @@ export default function HomePage() {
   const [selectedCommodityName, setSelectedCommodityName] = useState<string>('Arabica Cherry')
   const [selectedHorizon, setSelectedHorizon] = useState<number>(3)
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const [uiLang, setUiLang] = useState<UiLang>('en')
+  const { lang: uiLang, setLang } = useLanguage()
 
   const [items, setItems] = useState<MarketplaceItem[]>([])
   const [itemsLoading, setItemsLoading] = useState(true)
@@ -497,7 +497,7 @@ export default function HomePage() {
               trackEvent('tab_change', { meta: { tab: 'Marketplace' } })
             }}
           >
-            Marketplace
+            {translate('Marketplace', 'ಮಾರುಕಟ್ಟೆ')}
           </button>
           <button
             className={`px-5 py-2 font-semibold rounded-t-xl transition-all ${activeTab === 'Dashboard' ? 'bg-white text-purple-600 shadow-md border-t-4 border-purple-500' : 'text-gray-500 hover:text-purple-600'}`}
@@ -506,7 +506,7 @@ export default function HomePage() {
               trackEvent('tab_change', { meta: { tab: 'Dashboard' } })
             }}
           >
-            AI / Commodity Dashboard
+            {translate('AI / Commodity Dashboard', 'AI / ವಸ್ತು ಡ್ಯಾಶ್‌ಬೋರ್ಡ್')}
           </button>
         </div>
 
@@ -514,13 +514,13 @@ export default function HomePage() {
           <div className="space-y-4">
             {itemsLoading && (
               <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                Loading live listings...
+                {translate('Loading live listings...', 'ಲೈವ್ ಲಿಸ್ಟಿಂಗ್‌ಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}
               </div>
             )}
 
             {!itemsLoading && items.length === 0 && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                No live listings found. Add items in Raw Marketplace or Store to see them here.
+                {translate('No live listings found. Add items in Raw Marketplace or Store to see them here.', 'ಲೈವ್ ಲಿಸ್ಟಿಂಗ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ. ಇಲ್ಲಿ ಕಾಣಲು ರಾ ಮಾರುಕಟ್ಟೆ ಅಥವಾ ಸ್ಟೋರ್‌ನಲ್ಲಿ ಐಟಂಗಳನ್ನು ಸೇರಿಸಿ.')}
               </div>
             )}
 
@@ -530,11 +530,11 @@ export default function HomePage() {
                 <h3 className="text-xl font-bold text-white mb-1">{item.name}</h3>
                 <span className="inline-block mb-2 px-3 py-1 text-sm font-medium bg-gradient-to-r from-green-400 to-green-600 text-white rounded-full">{item.type}</span>
                 <p className="text-white/90 font-semibold">
-                  Price: ₹{item.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                  {translate('Price', 'ಬೆಲೆ')}: ₹{item.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                   {item.kind === 'raw' ? '/kg' : ''}
                 </p>
-                <p className="text-white/80">{item.kind === 'raw' ? 'Qty (kg)' : 'Stock'}: {item.quantity}</p>
-                <p className="text-white/70">Location: {item.location || 'India'}</p>
+                <p className="text-white/80">{item.kind === 'raw' ? translate('Qty (kg)', 'ಪ್ರಮಾಣ (ಕೆಜಿ)') : translate('Stock', 'ಸ್ಟಾಕ್')}: {item.quantity}</p>
+                <p className="text-white/70">{translate('Location', 'ಸ್ಥಳ')}: {item.location || translate('India', 'ಭಾರತ')}</p>
                 <div className="mt-4 flex gap-2">
                   <button
                     className="flex-1 py-2 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 shadow"
@@ -546,7 +546,7 @@ export default function HomePage() {
                       router.push(item.kind === 'raw' ? '/raw-marketplace' : '/store')
                     }}
                   >
-                    View
+                    {translate('View', 'ವೀಕ್ಷಿಸಿ')}
                   </button>
                   <button
                     className="flex-1 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 shadow"
@@ -558,7 +558,7 @@ export default function HomePage() {
                       router.push(item.kind === 'raw' ? '/raw-marketplace' : '/store')
                     }}
                   >
-                    View Market
+                    {translate('View Market', 'ಮಾರುಕಟ್ಟೆ ವೀಕ್ಷಿಸಿ')}
                   </button>
                 </div>
               </div>
@@ -575,7 +575,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setUiLang('en')
+                    setLang('en')
                     trackEvent('language_change', { meta: { lang: 'en' } })
                   }}
                   className={`px-3 py-1 text-sm font-semibold rounded ${uiLang === 'en' ? 'bg-emerald-600 text-white' : 'text-gray-700'}`}
@@ -585,7 +585,7 @@ export default function HomePage() {
                 <button
                   type="button"
                   onClick={() => {
-                    setUiLang('kn')
+                    setLang('kn')
                     trackEvent('language_change', { meta: { lang: 'kn' } })
                   }}
                   className={`px-3 py-1 text-sm font-semibold rounded ${uiLang === 'kn' ? 'bg-emerald-600 text-white' : 'text-gray-700'}`}

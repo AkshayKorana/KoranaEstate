@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
+import { useLanguage } from '@/app/language-context'
 
 function Icon({ label }: { label: string }) {
   return <span aria-hidden="true" className="text-2xl font-bold leading-none">{label}</span>
@@ -21,15 +22,16 @@ function CoffeeIcon({ className = 'h-8 w-8' }: { className?: string }) {
 }
 
 const navItems = [
-  { href: '/', label: 'Home', icon: '🏠' },
-  { href: '/raw-marketplace', label: 'Raw Marketplace', icon: '🌱' },
-  { href: '/store', label: 'Store', icon: '🛒' },
-  { href: '/messages', label: 'Messages', icon: '💬' },
+  { href: '/', label: { en: 'Home', kn: 'ಮುಖಪುಟ' }, icon: '🏠' },
+  { href: '/raw-marketplace', label: { en: 'Raw Marketplace', kn: 'ರಾ ಮಾರುಕಟ್ಟೆ' }, icon: '🌱' },
+  { href: '/store', label: { en: 'Store', kn: 'ಸ್ಟೋರ್' }, icon: '🛒' },
+  { href: '/messages', label: { en: 'Messages', kn: 'ಸಂದೇಶಗಳು' }, icon: '💬' },
 ]
 
 export default function Navbar() {
   const pathname = usePathname()
   const { data: session, status } = useSession()
+  const { lang, setLang, t } = useLanguage()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
 
@@ -82,7 +84,7 @@ export default function Navbar() {
                   `}
                 >
                   <span className="text-lg">{item.icon}</span>
-                  <span>{item.label}</span>
+                  <span>{item.label[lang]}</span>
                   {isActive && (
                     <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-1/2 h-1 gradient-emerald rounded-full"></div>
                   )}
@@ -93,6 +95,22 @@ export default function Navbar() {
 
           {/* Desktop Auth */}
           <div className="hidden md:flex items-center space-x-4">
+            <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
+              <button
+                type="button"
+                onClick={() => setLang('en')}
+                className={`px-3 py-1 text-xs font-semibold rounded ${lang === 'en' ? 'bg-emerald-600 text-white' : 'text-gray-700'}`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setLang('kn')}
+                className={`px-3 py-1 text-xs font-semibold rounded ${lang === 'kn' ? 'bg-emerald-600 text-white' : 'text-gray-700'}`}
+              >
+                ಕನ್ನಡ
+              </button>
+            </div>
             {status === 'authenticated' && session?.user ? (
               <>
                 <div className="flex items-center space-x-3 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-50 to-amber-50">
@@ -108,7 +126,7 @@ export default function Navbar() {
                   onClick={() => signOut({ callbackUrl: '/' })}
                   className="px-5 py-2.5 rounded-xl border-2 border-gray-300 text-sm font-semibold text-gray-700 transition-all hover:border-red-500 hover:text-red-600 hover:shadow-lg"
                 >
-                  Sign Out
+                  {t('Sign Out', 'ಸೈನ್ ಔಟ್')}
                 </button>
               </>
             ) : (
@@ -119,7 +137,7 @@ export default function Navbar() {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                 </svg>
-                <span>Sign In</span>
+                <span>{t('Sign In', 'ಸೈನ್ ಇನ್')}</span>
               </Link>
             )}
           </div>
@@ -156,11 +174,27 @@ export default function Navbar() {
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <span className="text-xl">{item.icon}</span>
-                  <span>{item.label}</span>
+                  <span>{item.label[lang]}</span>
                 </Link>
               )
             })}
             <div className="pt-3 border-t border-emerald-100">
+              <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1 mb-3 w-full">
+                <button
+                  type="button"
+                  onClick={() => setLang('en')}
+                  className={`flex-1 px-3 py-2 text-xs font-semibold rounded ${lang === 'en' ? 'bg-emerald-600 text-white' : 'text-gray-700'}`}
+                >
+                  EN
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLang('kn')}
+                  className={`flex-1 px-3 py-2 text-xs font-semibold rounded ${lang === 'kn' ? 'bg-emerald-600 text-white' : 'text-gray-700'}`}
+                >
+                  ಕನ್ನಡ
+                </button>
+              </div>
               {status === 'authenticated' && session?.user ? (
                 <>
                   <div className="flex items-center space-x-3 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-50 to-amber-50 mb-3">
@@ -179,7 +213,7 @@ export default function Navbar() {
                       await signOut({ callbackUrl: '/' })
                     }}
                   >
-                    Sign Out
+                    {t('Sign Out', 'ಸೈನ್ ಔಟ್')}
                   </button>
                 </>
               ) : (
@@ -191,7 +225,7 @@ export default function Navbar() {
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
                   </svg>
-                  <span>Sign In</span>
+                  <span>{t('Sign In', 'ಸೈನ್ ಇನ್')}</span>
                 </Link>
               )}
             </div>

@@ -5,10 +5,12 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import type { Conversation, Message } from '@/types/marketplace'
 import Navbar from '@/app/components/Navbar'
+import { useLanguage } from '@/app/language-context'
 
 export default function MessagesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const { lang, t } = useLanguage()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -96,7 +98,7 @@ export default function MessagesPage() {
 
   function formatTime(date: string | Date) {
     const d = new Date(date)
-    return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
+    return d.toLocaleTimeString(lang === 'kn' ? 'kn-IN' : 'en-US', { hour: '2-digit', minute: '2-digit' })
   }
 
   function formatDate(date: string | Date) {
@@ -105,9 +107,9 @@ export default function MessagesPage() {
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)
 
-    if (d.toDateString() === today.toDateString()) return 'Today'
-    if (d.toDateString() === yesterday.toDateString()) return 'Yesterday'
-    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    if (d.toDateString() === today.toDateString()) return t('Today', 'ಇಂದು')
+    if (d.toDateString() === yesterday.toDateString()) return t('Yesterday', 'ನಿನ್ನೆ')
+    return d.toLocaleDateString(lang === 'kn' ? 'kn-IN' : 'en-US', { month: 'short', day: 'numeric' })
   }
 
   if (status === 'loading' || loading) {
@@ -115,7 +117,7 @@ export default function MessagesPage() {
       <div className="min-h-screen bg-gray-50 pt-24 flex items-center justify-center">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-          <p className="mt-2 text-gray-600">Loading messages...</p>
+          <p className="mt-2 text-gray-600">{t('Loading messages...', 'ಸಂದೇಶಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}</p>
         </div>
       </div>
     )
@@ -129,14 +131,14 @@ export default function MessagesPage() {
           {/* Conversations List */}
           <div className="w-80 border-r border-gray-200 flex flex-col">
             <div className="p-4 border-b border-gray-200 bg-emerald-50">
-              <h2 className="text-xl font-semibold text-gray-900">Messages</h2>
+              <h2 className="text-xl font-semibold text-gray-900">{t('Messages', 'ಸಂದೇಶಗಳು')}</h2>
             </div>
             
             <div className="flex-1 overflow-y-auto">
               {conversations.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
-                  <p>No conversations yet.</p>
-                  <p className="text-sm mt-2">Start chatting with sellers!</p>
+                  <p>{t('No conversations yet.', 'ಇನ್ನೂ ಯಾವುದೇ ಸಂಭಾಷಣೆಗಳಿಲ್ಲ.')}</p>
+                  <p className="text-sm mt-2">{t('Start chatting with sellers!', 'ಮಾರಾಟಗಾರರೊಂದಿಗೆ ಚಾಟ್ ಪ್ರಾರಂಭಿಸಿ!')}</p>
                 </div>
               ) : (
                 conversations.map(conversation => {
@@ -157,7 +159,7 @@ export default function MessagesPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-baseline mb-1">
-                            <h3 className="font-semibold text-gray-900 truncate">{otherUser?.name || 'User'}</h3>
+                            <h3 className="font-semibold text-gray-900 truncate">{otherUser?.name || t('User', 'ಬಳಕೆದಾರ')}</h3>
                             <span className="text-xs text-gray-500 ml-2 flex-shrink-0">
                               {formatDate(conversation.lastMessageAt)}
                             </span>
@@ -185,7 +187,7 @@ export default function MessagesPage() {
                   </div>
                   <div>
                     <h3 className="font-semibold text-gray-900">
-                      {getOtherUser(selectedConversation)?.name || 'User'}
+                      {getOtherUser(selectedConversation)?.name || t('User', 'ಬಳಕೆದಾರ')}
                     </h3>
                     <p className="text-xs text-gray-500">{getOtherUser(selectedConversation)?.email}</p>
                   </div>
@@ -225,7 +227,7 @@ export default function MessagesPage() {
                       type="text"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
-                      placeholder="Type a message..."
+                      placeholder={t('Type a message...', 'ಸಂದೇಶವನ್ನು ಟೈಪ್ ಮಾಡಿ...')}
                       className="flex-1 border border-gray-300 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                     <button
@@ -233,7 +235,7 @@ export default function MessagesPage() {
                       disabled={!newMessage.trim()}
                       className="bg-emerald-600 text-white px-6 py-2 rounded-full hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
                     >
-                      Send
+                      {t('Send', 'ಕಳುಹಿಸಿ')}
                     </button>
                   </div>
                 </form>
@@ -244,8 +246,8 @@ export default function MessagesPage() {
                   <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
-                  <p className="mt-4 text-lg font-medium">Select a conversation</p>
-                  <p className="text-sm">Choose from your conversations to start messaging</p>
+                  <p className="mt-4 text-lg font-medium">{t('Select a conversation', 'ಒಂದು ಸಂಭಾಷಣೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ')}</p>
+                  <p className="text-sm">{t('Choose from your conversations to start messaging', 'ಸಂದೇಶ ಆರಂಭಿಸಲು ನಿಮ್ಮ ಸಂಭಾಷಣೆಗಳಿಂದ ಆಯ್ಕೆಮಾಡಿ')}</p>
                 </div>
               </div>
             )}

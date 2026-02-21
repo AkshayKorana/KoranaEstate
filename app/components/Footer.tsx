@@ -1,5 +1,8 @@
+"use client"
+
 import type { ReactNode } from 'react'
 import Link from 'next/link'
+import { useLanguage } from '@/app/language-context'
 
 function CoffeeIcon({ className = 'h-7 w-7' }: { className?: string }) {
   return (
@@ -46,6 +49,8 @@ function SocialIcon({ href, label, children }: SocialIconProps) {
 }
 
 export default function Footer() {
+  const { t } = useLanguage()
+
   return (
     <footer id="site-footer" className="bg-coffee-50 dark:bg-coffee-900/30 pt-16 pb-8 border-t border-coffee-100 dark:border-coffee-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -56,8 +61,10 @@ export default function Footer() {
               <span className="text-xl font-semibold">Korana Estate</span>
             </Link>
             <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
-              The premier marketplace for coffee plantation products and services in Kodagu, Karnataka.
-              Connecting farmers, suppliers, and consumers.
+              {t(
+                'The premier marketplace for coffee plantation products and services in Kodagu, Karnataka. Connecting farmers, suppliers, and consumers.',
+                'ಕೊಡಗು, ಕರ್ನಾಟಕದಲ್ಲಿ ಕಾಫಿ ತೋಟದ ಉತ್ಪನ್ನಗಳು ಮತ್ತು ಸೇವೆಗಳ ಪ್ರಮುಖ ಮಾರುಕಟ್ಟೆ. ರೈತರು, ಸರಬರಾಜುದಾರರು ಮತ್ತು ಗ್ರಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸುತ್ತದೆ.'
+              )}
             </p>
             <div className="flex space-x-4 pt-2">
               <SocialIcon href="https://facebook.com" label="Facebook">
@@ -73,18 +80,18 @@ export default function Footer() {
           </div>
 
           <div>
-            <h3 className="text-md font-semibold mb-4 text-gray-900 dark:text-gray-100">Quick Links</h3>
+            <h3 className="text-md font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('Quick Links', 'ತ್ವರಿತ ಲಿಂಕ್‌ಗಳು')}</h3>
             <ul className="space-y-2">
-              <li><Link href="/#top" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">Home</Link></li>
-              <li><Link href="/marketplace" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">Marketplace</Link></li>
-              <li><Link href="/services" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">Services</Link></li>
-              <li><Link href="/#footer-brand-target" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">About Us</Link></li>
-              <li><Link href="/#footer-contact-target" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">Contact</Link></li>
+              <li><Link href="/#top" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('Home', 'ಮುಖಪುಟ')}</Link></li>
+              <li><Link href="/marketplace" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('Marketplace', 'ಮಾರುಕಟ್ಟೆ')}</Link></li>
+              <li><Link href="/services" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('Services', 'ಸೇವೆಗಳು')}</Link></li>
+              <li><Link href="/#footer-brand-target" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('About Us', 'ನಮ್ಮ ಬಗ್ಗೆ')}</Link></li>
+              <li><Link href="/#footer-contact-target" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('Contact', 'ಸಂಪರ್ಕ')}</Link></li>
             </ul>
           </div>
 
           <div id="footer-contact-target" className="target-highlight">
-            <h3 className="text-md font-semibold mb-4 text-gray-900 dark:text-gray-100">Contact Us</h3>
+            <h3 className="text-md font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('Contact Us', 'ನಮ್ಮನ್ನು ಸಂಪರ್ಕಿಸಿ')}</h3>
             <ul className="space-y-3">
               <li className="flex items-start">
                 <MailIcon className="h-5 w-5 mr-3 text-coffee-600 dark:text-coffee-400 mt-0.5" />
@@ -96,7 +103,7 @@ export default function Footer() {
               </li>
               <li className="text-gray-600 dark:text-gray-400 mt-2">
                 <p>Madikeri,</p>
-                <p>Kodagu District,</p>
+                <p>{t('Kodagu District,', 'ಕೊಡಗು ಜಿಲ್ಲೆ,')}</p>
                 <p>Karnataka, India</p>
               </li>
             </ul>
@@ -105,11 +112,11 @@ export default function Footer() {
 
         <div className="pt-8 border-t border-coffee-100 dark:border-coffee-800 text-center">
           <p className="text-gray-600 dark:text-gray-400 text-sm">
-            &copy; {new Date().getFullYear()} Korana Estate Marketplace. All rights reserved.
+            &copy; {new Date().getFullYear()} {t('Korana Estate Marketplace. All rights reserved.', 'ಕೊರಾನಾ ಎಸ್ಟೇಟ್ ಮಾರುಕಟ್ಟೆ. ಎಲ್ಲಾ ಹಕ್ಕುಗಳು ಕಾಯ್ದಿರಿಸಲಾಗಿದೆ.')}
           </p>
           <div className="mt-2 flex justify-center space-x-4 text-sm text-gray-500 dark:text-gray-500">
-            <Link href="/privacy" className="hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">Privacy Policy</Link>
-            <Link href="/terms" className="hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">Terms of Service</Link>
+            <Link href="/privacy" className="hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('Privacy Policy', 'ಗೌಪ್ಯತಾ ನೀತಿ')}</Link>
+            <Link href="/terms" className="hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('Terms of Service', 'ಸೇವಾ ನಿಯಮಗಳು')}</Link>
             <Link href="/faq" className="hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">FAQ</Link>
           </div>
         </div>
