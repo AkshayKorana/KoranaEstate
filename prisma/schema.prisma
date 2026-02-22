@@ -49,6 +49,9 @@ model User {
   sentMessages       Message[]       @relation("SentMessages")
   conversationsAsBuyer  Conversation[] @relation("BuyerConversations")
   conversationsAsSeller Conversation[] @relation("SellerConversations")
+
+  // Reviews received (fix for Review.target relation)
+  reviewsReceived    Review[] @relation("review_target")  
 }
 
 model PriceObservation {
