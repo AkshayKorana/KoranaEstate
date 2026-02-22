@@ -19,51 +19,51 @@ model Coffee {
 
 model Commodity {
   id        String   @id @default(uuid())
-  type      String                 // Coffee, Pepper, Cardamom, etc.
-  name      String                 // Arabica, Robusta, etc.
-  variety   String?                // Optional: variety or grade
+  type      String // Coffee, Pepper, Cardamom, etc.
+  name      String // Arabica, Robusta, etc.
+  variety   String? // Optional: variety or grade
   price     Float
-  location  String?                // Market or city
-  source    String?                // Where the price came from
+  location  String? // Market or city
+  source    String? // Where the price came from
   createdAt DateTime @default(now())
 
-  @@index([name, variety])         // Optional: fast lookups
+  @@index([name, variety]) // Optional: fast lookups
 }
 
 model User {
-  id                 String    @id @default(cuid())
-  name               String?
-  email              String    @unique
-  passwordHash       String
-  resetToken         String?   @unique
-  resetTokenExpiry   DateTime?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
+  id               String    @id @default(cuid())
+  name             String?
+  email            String    @unique
+  passwordHash     String
+  resetToken       String?   @unique
+  resetTokenExpiry DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   // Marketplace relations
-  rawListings        RawListing[]
-  rawOffers          RawOffer[]
-  products           Product[]
-  estateListings     EstateListing[]
-  orders             Order[]
-  sentMessages       Message[]       @relation("SentMessages")
-  conversationsAsBuyer  Conversation[] @relation("BuyerConversations")
-  conversationsAsSeller Conversation[] @relation("SellerConversations")
+  rawListings           RawListing[]
+  rawOffers             RawOffer[]
+  products              Product[]
+  estateListings        EstateListing[]
+  orders                Order[]
+  sentMessages          Message[]       @relation("SentMessages")
+  conversationsAsBuyer  Conversation[]  @relation("BuyerConversations")
+  conversationsAsSeller Conversation[]  @relation("SellerConversations")
 
   // Reviews received (fix for Review.target relation)
-  reviewsReceived    Review[] @relation("review_target")  
+  reviewsReceived Review[] @relation("review_target")
 }
 
 model PriceObservation {
   id            String   @id @default(cuid())
   commodityName String
   grade         String?
-  priceType     String   // benchmark | mandi | listing
+  priceType     String // benchmark | mandi | listing
   source        String
   marketCenter  String?
   state         String?
   district      String?
-  unit          String   // inr_per_kg
+  unit          String // inr_per_kg
   inrPerKg      Float
   originalValue Float?
   originalUnit  String?
@@ -77,54 +77,54 @@ model PriceObservation {
 }
 
 model ForecastRun {
-  id             String   @id @default(cuid())
-  commodityName  String
-  modelVersion   String
-  horizonDays    Int
-  mape           Float?
-  mae            Float?
-  rmse           Float?
-  trendText      String
-  pctMove        Float?
-  lowerPct       Float?
-  upperPct       Float?
-  labelsJson     String
-  actualJson     String
-  forecastJson   String
-  generatedAt    DateTime @default(now())
-  createdAt      DateTime @default(now())
+  id            String   @id @default(cuid())
+  commodityName String
+  modelVersion  String
+  horizonDays   Int
+  mape          Float?
+  mae           Float?
+  rmse          Float?
+  trendText     String
+  pctMove       Float?
+  lowerPct      Float?
+  upperPct      Float?
+  labelsJson    String
+  actualJson    String
+  forecastJson  String
+  generatedAt   DateTime @default(now())
+  createdAt     DateTime @default(now())
 
   @@index([commodityName, generatedAt])
   @@index([modelVersion, generatedAt])
 }
 
 model ModelLeaderboardSnapshot {
-  id           String   @id @default(cuid())
+  id            String    @id @default(cuid())
   commodityName String
-  modelVersion String
-  horizonDays  Int
-  mape         Float?
-  mae          Float?
-  rmse         Float?
-  sampleCount  Int
-  windowStart  DateTime?
-  windowEnd    DateTime?
-  generatedAt  DateTime @default(now())
-  createdAt    DateTime @default(now())
+  modelVersion  String
+  horizonDays   Int
+  mape          Float?
+  mae           Float?
+  rmse          Float?
+  sampleCount   Int
+  windowStart   DateTime?
+  windowEnd     DateTime?
+  generatedAt   DateTime  @default(now())
+  createdAt     DateTime  @default(now())
 
   @@index([commodityName, horizonDays, generatedAt])
   @@index([modelVersion, horizonDays, generatedAt])
 }
 
 model AnalyticsEvent {
-  id         String   @id @default(cuid())
-  eventName  String
-  page       String?
-  commodity  String?
+  id          String   @id @default(cuid())
+  eventName   String
+  page        String?
+  commodity   String?
   horizonDays Int?
-  lang       String?
-  metaJson   String?
-  createdAt  DateTime @default(now())
+  lang        String?
+  metaJson    String?
+  createdAt   DateTime @default(now())
 
   @@index([eventName, createdAt])
   @@index([commodity, createdAt])
@@ -136,20 +136,20 @@ model AnalyticsEvent {
 
 // Raw Commodity Marketplace (Farmer Trading)
 model RawListing {
-  id            String   @id @default(cuid())
-  sellerId      String
-  commodity     String   // Arabica Cherry, Robusta Parchment, Pepper, etc.
-  grade         String?  // A, AA, Premium, etc.
-  quantityKg    Float
-  pricePerKg    Float
-  location      String
-  description   String?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id          String   @id @default(cuid())
+  sellerId    String
+  commodity   String // Arabica Cherry, Robusta Parchment, Pepper, etc.
+  grade       String? // A, AA, Premium, etc.
+  quantityKg  Float
+  pricePerKg  Float
+  location    String
+  description String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  seller        User        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  offers        RawOffer[]
+  seller User       @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  offers RawOffer[]
 
   @@index([commodity, isActive, createdAt])
   @@index([sellerId, isActive])
@@ -157,18 +157,18 @@ model RawListing {
 }
 
 model RawOffer {
-  id          String   @id @default(cuid())
-  listingId   String
-  buyerId     String
-  offerPrice  Float
-  quantity    Float    // kg requested
-  message     String?
-  status      String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, CANCELLED
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  listingId  String
+  buyerId    String
+  offerPrice Float
+  quantity   Float // kg requested
+  message    String?
+  status     String   @default("PENDING") // PENDING, ACCEPTED, REJECTED, CANCELLED
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  listing     RawListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
-  buyer       User       @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  listing RawListing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  buyer   User       @relation(fields: [buyerId], references: [id], onDelete: Cascade)
 
   @@index([listingId, status])
   @@index([buyerId, status])
@@ -179,7 +179,7 @@ model Product {
   id          String   @id @default(cuid())
   sellerId    String
   name        String
-  category    String   // Coffee Powder, Roasted Beans, Pepper Powder, etc.
+  category    String // Coffee Powder, Roasted Beans, Pepper Powder, etc.
   price       Float
   stock       Int      @default(0)
   description String?
@@ -188,31 +188,31 @@ model Product {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  seller      User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  orders      Order[]
+  seller User    @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  orders Order[]
 
   @@index([category, isActive, createdAt])
   @@index([sellerId, isActive])
 }
 
 model EstateListing {
-  id            String   @id @default(cuid())
-  sellerId      String
-  title         String
-  category      String   // Fertilizer | Machinery | Tool | Service | Irrigation | Labor
-  subcategory   String?
-  listingType   String   // Product | Service
-  price         Float
-  unit          String   // per_kg | per_bag | per_hour | per_day | fixed
-  quantity      Float?
-  location      String
-  description   String?
-  contactPhone  String?
-  isActive      Boolean  @default(true)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id           String   @id @default(cuid())
+  sellerId     String
+  title        String
+  category     String // Fertilizer | Machinery | Tool | Service | Irrigation | Labor
+  subcategory  String?
+  listingType  String // Product | Service
+  price        Float
+  unit         String // per_kg | per_bag | per_hour | per_day | fixed
+  quantity     Float?
+  location     String
+  description  String?
+  contactPhone String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
-  seller        User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  seller User @relation(fields: [sellerId], references: [id], onDelete: Cascade)
 
   @@index([category, listingType, isActive, createdAt])
   @@index([sellerId, isActive])
@@ -233,20 +233,21 @@ model Order {
 
   buyer          User      @relation(fields: [buyerId], references: [id], onDelete: Cascade)
   product        Product   @relation(fields: [productId], references: [id])
-  reviews        Review[]  // opposite relation
+
+  reviews        Review[]  // <-- Add this line as the opposite relation
 }
 
 // Chat System
 model Conversation {
-  id        String   @id @default(cuid())
-  buyerId   String
-  sellerId  String
+  id            String   @id @default(cuid())
+  buyerId       String
+  sellerId      String
   lastMessageAt DateTime @default(now())
-  createdAt DateTime @default(now())
+  createdAt     DateTime @default(now())
 
-  buyer     User      @relation("BuyerConversations", fields: [buyerId], references: [id], onDelete: Cascade)
-  seller    User      @relation("SellerConversations", fields: [sellerId], references: [id], onDelete: Cascade)
-  messages  Message[]
+  buyer    User      @relation("BuyerConversations", fields: [buyerId], references: [id], onDelete: Cascade)
+  seller   User      @relation("SellerConversations", fields: [sellerId], references: [id], onDelete: Cascade)
+  messages Message[]
 
   @@unique([buyerId, sellerId])
   @@index([buyerId, lastMessageAt])
@@ -261,8 +262,8 @@ model Message {
   isRead         Boolean  @default(false)
   createdAt      DateTime @default(now())
 
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender         User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
   @@index([senderId, createdAt])
