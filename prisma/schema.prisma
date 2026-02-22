@@ -222,7 +222,7 @@ model Order {
   productId      String
   quantity       Int
   totalPrice     Float
-  status         String    @default("PLACED") // PLACED, CONFIRMED, SHIPPED, DELIVERED, CANCELLED
+  status         String    @default("PLACED")
   shippingAddress String?
   phone          String?
   createdAt      DateTime  @default(now())
@@ -230,11 +230,7 @@ model Order {
 
   buyer          User      @relation(fields: [buyerId], references: [id], onDelete: Cascade)
   product        Product   @relation(fields: [productId], references: [id])
-
-  reviews        Review[]  // <-- Add this line to fix the relation
-
-  @@index([buyerId, status, createdAt])
-  @@index([productId, createdAt])
+  reviews        Review[]  // opposite relation
 }
 
 // Chat System
@@ -271,8 +267,8 @@ model Message {
 
 model Review {
   id        String   @id @default(cuid())
-  targetId  String
-  orderId   String?  // optional if review can exist without order
+  orderId   String?
   order     Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  targetId  String
   target    User     @relation("review_target", fields: [targetId], references: [id])
 }
