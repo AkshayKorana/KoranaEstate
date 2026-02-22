@@ -1,0 +1,21 @@
+{
+  "name": "korana-estate",
+  "private": true,
+  "version": "1.0.0",
+  "workspaces": [
+    "backend",
+    "web",
+    "mobile",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w backend & npm run dev -w web",
+    "dev:backend": "npm run dev -w backend",
+    "dev:web": "npm run dev -w web",
+    "dev:mobile": "npm run dev -w mobile",
+    "build": "npm run build -w backend && npm run build -w web",
+    "lint": "npm run lint -w backend && npm run lint -w web",
+    "prisma:generate": "npm run prisma:generate -w backend",
+    "prisma:migrate": "npm run prisma:migrate -w backend"
+  }
+}
