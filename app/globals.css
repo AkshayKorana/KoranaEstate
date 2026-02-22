@@ -42,6 +42,17 @@ body {
 
 html {
   scroll-behavior: smooth;
+  scroll-padding-top: 9rem;
+}
+
+.content-under-navbar {
+  padding-top: 7.75rem;
+}
+
+@media (min-width: 768px) {
+  .content-under-navbar {
+    padding-top: 8.25rem;
+  }
 }
 
 /* Emerald-Coffee Gradient Utilities */

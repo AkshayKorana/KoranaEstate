@@ -134,7 +134,7 @@ export default function MessagesPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className={`min-h-screen pt-24 flex items-center justify-center ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
+      <div className={`min-h-screen content-under-navbar flex items-center justify-center ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
           <p className={`mt-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{t('Loading messages...', 'ಸಂದೇಶಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}</p>
@@ -144,9 +144,9 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className={`min-h-screen pt-20 ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
+    <div className={`min-h-screen content-under-navbar ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
       <Navbar />
-      <div className="h-[calc(100vh-5rem)] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div className="h-[calc(100vh-7.5rem)] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
         <div className={`h-full rounded-lg shadow-sm flex overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
           {/* Conversations List */}
           <div className={`w-80 border-r flex flex-col ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>

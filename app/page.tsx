@@ -484,10 +484,10 @@ export default function HomePage() {
   }
 
   return (
-    <div id="top" className="space-y-12">
+    <div id="top" className="space-y-12 content-under-navbar">
       <Navbar />
 
-      <div className="pt-24">
+      <div>
         <Hero />
       </div>
 

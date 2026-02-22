@@ -81,13 +81,16 @@ export default function Navbar() {
 
   return (
     <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        isScrolled || isMobileMenuOpen
-          ? 'glass shadow-xl border-b border-emerald-100 dark:border-slate-700'
-          : 'bg-white/60 backdrop-blur-sm dark:bg-slate-900/70'
-      }`}
+      className="fixed top-3 left-0 right-0 z-50 px-3 md:px-6"
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div
+        className={`mx-auto max-w-7xl rounded-2xl transition-all duration-500 ${
+          isScrolled || isMobileMenuOpen
+            ? 'glass shadow-xl border border-emerald-100 dark:border-slate-700'
+            : 'bg-white/75 backdrop-blur-md border border-white/40 dark:bg-slate-900/75 dark:border-slate-700/60'
+        }`}
+      >
+        <div className="px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center py-4 md:py-5">
           {/* Logo - Click to go Home */}
           <Link href="/" className="flex items-center space-x-3 group cursor-pointer" title="Go to Home">
@@ -200,11 +203,12 @@ export default function Navbar() {
             <Icon label={isMobileMenuOpen ? '✕' : '☰'} />
           </button>
         </div>
+        </div>
       </div>
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden glass border-t border-emerald-100 slide-in-up">
+        <div className="md:hidden mt-2 mx-auto max-w-7xl rounded-2xl glass border border-emerald-100 dark:border-slate-700 slide-in-up">
           <div className="px-4 pt-4 pb-6 space-y-3">
             {navItems.map(item => {
               const isActive = isActivePath(item.href)

@@ -48,7 +48,7 @@ export default function EstateMarketplacePage() {
   }, [listings])
 
   return (
-    <div className={`min-h-screen pt-24 pb-12 ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
+    <div className={`min-h-screen content-under-navbar pb-12 ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         <div>
