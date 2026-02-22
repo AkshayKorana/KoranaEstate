@@ -9,6 +9,16 @@ jobs:
   run-pipeline:
     runs-on: ubuntu-latest
     steps:
+      - name: Health check before pipeline
+        env:
+          APP_URL: ${{ secrets.APP_URL }}
+        run: |
+          if [ -z "$APP_URL" ]; then
+            echo "Missing APP_URL secret"
+            exit 1
+          fi
+          curl --fail --show-error --silent "$APP_URL/api/health" | tee /tmp/health.json
+
       - name: Trigger production pipeline API
         env:
           APP_URL: ${{ secrets.APP_URL }}
@@ -21,4 +31,4 @@ jobs:
           curl --fail --show-error --silent \
             -X POST "$APP_URL/api/jobs/pipeline" \
             -H "Authorization: Bearer $CRON_SECRET" \
-            -H "Content-Type: application/json"
+            -H "Content-Type: application/json" | tee /tmp/pipeline.json

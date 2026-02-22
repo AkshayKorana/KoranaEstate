@@ -104,7 +104,7 @@ export default function EstateBlockPage() {
     return (
       <div className={`min-h-screen content-under-navbar pb-12 ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
         <Navbar />
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto px-6 md:px-8 lg:px-10">
           <div className="rounded-xl border border-red-200 bg-red-50 p-6">
             <p className="text-red-700 font-semibold">{t('Invalid service block.', 'ಅಮಾನ್ಯ ಸೇವಾ ವಿಭಾಗ.')}</p>
             <Link href="/estate-marketplace" className="mt-3 inline-block text-sm font-semibold text-emerald-700">
@@ -214,18 +214,18 @@ export default function EstateBlockPage() {
   }
 
   return (
-    <div className={`min-h-screen content-under-navbar pb-12 ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
+    <div className={`min-h-screen content-under-navbar pb-12 ${isDark ? 'bg-slate-950' : 'bg-transparent'}`}>
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+      <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-10 space-y-8">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-brand-spectrum">{title}</h1>
-            <p className={`mt-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{t('View listings, add service, and chat with sellers.', 'ಪಟ್ಟಿಗಳನ್ನು ನೋಡಿ, ಸೇವೆ ಸೇರಿಸಿ, ಮಾರಾಟಗಾರರ ಜೊತೆ ಚಾಟ್ ಮಾಡಿ.')}</p>
+            <h1 className="font-luxe text-4xl font-bold text-brand-spectrum">{title}</h1>
+            <p className={`mt-1 ${isDark ? 'text-gray-300' : 'text-[#c8bca9]'}`}>{t('View listings, add service, and chat with sellers.', 'ಪಟ್ಟಿಗಳನ್ನು ನೋಡಿ, ಸೇವೆ ಸೇರಿಸಿ, ಮಾರಾಟಗಾರರ ಜೊತೆ ಚಾಟ್ ಮಾಡಿ.')}</p>
           </div>
           <div className="flex gap-2">
             <Link
               href="/estate-marketplace"
-              className={`rounded-lg border px-4 py-2 text-sm font-semibold ${isDark ? 'border-slate-600 bg-slate-800 text-gray-200' : 'border-gray-300 bg-white text-gray-700'}`}
+              className={`rounded-lg border px-4 py-2 text-sm font-semibold ${isDark ? 'border-slate-600 bg-slate-800 text-gray-200' : 'border-emerald-200/30 bg-[#171411] text-[#e6d8c5]'}`}
             >
               {t('Back', 'ಹಿಂತಿರುಗಿ')}
             </Link>
@@ -247,27 +247,27 @@ export default function EstateBlockPage() {
         </div>
 
         {loading ? (
-          <div className={`rounded-xl border p-6 ${isDark ? 'border-slate-700 bg-slate-900 text-gray-300' : 'border-gray-200 bg-white text-gray-600'}`}>{t('Loading services...', 'ಸೇವೆಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}</div>
+          <div className={`rounded-xl border p-6 ${isDark ? 'border-slate-700 bg-slate-900 text-gray-300' : 'border-emerald-200/30 bg-[#171411]/80 text-[#c8bca9]'}`}>{t('Loading services...', 'ಸೇವೆಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}</div>
         ) : listings.length === 0 ? (
-          <div className={`rounded-xl border p-6 ${isDark ? 'border-slate-700 bg-slate-900 text-gray-300' : 'border-gray-200 bg-white text-gray-600'}`}>{t('No listings yet in this service.', 'ಈ ಸೇವೆಯಲ್ಲಿ ಇನ್ನೂ ಪಟ್ಟಿಗಳಿಲ್ಲ.')}</div>
+          <div className={`rounded-xl border p-6 ${isDark ? 'border-slate-700 bg-slate-900 text-gray-300' : 'border-emerald-200/30 bg-[#171411]/80 text-[#c8bca9]'}`}>{t('No listings yet in this service.', 'ಈ ಸೇವೆಯಲ್ಲಿ ಇನ್ನೂ ಪಟ್ಟಿಗಳಿಲ್ಲ.')}</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {listings.map((listing) => (
-              <div key={listing.id} className={`rounded-2xl border p-5 shadow-sm space-y-3 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+              <div key={listing.id} className={`rounded-2xl border p-5 shadow-sm space-y-3 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-emerald-200/30 bg-[#171411]/80'}`}>
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className={`font-bold text-lg leading-tight ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{listing.title}</h3>
+                  <h3 className={`font-bold text-lg leading-tight ${isDark ? 'text-gray-100' : 'text-[#efe4d4]'}`}>{listing.title}</h3>
                   <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
                     {listing.listingType}
                   </span>
                 </div>
 
-                <div className={`text-sm space-y-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
-                  {listing.subcategory && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{t('Sub:', 'ಉಪ:')}</span> {listing.subcategory}</p>}
-                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{t('Price:', 'ಬೆಲೆ:')}</span> ₹{listing.price.toLocaleString('en-IN')} / {listing.unit}</p>
-                  {listing.quantity != null && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{t('Qty:', 'ಪ್ರಮಾಣ:')}</span> {listing.quantity}</p>}
-                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{t('Location:', 'ಸ್ಥಳ:')}</span> {listing.location}</p>
-                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{t('Seller:', 'ಮಾರಾಟಗಾರ:')}</span> {listing.seller?.name || listing.seller?.email || t('Seller', 'ಮಾರಾಟಗಾರ')}</p>
-                  {listing.contactPhone && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{t('Phone:', 'ಫೋನ್:')}</span> {listing.contactPhone}</p>}
+                <div className={`text-sm space-y-1 ${isDark ? 'text-gray-300' : 'text-[#c8bca9]'}`}>
+                  {listing.subcategory && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#efe4d4]'}`}>{t('Sub:', 'ಉಪ:')}</span> {listing.subcategory}</p>}
+                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#efe4d4]'}`}>{t('Price:', 'ಬೆಲೆ:')}</span> ₹{listing.price.toLocaleString('en-IN')} / {listing.unit}</p>
+                  {listing.quantity != null && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#efe4d4]'}`}>{t('Qty:', 'ಪ್ರಮಾಣ:')}</span> {listing.quantity}</p>}
+                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#efe4d4]'}`}>{t('Location:', 'ಸ್ಥಳ:')}</span> {listing.location}</p>
+                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#efe4d4]'}`}>{t('Seller:', 'ಮಾರಾಟಗಾರ:')}</span> {listing.seller?.name || listing.seller?.email || t('Seller', 'ಮಾರಾಟಗಾರ')}</p>
+                  {listing.contactPhone && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#efe4d4]'}`}>{t('Phone:', 'ಫೋನ್:')}</span> {listing.contactPhone}</p>}
                 </div>
 
                 {listing.description && (
@@ -277,13 +277,13 @@ export default function EstateBlockPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     onClick={() => openConversation(listing, false)}
-                    className="rounded-xl bg-blue-600 px-3 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                    className="rounded-xl lux-btn-secondary px-3 py-2 text-sm font-semibold"
                   >
                     {t('Message', 'ಸಂದೇಶ')}
                   </button>
                   <button
                     onClick={() => openConversation(listing, true)}
-                    className="rounded-xl border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-800 hover:bg-emerald-100"
+                    className="rounded-xl lux-btn-primary px-3 py-2 text-sm font-semibold"
                   >
                     {t('Contact Seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ')}
                   </button>
@@ -296,10 +296,10 @@ export default function EstateBlockPage() {
 
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-xl rounded-2xl bg-white p-6 shadow-2xl">
-            <h2 className="text-2xl font-bold text-gray-900 mb-2">{t('Add Service', 'ಸೇವೆ ಸೇರಿಸಿ')}</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              {t('Adding under:', 'ಕೆಳಗೆ ಸೇರಿಸಲಾಗುತ್ತಿದೆ:')} <span className="font-semibold text-gray-900">{title}</span>
+          <div className="w-full max-w-xl rounded-2xl glass border border-emerald-200/30 p-6 shadow-2xl">
+            <h2 className="text-2xl font-bold text-[#efe4d4] mb-2">{t('Add Service', 'ಸೇವೆ ಸೇರಿಸಿ')}</h2>
+            <p className="text-sm text-[#c8bca9] mb-4">
+              {t('Adding under:', 'ಕೆಳಗೆ ಸೇರಿಸಲಾಗುತ್ತಿದೆ:')} <span className="font-semibold text-[#efe4d4]">{title}</span>
             </p>
 
             <form onSubmit={handleCreateListing} className="space-y-3">
@@ -315,20 +315,20 @@ export default function EstateBlockPage() {
                 placeholder={t('Title', 'ಶೀರ್ಷಿಕೆ')}
                 value={formData.title}
                 onChange={(e) => setFormData((v) => ({ ...v, title: e.target.value }))}
-                className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-500"
+                className="lux-input w-full rounded-xl px-3 py-2 placeholder:text-gray-500"
               />
 
               <div className="grid grid-cols-2 gap-3">
                 <input
                   value={activeBlock.createCategory}
                   readOnly
-                  className="rounded-xl border border-gray-300 bg-gray-50 px-3 py-2 text-gray-900"
+                  className="lux-input rounded-xl px-3 py-2"
                 />
                 <select
                   required
                   value={formData.listingType}
                   onChange={(e) => setFormData((v) => ({ ...v, listingType: e.target.value }))}
-                  className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                  className="lux-input rounded-xl px-3 py-2"
                 >
                   {LISTING_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
                 </select>
@@ -340,7 +340,7 @@ export default function EstateBlockPage() {
                   placeholder={t('Subcategory (optional)', 'ಉಪವರ್ಗ (ಐಚ್ಛಿಕ)')}
                   value={formData.subcategory}
                   onChange={(e) => setFormData((v) => ({ ...v, subcategory: e.target.value }))}
-                  className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-500"
+                  className="lux-input rounded-xl px-3 py-2 placeholder:text-gray-500"
                 />
                 <input
                   required
@@ -349,7 +349,7 @@ export default function EstateBlockPage() {
                   placeholder={t('Price', 'ಬೆಲೆ')}
                   value={formData.price}
                   onChange={(e) => setFormData((v) => ({ ...v, price: e.target.value === '' ? '' : Number(e.target.value) }))}
-                  className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-500"
+                  className="lux-input rounded-xl px-3 py-2 placeholder:text-gray-500"
                 />
               </div>
 
@@ -358,7 +358,7 @@ export default function EstateBlockPage() {
                   required
                   value={formData.unit}
                   onChange={(e) => setFormData((v) => ({ ...v, unit: e.target.value }))}
-                  className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-gray-900"
+                  className="lux-input rounded-xl px-3 py-2"
                 >
                   {UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
                 </select>
@@ -368,7 +368,7 @@ export default function EstateBlockPage() {
                   placeholder={t('Quantity (optional)', 'ಪ್ರಮಾಣ (ಐಚ್ಛಿಕ)')}
                   value={formData.quantity}
                   onChange={(e) => setFormData((v) => ({ ...v, quantity: e.target.value === '' ? '' : Number(e.target.value) }))}
-                  className="rounded-xl border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-500"
+                  className="lux-input rounded-xl px-3 py-2 placeholder:text-gray-500"
                 />
               </div>
 
@@ -378,7 +378,7 @@ export default function EstateBlockPage() {
                 placeholder={t('Location', 'ಸ್ಥಳ')}
                 value={formData.location}
                 onChange={(e) => setFormData((v) => ({ ...v, location: e.target.value }))}
-                className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-500"
+                className="lux-input w-full rounded-xl px-3 py-2 placeholder:text-gray-500"
               />
 
               <input
@@ -386,7 +386,7 @@ export default function EstateBlockPage() {
                 placeholder={t('Contact phone (optional)', 'ಸಂಪರ್ಕ ಫೋನ್ (ಐಚ್ಛಿಕ)')}
                 value={formData.contactPhone}
                 onChange={(e) => setFormData((v) => ({ ...v, contactPhone: e.target.value }))}
-                className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-500"
+                className="lux-input w-full rounded-xl px-3 py-2 placeholder:text-gray-500"
               />
 
               <textarea
@@ -394,7 +394,7 @@ export default function EstateBlockPage() {
                 placeholder={t('Description', 'ವಿವರಣೆ')}
                 value={formData.description}
                 onChange={(e) => setFormData((v) => ({ ...v, description: e.target.value }))}
-                className="w-full rounded-xl border border-gray-300 bg-white px-3 py-2 text-gray-900 placeholder:text-gray-500"
+                className="lux-input w-full rounded-xl px-3 py-2 placeholder:text-gray-500"
               />
 
               <div className="flex gap-3 pt-2">
@@ -404,13 +404,13 @@ export default function EstateBlockPage() {
                     setShowCreateModal(false)
                     setFormError('')
                   }}
-                  className="flex-1 rounded-xl border border-gray-300 px-4 py-2 font-semibold text-gray-700"
+                  className="flex-1 rounded-xl border border-emerald-200/30 px-4 py-2 font-semibold text-[#d8c8b3]"
                 >
                   {t('Cancel', 'ರದ್ದುಮಾಡಿ')}
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 rounded-xl bg-emerald-600 px-4 py-2 font-semibold text-white hover:bg-emerald-700"
+                  className="flex-1 rounded-xl lux-btn-primary px-4 py-2 font-semibold"
                 >
                   {t('Add Service', 'ಸೇವೆ ಸೇರಿಸಿ')}
                 </button>

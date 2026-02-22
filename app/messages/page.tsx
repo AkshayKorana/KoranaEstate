@@ -134,7 +134,7 @@ export default function MessagesPage() {
 
   if (status === 'loading' || loading) {
     return (
-      <div className={`min-h-screen content-under-navbar flex items-center justify-center ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
+      <div className={`min-h-screen content-under-navbar flex items-center justify-center ${isDark ? 'bg-slate-950' : 'bg-transparent'}`}>
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
           <p className={`mt-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{t('Loading messages...', 'ಸಂದೇಶಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}</p>
@@ -144,17 +144,17 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className={`min-h-screen content-under-navbar ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
+    <div className={`min-h-screen content-under-navbar ${isDark ? 'bg-slate-950' : 'bg-transparent'}`}>
       <Navbar />
-      <div className="h-[calc(100vh-7.5rem)] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className={`h-full rounded-2xl shadow-sm flex overflow-hidden border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-emerald-100'}`}>
+      <div className="h-[calc(100vh-10rem)] max-w-7xl mx-auto px-6 md:px-8 lg:px-10 py-6">
+        <div className={`h-full rounded-3xl shadow-sm flex overflow-hidden border glass ${isDark ? 'border-slate-700' : 'border-emerald-100'}`}>
           {/* Conversations List */}
           <div className={`w-80 border-r flex flex-col ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
-            <div className={`p-4 border-b ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-gradient-to-r from-emerald-50 via-white to-blue-50'}`}>
-              <h2 className="text-xl font-semibold text-brand-spectrum">{t('Messages', 'ಸಂದೇಶಗಳು')}</h2>
+            <div className={`p-4 border-b ${isDark ? 'border-slate-700 bg-slate-800/85' : 'border-emerald-200/25 bg-[#171411]/75'}`}>
+              <h2 className="font-luxe text-2xl font-semibold text-brand-spectrum">{t('Messages', 'ಸಂದೇಶಗಳು')}</h2>
             </div>
             
-            <div className={`flex-1 overflow-y-auto ${isDark ? 'bg-slate-800' : 'bg-[#efeae2]'}`}>
+            <div className={`flex-1 overflow-y-auto ${isDark ? 'bg-slate-800' : 'bg-[#130f0d]/80'}`}>
               {conversations.length === 0 ? (
                 <div className={`p-8 text-center ${isDark ? 'text-gray-300' : 'text-gray-500'}`}>
                   <p>{t('No conversations yet.', 'ಇನ್ನೂ ಯಾವುದೇ ಸಂಭಾಷಣೆಗಳಿಲ್ಲ.')}</p>
@@ -169,10 +169,10 @@ export default function MessagesPage() {
                     <button
                       key={conversation.id}
                       onClick={() => setSelectedConversation(conversation)}
-                      className={`w-full p-4 border-b text-left transition-colors ${
+                      className={`w-full p-4 border-b text-left transition-all duration-300 ${
                         isDark
                           ? `border-slate-700 hover:bg-slate-700 ${selectedConversation?.id === conversation.id ? 'bg-slate-700' : ''}`
-                          : `border-gray-100 hover:bg-white/80 ${selectedConversation?.id === conversation.id ? 'bg-white' : ''}`
+                          : `border-emerald-200/10 hover:bg-emerald-900/20 ${selectedConversation?.id === conversation.id ? 'bg-emerald-950/30 shadow-sm' : ''}`
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -181,13 +181,13 @@ export default function MessagesPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-baseline mb-1">
-                            <h3 className={`font-semibold truncate ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{otherUser?.name || t('User', 'ಬಳಕೆದಾರ')}</h3>
-                            <span className={`text-xs ml-2 flex-shrink-0 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                            <h3 className={`font-semibold truncate ${isDark ? 'text-gray-100' : 'text-[#f0e5d4]'}`}>{otherUser?.name || t('User', 'ಬಳಕೆದಾರ')}</h3>
+                            <span className={`text-xs ml-2 flex-shrink-0 ${isDark ? 'text-gray-400' : 'text-[#b6a996]'}`}>
                               {formatDate(conversation.lastMessageAt)}
                             </span>
                           </div>
                           {lastMessage && (
-                            <p className={`text-sm truncate ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{lastMessage.content}</p>
+                            <p className={`text-sm truncate ${isDark ? 'text-gray-300' : 'text-[#c8bba8]'}`}>{lastMessage.content}</p>
                           )}
                         </div>
                       </div>
@@ -203,36 +203,40 @@ export default function MessagesPage() {
             {selectedConversation ? (
               <>
                 {/* Chat Header */}
-                <div className={`p-4 border-b flex items-center gap-3 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+                <div className={`p-4 border-b flex items-center gap-3 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-emerald-200/20 bg-[#171411]/80 backdrop-blur'}`}>
                   <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-semibold">
                     {getOtherUser(selectedConversation)?.name?.[0]?.toUpperCase() || '?'}
                   </div>
                   <div>
-                    <h3 className={`font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>
+                    <h3 className={`font-semibold ${isDark ? 'text-gray-100' : 'text-[#f0e5d4]'}`}>
                       {getOtherUser(selectedConversation)?.name || t('User', 'ಬಳಕೆದಾರ')}
                     </h3>
-                    <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>{getOtherUser(selectedConversation)?.email}</p>
+                    <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-[#b6a996]'}`}>{getOtherUser(selectedConversation)?.email}</p>
                   </div>
                 </div>
 
                 {/* Messages */}
-                <div className={`flex-1 overflow-y-auto p-4 space-y-4 ${isDark ? 'bg-slate-800' : 'bg-[#e5ddd5]'}`}>
-                  {messages.map(message => {
+                <div className={`flex-1 overflow-y-auto p-4 space-y-4 ${isDark ? 'bg-slate-800/90' : 'bg-[#130f0d]/80'}`}>
+                  {messages.map((message, idx) => {
                     const isOwn = message.sender?.email === session?.user?.email
                     
                     return (
-                      <div key={message.id} className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}>
+                      <div
+                        key={message.id}
+                        className={`fade-in flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                        style={{ animationDelay: `${Math.min(idx * 25, 220)}ms` }}
+                      >
                         <div className={`max-w-xs lg:max-w-md ${isOwn ? 'order-2' : 'order-1'}`}>
                           <div
                             className={`px-4 py-2 rounded-lg ${
                               isOwn
-                                ? 'bg-[#dcf8c6] text-gray-900 rounded-br-none'
-                                : `${isDark ? 'bg-slate-700 text-gray-100' : 'bg-white text-gray-900'} rounded-bl-none shadow-sm`
+                                ? 'chat-bubble-own rounded-br-none shadow-lg'
+                                : `${isDark ? 'bg-slate-700 text-gray-100' : 'chat-bubble-other'} rounded-bl-none shadow-sm`
                             }`}
                           >
                             <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                           </div>
-                          <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'} ${isOwn ? 'text-right' : 'text-left'}`}>
+                          <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-[#b6a996]'} ${isOwn ? 'text-right' : 'text-left'}`}>
                             {formatTime(message.createdAt)}
                           </p>
                         </div>
@@ -243,14 +247,14 @@ export default function MessagesPage() {
                 </div>
 
                 {/* Message Input */}
-                <form onSubmit={handleSendMessage} className={`p-4 border-t ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
+                <form onSubmit={handleSendMessage} className={`p-4 border-t ${isDark ? 'border-slate-700 bg-slate-900' : 'border-emerald-200/20 bg-[#171411]/80 backdrop-blur'}`}>
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       placeholder={t('Type a message...', 'ಸಂದೇಶವನ್ನು ಟೈಪ್ ಮಾಡಿ...')}
-                      className={`flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${isDark ? 'border-slate-600 bg-slate-800 text-gray-100' : 'border-gray-300 bg-white text-gray-900'}`}
+                      className={`flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${isDark ? 'border-slate-600 bg-slate-800 text-gray-100' : 'border-emerald-200/30 bg-[#130f0d] text-[#f0e5d4]'}`}
                     />
                     <button
                       type="submit"

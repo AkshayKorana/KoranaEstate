@@ -80,33 +80,24 @@ export default function Navbar() {
   const shownUnreadCount = status === 'authenticated' ? unreadCount : 0
 
   return (
-    <header
-      className="fixed top-3 left-0 right-0 z-50 px-3 md:px-6"
-    >
-      <div
-        className={`mx-auto max-w-7xl rounded-2xl transition-all duration-500 ${
-          isScrolled || isMobileMenuOpen
-            ? 'glass shadow-xl border border-emerald-100 dark:border-slate-700'
-            : 'bg-white/75 backdrop-blur-md border border-white/40 dark:bg-slate-900/75 dark:border-slate-700/60'
-        }`}
-      >
-        <div className="px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center py-4 md:py-5">
+    <header className="fixed top-0 left-0 right-0 z-50 border-b backdrop-blur-lg" style={{ borderColor: 'var(--lux-navbar-border)', background: 'var(--lux-navbar-bg)' }}>
+      <div className="mx-auto w-full max-w-7xl px-6 md:px-8 lg:px-10">
+        <div className={`flex justify-between items-center py-4 md:py-5 transition-all duration-300 ${isScrolled || isMobileMenuOpen ? 'border-b border-emerald-200/10' : ''}`}>
           {/* Logo - Click to go Home */}
           <Link href="/" className="flex items-center space-x-3 group cursor-pointer" title="Go to Home">
             <div className="p-2 rounded-xl gradient-emerald-coffee group-hover:scale-110 transition-transform duration-300 float-animation">
               <CoffeeIcon className="h-7 w-7 text-white" />
             </div>
             <div>
-              <span className="text-2xl font-bold text-brand-spectrum">
+              <span className="font-luxe text-3xl font-bold text-brand-spectrum">
                 Korana Estate
               </span>
-              <p className="text-xs text-emerald-900/80 dark:text-emerald-200/90 -mt-1">Coffee and Spices</p>
+              <p className="lux-muted text-xs -mt-1">Coffee and Spices</p>
             </div>
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-2 bg-white/50 backdrop-blur-sm rounded-2xl px-2 py-2 shadow-lg dark:bg-slate-800/60">
+          <nav className="hidden lg:flex items-center gap-1 rounded-2xl px-1 py-1 border" style={{ borderColor: 'var(--lux-navbar-border)', background: 'color-mix(in oklab, var(--lux-navbar-bg) 74%, transparent)' }}>
             {navItems.map(item => {
               const isActive = isActivePath(item.href)
               const isMessages = item.href === '/messages'
@@ -115,13 +106,14 @@ export default function Navbar() {
                   key={item.href}
                   href={item.href}
                   className={`
-                    relative px-6 py-2.5 rounded-xl font-semibold text-sm
+                    relative px-4 xl:px-5 py-3 rounded-xl font-semibold text-sm
                     transition-all duration-300 flex items-center space-x-2
                     ${isActive 
-                      ? 'gradient-brand-spectrum text-white shadow-lg scale-105' 
-                      : 'text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 dark:text-gray-200 dark:hover:bg-slate-700 dark:hover:text-emerald-300'
+                      ? 'gradient-brand-spectrum text-white shadow-md' 
+                      : 'hover:text-[var(--lux-navbar-text)] hover:bg-[var(--lux-navbar-hover)]'
                     }
                   `}
+                  style={!isActive ? { color: 'var(--lux-navbar-text-muted)', backgroundColor: 'transparent' } : undefined}
                 >
                   <span className="text-lg">{item.icon}</span>
                   <span>{item.label[lang]}</span>
@@ -130,53 +122,58 @@ export default function Navbar() {
                       {shownUnreadCount > 99 ? '99+' : shownUnreadCount}
                     </span>
                   )}
-                  {isActive && (
-                    <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-1/2 h-1 gradient-emerald rounded-full"></div>
-                  )}
+                  {isActive && <div className="absolute -bottom-0.5 left-1/2 h-1 w-1/2 -translate-x-1/2 rounded-full gradient-emerald" />}
                 </Link>
               )
             })}
           </nav>
 
           {/* Desktop Auth */}
-          <div className="hidden md:flex items-center space-x-4">
-            <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1 dark:border-gray-600 dark:bg-slate-800">
+          <div className="hidden lg:flex items-center space-x-3 xl:space-x-4">
+            <div className="lux-segment">
               <button
                 type="button"
                 onClick={() => setLang('en')}
-                className={`px-3 py-1 text-xs font-semibold rounded ${lang === 'en' ? 'bg-emerald-600 text-white' : 'text-gray-700 dark:text-gray-200'}`}
+                className={`lux-segment-item ${lang === 'en' ? 'active' : ''}`}
               >
                 EN
               </button>
               <button
                 type="button"
                 onClick={() => setLang('kn')}
-                className={`px-3 py-1 text-xs font-semibold rounded ${lang === 'kn' ? 'bg-emerald-600 text-white' : 'text-gray-700 dark:text-gray-200'}`}
+                className={`lux-segment-item ${lang === 'kn' ? 'active' : ''}`}
               >
                 ಕನ್ನಡ
               </button>
             </div>
-            <button
-              type="button"
-              onClick={toggleTheme}
-              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-slate-800 dark:text-gray-200 dark:hover:bg-slate-700"
-            >
-              {theme === 'dark' ? t('Light', 'ಲೈಟ್') : t('Dark', 'ಡಾರ್ಕ್')}
-            </button>
+            <div className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5" style={{ borderColor: 'var(--lux-navbar-border)', background: 'color-mix(in oklab, var(--lux-navbar-bg) 72%, transparent)' }}>
+              <span className="text-xs font-semibold" style={{ color: 'var(--lux-navbar-text-muted)' }}>
+                {theme === 'dark' ? t('Dark', 'ಡಾರ್ಕ್') : t('Light', 'ಲೈಟ್')}
+              </span>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="lux-toggle"
+                data-on={theme === 'dark'}
+                aria-label={theme === 'dark' ? t('Switch to light', 'ಲೈಟ್‌ಗೆ ಬದಲಿಸಿ') : t('Switch to dark', 'ಡಾರ್ಕ್‌ಗೆ ಬದಲಿಸಿ')}
+              >
+                <span className="lux-toggle-thumb" />
+              </button>
+            </div>
             {status === 'authenticated' && session?.user ? (
               <>
-                <div className="flex items-center space-x-3 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-50 to-amber-50">
+                <div className="flex items-center space-x-3 px-4 py-2 rounded-xl border" style={{ borderColor: 'var(--lux-navbar-border)', background: 'color-mix(in oklab, var(--lux-navbar-bg) 80%, transparent)' }}>
                   <div className="w-8 h-8 rounded-full gradient-emerald-coffee flex items-center justify-center text-white font-bold text-sm">
                     {session.user.name?.[0]?.toUpperCase() || session.user.email?.[0]?.toUpperCase() || 'U'}
                   </div>
-                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                  <span className="text-sm font-medium" style={{ color: 'var(--lux-navbar-text)' }}>
                     {session.user.name || session.user.email}
                   </span>
                 </div>
                 <button
                   type="button"
                   onClick={() => signOut({ callbackUrl: '/' })}
-                  className="px-5 py-2.5 rounded-xl border-2 border-gray-300 text-sm font-semibold text-gray-700 transition-all hover:border-red-500 hover:text-red-600 hover:shadow-lg"
+                  className="lux-btn-secondary px-5 py-2.5 rounded-xl text-sm font-semibold"
                 >
                   {t('Sign Out', 'ಸೈನ್ ಔಟ್')}
                 </button>
@@ -184,7 +181,7 @@ export default function Navbar() {
             ) : (
               <Link
                 href="/auth"
-                className="px-6 py-2.5 rounded-xl gradient-brand-spectrum text-white font-semibold text-sm shadow-lg hover:shadow-xl hover:scale-105 transition-all duration-300 flex items-center space-x-2"
+                className="lux-btn-primary px-6 py-2.5 rounded-xl font-semibold text-sm shadow-lg flex items-center space-x-2"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
@@ -196,20 +193,19 @@ export default function Navbar() {
 
           {/* Mobile Menu Button */}
           <button
-            className="md:hidden p-3 rounded-xl glass hover:shadow-lg transition-all"
+            className="lg:hidden p-3 rounded-xl border border-emerald-200/25 bg-[#171411]/70 hover:bg-[#1f1a16] transition-all text-[#e8dccb]"
             onClick={() => setIsMobileMenuOpen(v => !v)}
             aria-label="Toggle menu"
           >
             <Icon label={isMobileMenuOpen ? '✕' : '☰'} />
           </button>
         </div>
-        </div>
       </div>
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="md:hidden mt-2 mx-auto max-w-7xl rounded-2xl glass border border-emerald-100 dark:border-slate-700 slide-in-up">
-          <div className="px-4 pt-4 pb-6 space-y-3">
+        <div className="lg:hidden border-t border-emerald-200/15 bg-[rgba(13,10,8,0.92)]">
+          <div className="mx-auto max-w-7xl px-6 md:px-8 lg:px-10 pt-4 pb-6 space-y-3 slide-in-up">
             {navItems.map(item => {
               const isActive = isActivePath(item.href)
               const isMessages = item.href === '/messages'
@@ -221,8 +217,8 @@ export default function Navbar() {
                     flex items-center space-x-3 px-4 py-3 rounded-xl text-base font-semibold
                     transition-all duration-300
                     ${isActive
-                      ? 'gradient-brand-spectrum text-white shadow-lg'
-                      : 'bg-white/50 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 dark:bg-slate-800/70 dark:text-gray-200 dark:hover:bg-slate-700 dark:hover:text-emerald-300'
+                      ? 'gradient-brand-spectrum text-white shadow-md'
+                      : 'bg-[#171411]/75 text-[#d8c8b3] hover:bg-emerald-900/25 hover:text-[#e9dcc9]'
                     }
                   `}
                   onClick={() => setIsMobileMenuOpen(false)}
@@ -237,43 +233,50 @@ export default function Navbar() {
                 </Link>
               )
             })}
-            <div className="pt-3 border-t border-emerald-100">
-              <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1 mb-3 w-full dark:border-gray-600 dark:bg-slate-800">
+            <div className="pt-3 border-t border-emerald-200/30">
+              <div className="lux-segment mb-3 w-full">
                 <button
                   type="button"
                   onClick={() => setLang('en')}
-                  className={`flex-1 px-3 py-2 text-xs font-semibold rounded ${lang === 'en' ? 'bg-emerald-600 text-white' : 'text-gray-700 dark:text-gray-200'}`}
+                  className={`lux-segment-item flex-1 ${lang === 'en' ? 'active' : ''}`}
                 >
                   EN
                 </button>
                 <button
                   type="button"
                   onClick={() => setLang('kn')}
-                  className={`flex-1 px-3 py-2 text-xs font-semibold rounded ${lang === 'kn' ? 'bg-emerald-600 text-white' : 'text-gray-700 dark:text-gray-200'}`}
+                  className={`lux-segment-item flex-1 ${lang === 'kn' ? 'active' : ''}`}
                 >
                   ಕನ್ನಡ
                 </button>
               </div>
-              <button
-                type="button"
-                onClick={toggleTheme}
-                className="mb-3 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-slate-800 dark:text-gray-200"
-              >
-                {theme === 'dark' ? t('Switch to Light', 'ಲೈಟ್‌ಗೆ ಬದಲಿಸಿ') : t('Switch to Dark', 'ಡಾರ್ಕ್‌ಗೆ ಬದಲಿಸಿ')}
-              </button>
+              <div className="mb-3 flex items-center justify-between rounded-lg border border-emerald-200/20 bg-[#171411]/55 px-3 py-2">
+                <span className="text-sm font-semibold text-[#d8c8b3]">
+                  {theme === 'dark' ? t('Dark Mode', 'ಡಾರ್ಕ್ ಮೋಡ್') : t('Light Mode', 'ಲೈಟ್ ಮೋಡ್')}
+                </span>
+                <button
+                  type="button"
+                  onClick={toggleTheme}
+                  className="lux-toggle"
+                  data-on={theme === 'dark'}
+                  aria-label={theme === 'dark' ? t('Switch to light', 'ಲೈಟ್‌ಗೆ ಬದಲಿಸಿ') : t('Switch to dark', 'ಡಾರ್ಕ್‌ಗೆ ಬದಲಿಸಿ')}
+                >
+                  <span className="lux-toggle-thumb" />
+                </button>
+              </div>
               {status === 'authenticated' && session?.user ? (
                 <>
-                  <div className="flex items-center space-x-3 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-50 to-amber-50 mb-3">
+                  <div className="flex items-center space-x-3 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-950/50 to-amber-900/30 mb-3 border border-emerald-200/20">
                     <div className="w-10 h-10 rounded-full gradient-emerald-coffee flex items-center justify-center text-white font-bold">
                       {session.user.name?.[0]?.toUpperCase() || session.user.email?.[0]?.toUpperCase() || 'U'}
                     </div>
-                    <span className="text-sm font-medium text-gray-700">
+                    <span className="text-sm font-medium text-[#e6d8c5]">
                       {session.user.name || session.user.email}
                     </span>
                   </div>
                   <button
                     type="button"
-                    className="block w-full rounded-xl border-2 border-gray-300 px-4 py-3 text-center text-sm font-semibold text-gray-700 hover:border-red-500 hover:text-red-600 transition-all"
+                    className="lux-btn-secondary block w-full rounded-xl px-4 py-3 text-center text-sm font-semibold"
                     onClick={async () => {
                       setIsMobileMenuOpen(false)
                       await signOut({ callbackUrl: '/' })
@@ -285,7 +288,7 @@ export default function Navbar() {
               ) : (
                 <Link
                   href="/auth"
-                  className="flex items-center justify-center space-x-2 w-full rounded-xl gradient-brand-spectrum px-4 py-3 text-center text-sm font-semibold text-white shadow-lg"
+                  className="lux-btn-primary flex items-center justify-center space-x-2 w-full rounded-xl px-4 py-3 text-center text-sm font-semibold shadow-lg"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

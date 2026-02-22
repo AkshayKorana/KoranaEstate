@@ -3,8 +3,8 @@ import AuthPageClient from './AuthPageClient'
 
 export default function AuthPage() {
   return (
-    <main className="min-h-screen bg-gradient-to-b from-emerald-50 to-white px-4 py-16 dark:from-gray-900 dark:to-gray-950">
-      <Suspense fallback={<div className="mx-auto w-full max-w-lg text-sm text-gray-600">Loading auth...</div>}>
+    <main className="min-h-screen bg-[linear-gradient(145deg,#0f0c0a_0%,#15100d_55%,#143327_100%)] px-4 py-16">
+      <Suspense fallback={<div className="mx-auto w-full max-w-lg text-sm text-[#c8bca9]">Loading auth...</div>}>
         <AuthPageClient />
       </Suspense>
     </main>

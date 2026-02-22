@@ -60,12 +60,12 @@ export default function ResetPasswordForm({ onSuccess }: ResetPasswordFormProps)
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="text-center">
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">{t('Set a new password', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್ ಹೊಂದಿಸಿ')}</h3>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{t('Enter and confirm your new password.', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್ ನಮೂದಿಸಿ ಮತ್ತು ದೃಢೀಕರಿಸಿ.')}</p>
+        <h3 className="text-xl font-semibold text-[#efe4d4]">{t('Set a new password', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್ ಹೊಂದಿಸಿ')}</h3>
+        <p className="mt-2 text-sm text-[#c8bca9]">{t('Enter and confirm your new password.', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್ ನಮೂದಿಸಿ ಮತ್ತು ದೃಢೀಕರಿಸಿ.')}</p>
       </div>
 
       <div>
-        <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('New password', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್')}</label>
+        <label htmlFor="new-password" className="block text-sm font-medium text-[#dbcdbb]">{t('New password', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್')}</label>
         <input
           id="new-password"
           type="password"
@@ -73,28 +73,28 @@ export default function ResetPasswordForm({ onSuccess }: ResetPasswordFormProps)
           minLength={8}
           value={password}
           onChange={e => setPassword(e.target.value)}
-          className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none ring-emerald-500 focus:ring-2 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+          className="lux-input mt-1 w-full rounded-xl px-3 py-2 text-sm"
         />
       </div>
 
       <div>
-        <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('Confirm password', 'ಪಾಸ್‌ವರ್ಡ್ ದೃಢೀಕರಿಸಿ')}</label>
+        <label htmlFor="confirm-password" className="block text-sm font-medium text-[#dbcdbb]">{t('Confirm password', 'ಪಾಸ್‌ವರ್ಡ್ ದೃಢೀಕರಿಸಿ')}</label>
         <input
           id="confirm-password"
           type="password"
           required
           value={confirmPassword}
           onChange={e => setConfirmPassword(e.target.value)}
-          className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none ring-emerald-500 focus:ring-2 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+          className="lux-input mt-1 w-full rounded-xl px-3 py-2 text-sm"
         />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-300">{error}</p>}
 
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="lux-btn-primary w-full rounded-xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isLoading ? t('Updating...', 'ನವೀಕರಿಸಲಾಗುತ್ತಿದೆ...') : t('Update password', 'ಪಾಸ್‌ವರ್ಡ್ ನವೀಕರಿಸಿ')}
       </button>

@@ -56,33 +56,33 @@ export default function SignUpForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="signup-name" className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('Full Name', 'ಪೂರ್ಣ ಹೆಸರು')}</label>
+        <label htmlFor="signup-name" className="block text-sm font-medium text-[#dbcdbb]">{t('Full Name', 'ಪೂರ್ಣ ಹೆಸರು')}</label>
         <input
           id="signup-name"
           type="text"
           required
           value={name}
           onChange={e => setName(e.target.value)}
-          className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none ring-emerald-500 focus:ring-2 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+          className="lux-input mt-1 w-full rounded-xl px-3 py-2 text-sm"
           placeholder={t('Akshay Korana', 'ಅಕ್ಷಯ್ ಕೊರಾನಾ')}
         />
       </div>
 
       <div>
-        <label htmlFor="signup-email" className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('Email', 'ಇಮೇಲ್')}</label>
+        <label htmlFor="signup-email" className="block text-sm font-medium text-[#dbcdbb]">{t('Email', 'ಇಮೇಲ್')}</label>
         <input
           id="signup-email"
           type="email"
           required
           value={email}
           onChange={e => setEmail(e.target.value)}
-          className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none ring-emerald-500 focus:ring-2 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+          className="lux-input mt-1 w-full rounded-xl px-3 py-2 text-sm"
           placeholder={t('you@example.com', 'you@example.com')}
         />
       </div>
 
       <div>
-        <label htmlFor="signup-password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">{t('Password', 'ಪಾಸ್‌ವರ್ಡ್')}</label>
+        <label htmlFor="signup-password" className="block text-sm font-medium text-[#dbcdbb]">{t('Password', 'ಪಾಸ್‌ವರ್ಡ್')}</label>
         <input
           id="signup-password"
           type="password"
@@ -90,7 +90,7 @@ export default function SignUpForm() {
           minLength={8}
           value={password}
           onChange={e => setPassword(e.target.value)}
-          className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none ring-emerald-500 focus:ring-2 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+          className="lux-input mt-1 w-full rounded-xl px-3 py-2 text-sm"
           placeholder={t('At least 8 characters', 'ಕನಿಷ್ಠ 8 ಅಕ್ಷರಗಳು')}
         />
       </div>
@@ -98,12 +98,12 @@ export default function SignUpForm() {
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="lux-btn-primary w-full rounded-xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isLoading ? t('Creating account...', 'ಖಾತೆ ಸೃಷ್ಟಿಯಾಗುತ್ತಿದೆ...') : t('Create Account', 'ಖಾತೆ ಸೃಷ್ಟಿಸಿ')}
       </button>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-300">{error}</p>}
     </form>
   )
 }

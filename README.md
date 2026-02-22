@@ -16,7 +16,42 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+### Database setup (Prisma + PostgreSQL)
+
+1. Set `DATABASE_URL` in `.env` to your PostgreSQL connection string.
+2. Run migrations and generate Prisma client:
+
+```bash
+npx prisma migrate deploy
+npx prisma generate
+```
+
+For local development with schema changes:
+
+```bash
+npx prisma migrate dev
+```
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+## Production mode (strict real data)
+
+Set these in deployment environment:
+
+```bash
+STRICT_REAL_DATA=true
+NEXTAUTH_URL=https://your-domain.com
+NEXTAUTH_SECRET=your-long-random-secret
+DATABASE_URL=postgresql://...
+```
+
+Useful checks after deploy:
+
+```bash
+curl https://your-domain.com/api/health
+curl https://your-domain.com/api/market
+curl -X POST https://your-domain.com/api/jobs/pipeline -H "Authorization: Bearer <CRON_SECRET>"
+```
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
