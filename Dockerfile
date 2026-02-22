@@ -2,13 +2,13 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Copy only backend
 COPY korana-estate/backend ./backend
 
 WORKDIR /app/backend
 
 RUN npm install
+RUN npm run build
 
 EXPOSE 3000
 
-CMD ["npm", "run", "start"]
+CMD ["node", "dist/main.js"]
