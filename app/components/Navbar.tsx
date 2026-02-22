@@ -109,7 +109,7 @@ export default function Navbar() {
                     relative px-4 xl:px-5 py-3 rounded-xl font-semibold text-sm
                     transition-all duration-300 flex items-center space-x-2
                     ${isActive 
-                      ? 'gradient-brand-spectrum text-white shadow-md' 
+                      ? 'bg-emerald-700 text-white shadow-md' 
                       : 'hover:text-[var(--lux-navbar-text)] hover:bg-[var(--lux-navbar-hover)]'
                     }
                   `}
@@ -122,7 +122,7 @@ export default function Navbar() {
                       {shownUnreadCount > 99 ? '99+' : shownUnreadCount}
                     </span>
                   )}
-                  {isActive && <div className="absolute -bottom-0.5 left-1/2 h-1 w-1/2 -translate-x-1/2 rounded-full gradient-emerald" />}
+                  {isActive && <div className="absolute -bottom-0.5 left-1/2 h-1 w-1/2 -translate-x-1/2 rounded-full bg-emerald-300" />}
                 </Link>
               )
             })}
@@ -217,7 +217,7 @@ export default function Navbar() {
                     flex items-center space-x-3 px-4 py-3 rounded-xl text-base font-semibold
                     transition-all duration-300
                     ${isActive
-                      ? 'gradient-brand-spectrum text-white shadow-md'
+                      ? 'bg-emerald-700 text-white shadow-md'
                       : 'bg-[#171411]/75 text-[#d8c8b3] hover:bg-emerald-900/25 hover:text-[#e9dcc9]'
                     }
                   `}
