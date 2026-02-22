@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import Navbar from '@/app/components/Navbar'
 import { useLanguage } from '@/app/language-context'
+import { useTheme } from '@/app/theme-context'
 import { ESTATE_BLOCKS, blockHasCategory } from './blocks'
 
 type EstateListing = {
@@ -14,6 +15,8 @@ type EstateListing = {
 
 export default function EstateMarketplacePage() {
   const { t } = useLanguage()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const [listings, setListings] = useState<EstateListing[]>([])
 
   useEffect(() => {
@@ -45,12 +48,12 @@ export default function EstateMarketplacePage() {
   }, [listings])
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-24 pb-12">
+    <div className={`min-h-screen pt-24 pb-12 ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">{t('Estate Essentials Marketplace', 'ಎಸ್ಟೇಟ್ ಅವಶ್ಯಕತೆಗಳ ಮಾರುಕಟ್ಟೆ')}</h1>
-          <p className="text-gray-600 mt-1">{t('Select a block to open a dedicated service page.', 'ಪ್ರತ್ಯೇಕ ಸೇವಾ ಪುಟವನ್ನು ತೆರೆಯಲು ಒಂದು ವಿಭಾಗವನ್ನು ಆಯ್ಕೆಮಾಡಿ.')}</p>
+          <h1 className={`text-3xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{t('Estate Essentials Marketplace', 'ಎಸ್ಟೇಟ್ ಅವಶ್ಯಕತೆಗಳ ಮಾರುಕಟ್ಟೆ')}</h1>
+          <p className={`mt-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{t('Select a block to open a dedicated service page.', 'ಪ್ರತ್ಯೇಕ ಸೇವಾ ಪುಟವನ್ನು ತೆರೆಯಲು ಒಂದು ವಿಭಾಗವನ್ನು ಆಯ್ಕೆಮಾಡಿ.')}</p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
@@ -60,7 +63,7 @@ export default function EstateMarketplacePage() {
               <Link
                 key={block.slug}
                 href={`/estate-marketplace/${block.slug}`}
-                className="group rounded-2xl border border-gray-200 bg-white p-3 text-left transition-all hover:shadow-md"
+                className={`group rounded-2xl border p-3 text-left transition-all hover:shadow-md ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}
               >
                 <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-emerald-50">
                   <Image
@@ -71,8 +74,8 @@ export default function EstateMarketplacePage() {
                   />
                 </div>
                 <div className="mt-3">
-                  <p className="text-sm font-semibold text-gray-900">{t(block.title, block.titleKn)}</p>
-                  <p className="text-xs text-gray-600 mt-1">{t(block.subtitle, block.subtitleKn)}</p>
+                  <p className={`text-sm font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{t(block.title, block.titleKn)}</p>
+                  <p className={`text-xs mt-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{t(block.subtitle, block.subtitleKn)}</p>
                   <p className="text-xs text-emerald-700 mt-2 font-semibold">{count} {t('active listings', 'ಸಕ್ರಿಯ ಪಟ್ಟಿಗಳು')}</p>
                 </div>
                 <div className="mt-3 rounded-lg bg-emerald-600 px-3 py-2 text-center text-xs font-semibold text-white">

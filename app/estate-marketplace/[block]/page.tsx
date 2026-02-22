@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Navbar from '@/app/components/Navbar'
 import { useLanguage } from '@/app/language-context'
+import { useTheme } from '@/app/theme-context'
 import type { User } from '@/types/marketplace'
 import { LISTING_TYPES, UNITS, blockHasCategory, getEstateBlockBySlug } from '../blocks'
 
@@ -42,6 +43,8 @@ type CreateEstateListingInput = {
 
 export default function EstateBlockPage() {
   const { t } = useLanguage()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const params = useParams<{ block: string }>()
   const router = useRouter()
   const { status } = useSession()
@@ -99,7 +102,7 @@ export default function EstateBlockPage() {
 
   if (!block) {
     return (
-      <div className="min-h-screen bg-gray-50 pt-24 pb-12">
+      <div className={`min-h-screen pt-24 pb-12 ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
         <Navbar />
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="rounded-xl border border-red-200 bg-red-50 p-6">
@@ -211,18 +214,18 @@ export default function EstateBlockPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 pt-24 pb-12">
+    <div className={`min-h-screen pt-24 pb-12 ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
-            <p className="text-gray-600 mt-1">{t('View listings, add service, and chat with sellers.', 'ಪಟ್ಟಿಗಳನ್ನು ನೋಡಿ, ಸೇವೆ ಸೇರಿಸಿ, ಮಾರಾಟಗಾರರ ಜೊತೆ ಚಾಟ್ ಮಾಡಿ.')}</p>
+            <h1 className={`text-3xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{title}</h1>
+            <p className={`mt-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{t('View listings, add service, and chat with sellers.', 'ಪಟ್ಟಿಗಳನ್ನು ನೋಡಿ, ಸೇವೆ ಸೇರಿಸಿ, ಮಾರಾಟಗಾರರ ಜೊತೆ ಚಾಟ್ ಮಾಡಿ.')}</p>
           </div>
           <div className="flex gap-2">
             <Link
               href="/estate-marketplace"
-              className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700"
+              className={`rounded-lg border px-4 py-2 text-sm font-semibold ${isDark ? 'border-slate-600 bg-slate-800 text-gray-200' : 'border-gray-300 bg-white text-gray-700'}`}
             >
               {t('Back', 'ಹಿಂತಿರುಗಿ')}
             </Link>
@@ -244,31 +247,31 @@ export default function EstateBlockPage() {
         </div>
 
         {loading ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 text-gray-600">{t('Loading services...', 'ಸೇವೆಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}</div>
+          <div className={`rounded-xl border p-6 ${isDark ? 'border-slate-700 bg-slate-900 text-gray-300' : 'border-gray-200 bg-white text-gray-600'}`}>{t('Loading services...', 'ಸೇವೆಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}</div>
         ) : listings.length === 0 ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 text-gray-600">{t('No listings yet in this service.', 'ಈ ಸೇವೆಯಲ್ಲಿ ಇನ್ನೂ ಪಟ್ಟಿಗಳಿಲ್ಲ.')}</div>
+          <div className={`rounded-xl border p-6 ${isDark ? 'border-slate-700 bg-slate-900 text-gray-300' : 'border-gray-200 bg-white text-gray-600'}`}>{t('No listings yet in this service.', 'ಈ ಸೇವೆಯಲ್ಲಿ ಇನ್ನೂ ಪಟ್ಟಿಗಳಿಲ್ಲ.')}</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {listings.map((listing) => (
-              <div key={listing.id} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm space-y-3">
+              <div key={listing.id} className={`rounded-2xl border p-5 shadow-sm space-y-3 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}>
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className="font-bold text-gray-900 text-lg leading-tight">{listing.title}</h3>
+                  <h3 className={`font-bold text-lg leading-tight ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{listing.title}</h3>
                   <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
                     {listing.listingType}
                   </span>
                 </div>
 
-                <div className="text-sm text-gray-600 space-y-1">
-                  {listing.subcategory && <p><span className="font-semibold text-gray-800">{t('Sub:', 'ಉಪ:')}</span> {listing.subcategory}</p>}
-                  <p><span className="font-semibold text-gray-800">{t('Price:', 'ಬೆಲೆ:')}</span> ₹{listing.price.toLocaleString('en-IN')} / {listing.unit}</p>
-                  {listing.quantity != null && <p><span className="font-semibold text-gray-800">{t('Qty:', 'ಪ್ರಮಾಣ:')}</span> {listing.quantity}</p>}
-                  <p><span className="font-semibold text-gray-800">{t('Location:', 'ಸ್ಥಳ:')}</span> {listing.location}</p>
-                  <p><span className="font-semibold text-gray-800">{t('Seller:', 'ಮಾರಾಟಗಾರ:')}</span> {listing.seller?.name || listing.seller?.email || t('Seller', 'ಮಾರಾಟಗಾರ')}</p>
-                  {listing.contactPhone && <p><span className="font-semibold text-gray-800">{t('Phone:', 'ಫೋನ್:')}</span> {listing.contactPhone}</p>}
+                <div className={`text-sm space-y-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                  {listing.subcategory && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{t('Sub:', 'ಉಪ:')}</span> {listing.subcategory}</p>}
+                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{t('Price:', 'ಬೆಲೆ:')}</span> ₹{listing.price.toLocaleString('en-IN')} / {listing.unit}</p>
+                  {listing.quantity != null && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{t('Qty:', 'ಪ್ರಮಾಣ:')}</span> {listing.quantity}</p>}
+                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{t('Location:', 'ಸ್ಥಳ:')}</span> {listing.location}</p>
+                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{t('Seller:', 'ಮಾರಾಟಗಾರ:')}</span> {listing.seller?.name || listing.seller?.email || t('Seller', 'ಮಾರಾಟಗಾರ')}</p>
+                  {listing.contactPhone && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-gray-800'}`}>{t('Phone:', 'ಫೋನ್:')}</span> {listing.contactPhone}</p>}
                 </div>
 
                 {listing.description && (
-                  <p className="text-sm text-gray-600 border-t border-gray-100 pt-3">{listing.description}</p>
+                  <p className={`text-sm border-t pt-3 ${isDark ? 'text-gray-300 border-slate-700' : 'text-gray-600 border-gray-100'}`}>{listing.description}</p>
                 )}
 
                 <div className="grid grid-cols-2 gap-2">

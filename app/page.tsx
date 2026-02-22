@@ -492,9 +492,9 @@ export default function HomePage() {
       </div>
 
       <div className="container mx-auto px-6 space-y-6">
-        <div className="flex space-x-4 border-b-2 border-gray-200">
+        <div className="flex space-x-4 border-b-2 border-gray-200 dark:border-slate-700">
           <button
-            className={`px-5 py-2 font-semibold rounded-t-xl transition-all ${activeTab === 'Dashboard' ? 'bg-white text-purple-600 shadow-md border-t-4 border-purple-500' : 'text-gray-500 hover:text-purple-600'}`}
+            className={`px-5 py-2 font-semibold rounded-t-xl transition-all ${activeTab === 'Dashboard' ? 'bg-white text-purple-700 shadow-md border-t-4 border-purple-500 dark:bg-slate-800 dark:text-purple-300' : 'text-gray-600 hover:text-purple-700 dark:text-gray-300 dark:hover:text-purple-300'}`}
             onClick={() => {
               setActiveTab('Dashboard')
               trackEvent('tab_change', { meta: { tab: 'Dashboard' } })
@@ -503,7 +503,7 @@ export default function HomePage() {
             {translate('AI / Commodity Dashboard', 'AI / ವಸ್ತು ಡ್ಯಾಶ್‌ಬೋರ್ಡ್')}
           </button>
           <button
-            className={`px-5 py-2 font-semibold rounded-t-xl transition-all ${activeTab === 'Marketplace' ? 'bg-white text-emerald-600 shadow-md border-t-4 border-emerald-500' : 'text-gray-500 hover:text-emerald-600'}`}
+            className={`px-5 py-2 font-semibold rounded-t-xl transition-all ${activeTab === 'Marketplace' ? 'bg-white text-emerald-700 shadow-md border-t-4 border-emerald-500 dark:bg-slate-800 dark:text-emerald-300' : 'text-gray-600 hover:text-emerald-700 dark:text-gray-300 dark:hover:text-emerald-300'}`}
             onClick={() => {
               setActiveTab('Marketplace')
               trackEvent('tab_change', { meta: { tab: 'Marketplace' } })
@@ -516,13 +516,13 @@ export default function HomePage() {
         {activeTab === 'Marketplace' && (
           <div className="space-y-4">
             {itemsLoading && (
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
                 {translate('Loading live listings...', 'ಲೈವ್ ಲಿಸ್ಟಿಂಗ್‌ಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}
               </div>
             )}
 
             {!itemsLoading && items.length === 0 && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-700 dark:bg-amber-900/30 dark:text-amber-200">
                 {translate('No live listings found. Add items in Raw Marketplace or Store to see them here.', 'ಲೈವ್ ಲಿಸ್ಟಿಂಗ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ. ಇಲ್ಲಿ ಕಾಣಲು ರಾ ಮಾರುಕಟ್ಟೆ ಅಥವಾ ಸ್ಟೋರ್‌ನಲ್ಲಿ ಐಟಂಗಳನ್ನು ಸೇರಿಸಿ.')}
               </div>
             )}
@@ -571,11 +571,11 @@ export default function HomePage() {
         )}
 
         {activeTab === 'Dashboard' && (
-          <section className="bg-gray-50 p-6 rounded-2xl shadow-lg space-y-6">
+          <section className="bg-white/80 p-6 rounded-2xl shadow-lg space-y-6 border border-gray-200 dark:bg-slate-900/80 dark:border-slate-700">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-2xl font-bold text-gray-800">{translate('Commodity Price Assistant', 'ಬೆಳೆ ಬೆಲೆ ಸಹಾಯಕ')}</h2>
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-gray-100">{translate('Commodity Price Assistant', 'ಬೆಳೆ ಬೆಲೆ ಸಹಾಯಕ')}</h2>
             </div>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
               {translate(
                 "ML-powered price analysis: Real market data from Indian mandis (Agmarknet, Commodity Boards), ICE Futures (live forex conversion), zero synthetic fallbacks. Ensemble forecast with 80% confidence bands.",
                 'ಯಂತ್ರ ಕಲಿಕೆ ಮೂಲಕ ಬೆಲೆ ವಿಶ್ಲೇಷಣೆ: ಭಾರತೀಯ ಮಾಂಡಿಗಳಿಂದ ನೈಜ ಮಾರುಕಟ್ಟೆ ಡೇಟಾ (ಅಗ್‌ಮಾರ್ಕ್‌ನೆಟ್, ಕಮೋಡಿಟಿ ಬೋರ್ಡ್‌ಗಳು), ICE ಫ್ಯೂಚರ್ಸ್ (ಲೈವ್ ಫಾರೆಕ್ಸ್), ಶೂನ್ಯ ಸಿಂಥೆಟಿಕ್ ಫಾಲ್‌ಬ್ಯಾಕ್‌ಗಳು.'
@@ -588,7 +588,7 @@ export default function HomePage() {
               </label>
               <select
                 id="commodity-select"
-                className="w-full border p-3 rounded-xl text-gray-700 font-medium"
+                className="w-full border p-3 rounded-xl text-gray-700 font-medium bg-white dark:bg-slate-800 dark:border-slate-600 dark:text-gray-100"
                 value={selectedCommodityName}
                 onChange={e => {
                   const nextCommodity = e.target.value

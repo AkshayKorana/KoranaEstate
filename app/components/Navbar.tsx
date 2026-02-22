@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 import { useLanguage } from '@/app/language-context'
+import { useTheme } from '@/app/theme-context'
 
 function Icon({ label }: { label: string }) {
   return <span aria-hidden="true" className="text-2xl font-bold leading-none">{label}</span>
@@ -33,6 +34,7 @@ export default function Navbar() {
   const pathname = usePathname()
   const { data: session, status } = useSession()
   const { lang, setLang, t } = useLanguage()
+  const { theme, toggleTheme } = useTheme()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -81,8 +83,8 @@ export default function Navbar() {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         isScrolled || isMobileMenuOpen
-          ? 'glass shadow-xl border-b border-emerald-100'
-          : 'bg-white/60 backdrop-blur-sm'
+          ? 'glass shadow-xl border-b border-emerald-100 dark:border-slate-700'
+          : 'bg-white/60 backdrop-blur-sm dark:bg-slate-900/70'
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -101,7 +103,7 @@ export default function Navbar() {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-2 bg-white/50 backdrop-blur-sm rounded-2xl px-2 py-2 shadow-lg">
+          <nav className="hidden md:flex items-center space-x-2 bg-white/50 backdrop-blur-sm rounded-2xl px-2 py-2 shadow-lg dark:bg-slate-800/60">
             {navItems.map(item => {
               const isActive = isActivePath(item.href)
               const isMessages = item.href === '/messages'
@@ -114,7 +116,7 @@ export default function Navbar() {
                     transition-all duration-300 flex items-center space-x-2
                     ${isActive 
                       ? 'gradient-emerald-coffee text-white shadow-lg scale-105' 
-                      : 'text-gray-700 hover:bg-emerald-50 hover:text-emerald-700'
+                      : 'text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 dark:text-gray-200 dark:hover:bg-slate-700 dark:hover:text-emerald-300'
                     }
                   `}
                 >
@@ -135,29 +137,36 @@ export default function Navbar() {
 
           {/* Desktop Auth */}
           <div className="hidden md:flex items-center space-x-4">
-            <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
+            <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1 dark:border-gray-600 dark:bg-slate-800">
               <button
                 type="button"
                 onClick={() => setLang('en')}
-                className={`px-3 py-1 text-xs font-semibold rounded ${lang === 'en' ? 'bg-emerald-600 text-white' : 'text-gray-700'}`}
+                className={`px-3 py-1 text-xs font-semibold rounded ${lang === 'en' ? 'bg-emerald-600 text-white' : 'text-gray-700 dark:text-gray-200'}`}
               >
                 EN
               </button>
               <button
                 type="button"
                 onClick={() => setLang('kn')}
-                className={`px-3 py-1 text-xs font-semibold rounded ${lang === 'kn' ? 'bg-emerald-600 text-white' : 'text-gray-700'}`}
+                className={`px-3 py-1 text-xs font-semibold rounded ${lang === 'kn' ? 'bg-emerald-600 text-white' : 'text-gray-700 dark:text-gray-200'}`}
               >
                 ಕನ್ನಡ
               </button>
             </div>
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-600 dark:bg-slate-800 dark:text-gray-200 dark:hover:bg-slate-700"
+            >
+              {theme === 'dark' ? t('Light', 'ಲೈಟ್') : t('Dark', 'ಡಾರ್ಕ್')}
+            </button>
             {status === 'authenticated' && session?.user ? (
               <>
                 <div className="flex items-center space-x-3 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-50 to-amber-50">
                   <div className="w-8 h-8 rounded-full gradient-emerald-coffee flex items-center justify-center text-white font-bold text-sm">
                     {session.user.name?.[0]?.toUpperCase() || session.user.email?.[0]?.toUpperCase() || 'U'}
                   </div>
-                  <span className="text-sm font-medium text-gray-700">
+                  <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                     {session.user.name || session.user.email}
                   </span>
                 </div>
@@ -209,7 +218,7 @@ export default function Navbar() {
                     transition-all duration-300
                     ${isActive
                       ? 'gradient-emerald-coffee text-white shadow-lg'
-                      : 'bg-white/50 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700'
+                      : 'bg-white/50 text-gray-700 hover:bg-emerald-50 hover:text-emerald-700 dark:bg-slate-800/70 dark:text-gray-200 dark:hover:bg-slate-700 dark:hover:text-emerald-300'
                     }
                   `}
                   onClick={() => setIsMobileMenuOpen(false)}
@@ -225,22 +234,29 @@ export default function Navbar() {
               )
             })}
             <div className="pt-3 border-t border-emerald-100">
-              <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1 mb-3 w-full">
+              <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1 mb-3 w-full dark:border-gray-600 dark:bg-slate-800">
                 <button
                   type="button"
                   onClick={() => setLang('en')}
-                  className={`flex-1 px-3 py-2 text-xs font-semibold rounded ${lang === 'en' ? 'bg-emerald-600 text-white' : 'text-gray-700'}`}
+                  className={`flex-1 px-3 py-2 text-xs font-semibold rounded ${lang === 'en' ? 'bg-emerald-600 text-white' : 'text-gray-700 dark:text-gray-200'}`}
                 >
                   EN
                 </button>
                 <button
                   type="button"
                   onClick={() => setLang('kn')}
-                  className={`flex-1 px-3 py-2 text-xs font-semibold rounded ${lang === 'kn' ? 'bg-emerald-600 text-white' : 'text-gray-700'}`}
+                  className={`flex-1 px-3 py-2 text-xs font-semibold rounded ${lang === 'kn' ? 'bg-emerald-600 text-white' : 'text-gray-700 dark:text-gray-200'}`}
                 >
                   ಕನ್ನಡ
                 </button>
               </div>
+              <button
+                type="button"
+                onClick={toggleTheme}
+                className="mb-3 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm font-semibold text-gray-700 dark:border-gray-600 dark:bg-slate-800 dark:text-gray-200"
+              >
+                {theme === 'dark' ? t('Switch to Light', 'ಲೈಟ್‌ಗೆ ಬದಲಿಸಿ') : t('Switch to Dark', 'ಡಾರ್ಕ್‌ಗೆ ಬದಲಿಸಿ')}
+              </button>
               {status === 'authenticated' && session?.user ? (
                 <>
                   <div className="flex items-center space-x-3 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-50 to-amber-50 mb-3">
