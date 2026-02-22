@@ -1,6 +1,7 @@
 import { cloneElement, ReactElement, useState } from 'react'
 import ForgotPasswordForm from './ForgotPasswordForm'
 import ResetPasswordForm from './ResetPasswordForm'
+import { useLanguage } from '@/app/language-context'
 
 type AuthTab = 'login' | 'signup' | 'reset-password'
 
@@ -11,6 +12,7 @@ interface AuthCardProps {
 }
 
 export default function AuthCard({ loginForm, signupForm, defaultTab = 'login' }: AuthCardProps) {
+  const { t } = useLanguage()
   const initialTab: AuthTab = defaultTab === 'signup' || defaultTab === 'reset-password' ? defaultTab : 'login'
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [currentTab, setCurrentTab] = useState<AuthTab>(initialTab)
@@ -36,9 +38,9 @@ export default function AuthCard({ loginForm, signupForm, defaultTab = 'login' }
                   ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white'
                   : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
               }`}
-              onClick={() => setCurrentTab('login')}
-            >
-              Login
+            onClick={() => setCurrentTab('login')}
+          >
+              {t('Login', 'ಲಾಗಿನ್')}
             </button>
             <button
               type="button"
@@ -47,9 +49,9 @@ export default function AuthCard({ loginForm, signupForm, defaultTab = 'login' }
                   ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white'
                   : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
               }`}
-              onClick={() => setCurrentTab('signup')}
-            >
-              Sign Up
+            onClick={() => setCurrentTab('signup')}
+          >
+              {t('Sign Up', 'ಸೈನ್ ಅಪ್')}
             </button>
           </div>
 
