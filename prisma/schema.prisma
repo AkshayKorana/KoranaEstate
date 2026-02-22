@@ -220,21 +220,21 @@ model EstateListing {
 }
 
 model Order {
-  id             String    @id @default(cuid())
-  buyerId        String
-  productId      String
-  quantity       Int
-  totalPrice     Float
-  status         String    @default("PLACED")
+  id              String   @id @default(cuid())
+  buyerId         String
+  productId       String
+  quantity        Int
+  totalPrice      Float
+  status          String   @default("PLACED")
   shippingAddress String?
-  phone          String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  phone           String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
-  buyer          User      @relation(fields: [buyerId], references: [id], onDelete: Cascade)
-  product        Product   @relation(fields: [productId], references: [id])
+  buyer   User    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
 
-  reviews        Review[]  // <-- Add this line as the opposite relation
+  reviews Review[] // <-- Add this line as the opposite relation
 }
 
 // Chat System
@@ -270,9 +270,9 @@ model Message {
 }
 
 model Review {
-  id        String   @id @default(cuid())
-  orderId   String?
-  order     Order?   @relation(fields: [orderId], references: [id], onDelete: SetNull)
-  targetId  String
-  target    User     @relation("review_target", fields: [targetId], references: [id])
+  id       String  @id @default(cuid())
+  orderId  String?
+  order    Order?  @relation(fields: [orderId], references: [id], onDelete: SetNull)
+  targetId String
+  target   User    @relation("review_target", fields: [targetId], references: [id])
 }
