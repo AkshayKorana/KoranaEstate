@@ -25,7 +25,8 @@ export default function SignUpForm() {
 
       const signupData = await signupResponse.json()
       if (!signupResponse.ok) {
-        setError(signupData?.error || 'Signup failed.')
+        const detail = typeof signupData?.detail === 'string' ? ` ${signupData.detail}` : ''
+        setError((signupData?.error || 'Signup failed.') + detail)
         setIsLoading(false)
         return
       }

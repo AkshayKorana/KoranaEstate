@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useCallback, useEffect, useState, useRef } from 'react'
 import { useSession } from 'next-auth/react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import type { Conversation, Message } from '@/types/marketplace'
 import Navbar from '@/app/components/Navbar'
 import { useLanguage } from '@/app/language-context'
@@ -10,6 +10,8 @@ import { useLanguage } from '@/app/language-context'
 export default function MessagesPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const requestedConversationId = searchParams.get('conversationId')
   const { lang, t } = useLanguage()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
@@ -18,41 +20,24 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(true)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (status === 'unauthenticated') {
-      router.push('/auth')
-    } else if (status === 'authenticated') {
-      fetchConversations()
-    }
-  }, [status, router])
-
-  useEffect(() => {
-    if (selectedConversation) {
-      fetchMessages()
-      // Poll for new messages every 5 seconds
-      const interval = setInterval(fetchMessages, 5000)
-      return () => clearInterval(interval)
-    }
-  }, [selectedConversation])
-
-  useEffect(() => {
-    // Auto-scroll to bottom when messages change
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  async function fetchConversations() {
+  const fetchConversations = useCallback(async () => {
     try {
       const res = await fetch('/api/chat/conversations')
       const data = await res.json()
-      setConversations(data.conversations || [])
+      const rows: Conversation[] = data.conversations || []
+      setConversations(rows)
+      if (requestedConversationId) {
+        const match = rows.find((row) => row.id === requestedConversationId)
+        if (match) setSelectedConversation(match)
+      }
       setLoading(false)
     } catch (error) {
       console.error('Failed to fetch conversations:', error)
       setLoading(false)
     }
-  }
+  }, [requestedConversationId])
 
-  async function fetchMessages() {
+  const fetchMessages = useCallback(async () => {
     if (!selectedConversation) return
 
     try {
@@ -62,7 +47,39 @@ export default function MessagesPage() {
     } catch (error) {
       console.error('Failed to fetch messages:', error)
     }
-  }
+  }, [selectedConversation])
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/auth')
+    } else if (status === 'authenticated') {
+      const id = setTimeout(() => {
+        void fetchConversations()
+      }, 0)
+      return () => clearTimeout(id)
+    }
+  }, [status, router, fetchConversations])
+
+  useEffect(() => {
+    if (selectedConversation) {
+      const boot = setTimeout(() => {
+        void fetchMessages()
+      }, 0)
+      // Poll for new messages every 5 seconds
+      const interval = setInterval(() => {
+        void fetchMessages()
+      }, 5000)
+      return () => {
+        clearTimeout(boot)
+        clearInterval(interval)
+      }
+    }
+  }, [selectedConversation, fetchMessages])
+
+  useEffect(() => {
+    // Auto-scroll to bottom when messages change
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   async function handleSendMessage(e: React.FormEvent) {
     e.preventDefault()
@@ -80,8 +97,8 @@ export default function MessagesPage() {
 
       if (res.ok) {
         setNewMessage('')
-        fetchMessages()
-        fetchConversations() // Refresh to update lastMessageAt
+        await fetchMessages()
+        await fetchConversations() // Refresh to update lastMessageAt
       }
     } catch (error) {
       console.error('Error sending message:', error)
@@ -134,7 +151,7 @@ export default function MessagesPage() {
               <h2 className="text-xl font-semibold text-gray-900">{t('Messages', 'ಸಂದೇಶಗಳು')}</h2>
             </div>
             
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto bg-[#efeae2]">
               {conversations.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   <p>{t('No conversations yet.', 'ಇನ್ನೂ ಯಾವುದೇ ಸಂಭಾಷಣೆಗಳಿಲ್ಲ.')}</p>
@@ -149,8 +166,8 @@ export default function MessagesPage() {
                     <button
                       key={conversation.id}
                       onClick={() => setSelectedConversation(conversation)}
-                      className={`w-full p-4 border-b border-gray-100 hover:bg-gray-50 text-left transition-colors ${
-                        selectedConversation?.id === conversation.id ? 'bg-emerald-50' : ''
+                      className={`w-full p-4 border-b border-gray-100 hover:bg-white/80 text-left transition-colors ${
+                        selectedConversation?.id === conversation.id ? 'bg-white' : ''
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -194,7 +211,7 @@ export default function MessagesPage() {
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-[#e5ddd5]">
                   {messages.map(message => {
                     const isOwn = message.sender?.email === session?.user?.email
                     
@@ -204,7 +221,7 @@ export default function MessagesPage() {
                           <div
                             className={`px-4 py-2 rounded-lg ${
                               isOwn
-                                ? 'bg-emerald-600 text-white rounded-br-none'
+                                ? 'bg-[#dcf8c6] text-gray-900 rounded-br-none'
                                 : 'bg-white text-gray-900 rounded-bl-none shadow-sm'
                             }`}
                           >

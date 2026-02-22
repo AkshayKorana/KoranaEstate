@@ -24,6 +24,7 @@ function CoffeeIcon({ className = 'h-8 w-8' }: { className?: string }) {
 const navItems = [
   { href: '/', label: { en: 'Home', kn: 'ಮುಖಪುಟ' }, icon: '🏠' },
   { href: '/raw-marketplace', label: { en: 'Raw Marketplace', kn: 'ರಾ ಮಾರುಕಟ್ಟೆ' }, icon: '🌱' },
+  { href: '/estate-marketplace', label: { en: 'Estate Essentials', kn: 'ಎಸ್ಟೇಟ್ ಅವಶ್ಯಕತೆಗಳು' }, icon: '🚜' },
   { href: '/store', label: { en: 'Store', kn: 'ಸ್ಟೋರ್' }, icon: '🛒' },
   { href: '/messages', label: { en: 'Messages', kn: 'ಸಂದೇಶಗಳು' }, icon: '💬' },
 ]
@@ -34,6 +35,7 @@ export default function Navbar() {
   const { lang, setLang, t } = useLanguage()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const [unreadCount, setUnreadCount] = useState(0)
 
   const isActivePath = (path: string) => (path.startsWith('/#') ? pathname === '/' : pathname === path)
 
@@ -42,6 +44,38 @@ export default function Navbar() {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  useEffect(() => {
+    if (status !== 'authenticated') {
+      return
+    }
+
+    let mounted = true
+    const loadUnreadCount = async () => {
+      try {
+        const res = await fetch('/api/chat/unread-count', { cache: 'no-store' })
+        const data = await res.json()
+        if (mounted) {
+          const count = Number(data?.unreadCount)
+          setUnreadCount(Number.isFinite(count) ? count : 0)
+        }
+      } catch {
+        if (mounted) setUnreadCount(0)
+      }
+    }
+
+    void loadUnreadCount()
+    const interval = setInterval(() => {
+      void loadUnreadCount()
+    }, 10000)
+
+    return () => {
+      mounted = false
+      clearInterval(interval)
+    }
+  }, [status, pathname])
+
+  const shownUnreadCount = status === 'authenticated' ? unreadCount : 0
 
   return (
     <header
@@ -70,6 +104,7 @@ export default function Navbar() {
           <nav className="hidden md:flex items-center space-x-2 bg-white/50 backdrop-blur-sm rounded-2xl px-2 py-2 shadow-lg">
             {navItems.map(item => {
               const isActive = isActivePath(item.href)
+              const isMessages = item.href === '/messages'
               return (
                 <Link
                   key={item.href}
@@ -85,6 +120,11 @@ export default function Navbar() {
                 >
                   <span className="text-lg">{item.icon}</span>
                   <span>{item.label[lang]}</span>
+                  {isMessages && shownUnreadCount > 0 && (
+                    <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                      {shownUnreadCount > 99 ? '99+' : shownUnreadCount}
+                    </span>
+                  )}
                   {isActive && (
                     <div className="absolute -bottom-0.5 left-1/2 transform -translate-x-1/2 w-1/2 h-1 gradient-emerald rounded-full"></div>
                   )}
@@ -159,6 +199,7 @@ export default function Navbar() {
           <div className="px-4 pt-4 pb-6 space-y-3">
             {navItems.map(item => {
               const isActive = isActivePath(item.href)
+              const isMessages = item.href === '/messages'
               return (
                 <Link
                   key={item.href}
@@ -175,6 +216,11 @@ export default function Navbar() {
                 >
                   <span className="text-xl">{item.icon}</span>
                   <span>{item.label[lang]}</span>
+                  {isMessages && shownUnreadCount > 0 && (
+                    <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                      {shownUnreadCount > 99 ? '99+' : shownUnreadCount}
+                    </span>
+                  )}
                 </Link>
               )
             })}

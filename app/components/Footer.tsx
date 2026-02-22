@@ -60,7 +60,7 @@ export default function Footer() {
               <CoffeeIcon className="h-7 w-7" />
               <span className="text-xl font-semibold">Korana Estate</span>
             </Link>
-            <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed">
+            <p id="footer-about-text" className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed target-highlight">
               {t(
                 'The premier marketplace for coffee plantation products and services in Kodagu, Karnataka. Connecting farmers, suppliers, and consumers.',
                 'ಕೊಡಗು, ಕರ್ನಾಟಕದಲ್ಲಿ ಕಾಫಿ ತೋಟದ ಉತ್ಪನ್ನಗಳು ಮತ್ತು ಸೇವೆಗಳ ಪ್ರಮುಖ ಮಾರುಕಟ್ಟೆ. ರೈತರು, ಸರಬರಾಜುದಾರರು ಮತ್ತು ಗ್ರಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸುತ್ತದೆ.'
@@ -83,9 +83,10 @@ export default function Footer() {
             <h3 className="text-md font-semibold mb-4 text-gray-900 dark:text-gray-100">{t('Quick Links', 'ತ್ವರಿತ ಲಿಂಕ್‌ಗಳು')}</h3>
             <ul className="space-y-2">
               <li><Link href="/#top" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('Home', 'ಮುಖಪುಟ')}</Link></li>
-              <li><Link href="/marketplace" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('Marketplace', 'ಮಾರುಕಟ್ಟೆ')}</Link></li>
-              <li><Link href="/services" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('Services', 'ಸೇವೆಗಳು')}</Link></li>
-              <li><Link href="/#footer-brand-target" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('About Us', 'ನಮ್ಮ ಬಗ್ಗೆ')}</Link></li>
+              <li><Link href="/raw-marketplace" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('Raw marketplace', 'ರಾ ಮಾರುಕಟ್ಟೆ')}</Link></li>
+              <li><Link href="/estate-marketplace" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('Estate essentials', 'ಎಸ್ಟೇಟ್ ಅವಶ್ಯಕತೆಗಳು')}</Link></li>
+              <li><Link href="/store" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('Store', 'ಸ್ಟೋರ್')}</Link></li>
+              <li><Link href="/#footer-about-text" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('About us', 'ನಮ್ಮ ಬಗ್ಗೆ')}</Link></li>
               <li><Link href="/#footer-contact-target" className="text-gray-600 dark:text-gray-400 hover:text-coffee-600 dark:hover:text-coffee-400 transition-all">{t('Contact', 'ಸಂಪರ್ಕ')}</Link></li>
             </ul>
           </div>

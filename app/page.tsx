@@ -78,6 +78,7 @@ interface MarketQuote {
   usdPerLb: number | null
   inrPerKg: number | null
   history?: MarketPoint[]
+  source?: string
 }
 
 interface MarketResponse {
@@ -139,6 +140,8 @@ interface ForecastCommodity {
       ensembleWeightLinear: number
       ensembleWeightHolt: number
       regime: 'calm' | 'normal' | 'volatile'
+      ridgeMae?: number | null
+      ensembleWeightRidge?: number
     }
   }>
 }
@@ -177,11 +180,11 @@ type ActionSignal = 'SELL_NOW' | 'WAIT' | 'HOLD'
 
 export default function HomePage() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'Marketplace' | 'Dashboard'>('Marketplace')
+  const [activeTab, setActiveTab] = useState<'Marketplace' | 'Dashboard'>('Dashboard')
   const [selectedCommodityName, setSelectedCommodityName] = useState<string>('Arabica Cherry')
   const [selectedHorizon, setSelectedHorizon] = useState<number>(3)
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const { lang: uiLang, setLang } = useLanguage()
+  const { lang: uiLang } = useLanguage()
 
   const [items, setItems] = useState<MarketplaceItem[]>([])
   const [itemsLoading, setItemsLoading] = useState(true)
@@ -491,15 +494,6 @@ export default function HomePage() {
       <div className="container mx-auto px-6 space-y-6">
         <div className="flex space-x-4 border-b-2 border-gray-200">
           <button
-            className={`px-5 py-2 font-semibold rounded-t-xl transition-all ${activeTab === 'Marketplace' ? 'bg-white text-emerald-600 shadow-md border-t-4 border-emerald-500' : 'text-gray-500 hover:text-emerald-600'}`}
-            onClick={() => {
-              setActiveTab('Marketplace')
-              trackEvent('tab_change', { meta: { tab: 'Marketplace' } })
-            }}
-          >
-            {translate('Marketplace', 'ಮಾರುಕಟ್ಟೆ')}
-          </button>
-          <button
             className={`px-5 py-2 font-semibold rounded-t-xl transition-all ${activeTab === 'Dashboard' ? 'bg-white text-purple-600 shadow-md border-t-4 border-purple-500' : 'text-gray-500 hover:text-purple-600'}`}
             onClick={() => {
               setActiveTab('Dashboard')
@@ -507,6 +501,15 @@ export default function HomePage() {
             }}
           >
             {translate('AI / Commodity Dashboard', 'AI / ವಸ್ತು ಡ್ಯಾಶ್‌ಬೋರ್ಡ್')}
+          </button>
+          <button
+            className={`px-5 py-2 font-semibold rounded-t-xl transition-all ${activeTab === 'Marketplace' ? 'bg-white text-emerald-600 shadow-md border-t-4 border-emerald-500' : 'text-gray-500 hover:text-emerald-600'}`}
+            onClick={() => {
+              setActiveTab('Marketplace')
+              trackEvent('tab_change', { meta: { tab: 'Marketplace' } })
+            }}
+          >
+            {translate('Marketplace', 'ಮಾರುಕಟ್ಟೆ')}
           </button>
         </div>
 
@@ -571,28 +574,6 @@ export default function HomePage() {
           <section className="bg-gray-50 p-6 rounded-2xl shadow-lg space-y-6">
             <div className="flex items-center justify-between gap-4">
               <h2 className="text-2xl font-bold text-gray-800">{translate('Commodity Price Assistant', 'ಬೆಳೆ ಬೆಲೆ ಸಹಾಯಕ')}</h2>
-              <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLang('en')
-                    trackEvent('language_change', { meta: { lang: 'en' } })
-                  }}
-                  className={`px-3 py-1 text-sm font-semibold rounded ${uiLang === 'en' ? 'bg-emerald-600 text-white' : 'text-gray-700'}`}
-                >
-                  EN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLang('kn')
-                    trackEvent('language_change', { meta: { lang: 'kn' } })
-                  }}
-                  className={`px-3 py-1 text-sm font-semibold rounded ${uiLang === 'kn' ? 'bg-emerald-600 text-white' : 'text-gray-700'}`}
-                >
-                  ಕನ್ನಡ
-                </button>
-              </div>
             </div>
             <p className="text-sm text-gray-600">
               {translate(

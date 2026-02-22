@@ -44,6 +44,7 @@ model User {
   rawListings        RawListing[]
   rawOffers          RawOffer[]
   products           Product[]
+  estateListings     EstateListing[]
   orders             Order[]
   sentMessages       Message[]       @relation("SentMessages")
   conversationsAsBuyer  Conversation[] @relation("BuyerConversations")
@@ -189,6 +190,30 @@ model Product {
 
   @@index([category, isActive, createdAt])
   @@index([sellerId, isActive])
+}
+
+model EstateListing {
+  id            String   @id @default(cuid())
+  sellerId      String
+  title         String
+  category      String   // Fertilizer | Machinery | Tool | Service | Irrigation | Labor
+  subcategory   String?
+  listingType   String   // Product | Service
+  price         Float
+  unit          String   // per_kg | per_bag | per_hour | per_day | fixed
+  quantity      Float?
+  location      String
+  description   String?
+  contactPhone  String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  seller        User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([category, listingType, isActive, createdAt])
+  @@index([sellerId, isActive])
+  @@index([location, category])
 }
 
 model Order {
