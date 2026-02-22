@@ -56,7 +56,7 @@ export default function SignUpForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="signup-name" className="block text-sm font-medium text-[#dbcdbb]">{t('Full Name', 'ಪೂರ್ಣ ಹೆಸರು')}</label>
+        <label htmlFor="signup-name" className="block text-sm font-medium text-[#2f2f2f] dark:text-[#dbcdbb]">{t('Full Name', 'ಪೂರ್ಣ ಹೆಸರು')}</label>
         <input
           id="signup-name"
           type="text"
@@ -69,7 +69,7 @@ export default function SignUpForm() {
       </div>
 
       <div>
-        <label htmlFor="signup-email" className="block text-sm font-medium text-[#dbcdbb]">{t('Email', 'ಇಮೇಲ್')}</label>
+        <label htmlFor="signup-email" className="block text-sm font-medium text-[#2f2f2f] dark:text-[#dbcdbb]">{t('Email', 'ಇಮೇಲ್')}</label>
         <input
           id="signup-email"
           type="email"
@@ -82,7 +82,7 @@ export default function SignUpForm() {
       </div>
 
       <div>
-        <label htmlFor="signup-password" className="block text-sm font-medium text-[#dbcdbb]">{t('Password', 'ಪಾಸ್‌ವರ್ಡ್')}</label>
+        <label htmlFor="signup-password" className="block text-sm font-medium text-[#2f2f2f] dark:text-[#dbcdbb]">{t('Password', 'ಪಾಸ್‌ವರ್ಡ್')}</label>
         <input
           id="signup-password"
           type="password"
@@ -103,7 +103,7 @@ export default function SignUpForm() {
         {isLoading ? t('Creating account...', 'ಖಾತೆ ಸೃಷ್ಟಿಯಾಗುತ್ತಿದೆ...') : t('Create Account', 'ಖಾತೆ ಸೃಷ್ಟಿಸಿ')}
       </button>
 
-      {error && <p className="text-sm text-red-300">{error}</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-300">{error}</p>}
     </form>
   )
 }

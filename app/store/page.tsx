@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { Product, CreateProductInput, CreateOrderInput } from '@/types/marketplace'
 import Navbar from '@/app/components/Navbar'
 import { useLanguage } from '@/app/language-context'
+import { useTheme } from '@/app/theme-context'
 
 const CATEGORIES = ['Coffee Powder', 'Roasted Beans', 'Pepper Powder', 'Cardamom Powder', 'Ground Spices', 'Gift Packs']
 
@@ -13,6 +14,8 @@ export default function StorePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const { t } = useLanguage()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -136,7 +139,7 @@ export default function StorePage() {
               <h1 className="font-luxe text-5xl font-bold text-brand-spectrum">
                 {t('Korana Store', 'ಕೊರಾನಾ ಸ್ಟೋರ್')}
               </h1>
-              <p className="mt-2 text-[#c8bca9] text-lg">{t('Premium roasted coffee, ground spices, and gift packs ☕', 'ಪ್ರೀಮಿಯಂ ರೋಸ್ಟ್ ಕಾಫಿ, ಪುಡಿ ಮಸಾಲೆಗಳು ಮತ್ತು ಗಿಫ್ಟ್ ಪ್ಯಾಕ್‌ಗಳು ☕')}</p>
+              <p className={`mt-2 text-lg ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Premium roasted coffee, ground spices, and gift packs ☕', 'ಪ್ರೀಮಿಯಂ ರೋಸ್ಟ್ ಕಾಫಿ, ಪುಡಿ ಮಸಾಲೆಗಳು ಮತ್ತು ಗಿಫ್ಟ್ ಪ್ಯಾಕ್‌ಗಳು ☕')}</p>
             </div>
           </div>
         </div>
@@ -144,7 +147,7 @@ export default function StorePage() {
         <div className="flex gap-8">
           {/* Category Sidebar */}
           <aside className="w-72 flex-shrink-0 fade-in">
-            <div className="glass rounded-2xl shadow-lg p-6 sticky top-36 border border-emerald-200/30">
+            <div className={`glass rounded-2xl shadow-lg p-6 sticky top-36 border ${isDark ? 'border-emerald-200/30' : 'border-black/10'}`}>
               <div className="flex items-center space-x-2 mb-6">
                 <svg className="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -158,7 +161,9 @@ export default function StorePage() {
                   className={`w-full text-left px-4 py-3 rounded-xl transition-all font-semibold ${
                     selectedCategory === '' 
                       ? 'gradient-brand-spectrum text-white shadow-lg scale-105' 
-                      : 'bg-[#171411]/75 text-[#d8c8b3] hover:bg-emerald-900/35 hover:text-[#e9dcc9]'
+                      : isDark
+                        ? 'bg-[#171411]/75 text-[#d8c8b3] hover:bg-emerald-900/35 hover:text-[#e9dcc9]'
+                        : 'bg-white text-[#2f2f2f] border border-black/10 hover:bg-[#f3ede4] hover:text-[#1f4d3a]'
                   }`}
                 >
                   📦 {t('All Products', 'ಎಲ್ಲಾ ಉತ್ಪನ್ನಗಳು')}
@@ -170,7 +175,9 @@ export default function StorePage() {
                     className={`w-full text-left px-4 py-3 rounded-xl transition-all font-semibold ${
                       selectedCategory === cat 
                         ? 'gradient-brand-spectrum text-white shadow-lg scale-105' 
-                        : 'bg-[#171411]/75 text-[#d8c8b3] hover:bg-emerald-900/35 hover:text-[#e9dcc9]'
+                        : isDark
+                          ? 'bg-[#171411]/75 text-[#d8c8b3] hover:bg-emerald-900/35 hover:text-[#e9dcc9]'
+                          : 'bg-white text-[#2f2f2f] border border-black/10 hover:bg-[#f3ede4] hover:text-[#1f4d3a]'
                     }`}
                   >
                     {categoryLabel(cat)}
@@ -182,7 +189,7 @@ export default function StorePage() {
               <div className="mt-6 pt-6 border-t border-emerald-200/25">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-amber-700">{products.length}</p>
-                  <p className="text-sm text-[#c8bca9] mt-1">{t('Available Products', 'ಲಭ್ಯ ಉತ್ಪನ್ನಗಳು')}</p>
+                  <p className={`text-sm mt-1 ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Available Products', 'ಲಭ್ಯ ಉತ್ಪನ್ನಗಳು')}</p>
                 </div>
               </div>
             </div>
@@ -191,7 +198,7 @@ export default function StorePage() {
           {/* Products Grid */}
           <main className="flex-1">
             <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 slide-in-up">
-              <p className="text-[#c8bca9] font-medium">
+              <p className={`font-medium ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>
                 {loading
                   ? t('Loading...', 'ಲೋಡ್ ಆಗುತ್ತಿದೆ...')
                   : `${products.length} ${products.length === 1 ? t('product', 'ಉತ್ಪನ್ನ') : t('products', 'ಉತ್ಪನ್ನಗಳು')} ${t('available', 'ಲಭ್ಯ')}`}
@@ -220,7 +227,7 @@ export default function StorePage() {
                   <div className="w-3 h-3 bg-amber-700 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                   <div className="w-3 h-3 bg-amber-800 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                 </div>
-                <p className="text-[#c8bca9] font-medium">{t('Loading store...', 'ಸ್ಟೋರ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
+                <p className={`font-medium ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Loading store...', 'ಸ್ಟೋರ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
               </div>
             ) : products.length === 0 ? (
               <div className="text-center py-20 glass rounded-2xl shadow-xl fade-in">
@@ -229,8 +236,8 @@ export default function StorePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-[#efe4d4] mb-2">{t('No Products Yet', 'ಇನ್ನೂ ಉತ್ಪನ್ನಗಳಿಲ್ಲ')}</h3>
-                <p className="text-[#bbae9a] mb-6">{t('List your first product and start selling!', 'ನಿಮ್ಮ ಮೊದಲ ಉತ್ಪನ್ನವನ್ನು ಲಿಸ್ಟ್ ಮಾಡಿ ಮತ್ತು ಮಾರಾಟ ಪ್ರಾರಂಭಿಸಿ!')}</p>
+                <h3 className={`text-2xl font-bold mb-2 ${isDark ? 'text-[#efe4d4]' : 'text-[#1f1f1f]'}`}>{t('No Products Yet', 'ಇನ್ನೂ ಉತ್ಪನ್ನಗಳಿಲ್ಲ')}</h3>
+                <p className={`mb-6 ${isDark ? 'text-[#bbae9a]' : 'text-[#4a4a4a]'}`}>{t('List your first product and start selling!', 'ನಿಮ್ಮ ಮೊದಲ ಉತ್ಪನ್ನವನ್ನು ಲಿಸ್ಟ್ ಮಾಡಿ ಮತ್ತು ಮಾರಾಟ ಪ್ರಾರಂಭಿಸಿ!')}</p>
                 <button
                   onClick={() => status === 'authenticated' ? setShowCreateModal(true) : router.push('/auth')}
                   className="lux-btn-primary px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all inline-flex items-center space-x-2"

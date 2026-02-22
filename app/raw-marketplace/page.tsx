@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { RawListing, RawListingFilters, CreateRawListingInput } from '@/types/marketplace'
 import Navbar from '@/app/components/Navbar'
 import { useLanguage } from '@/app/language-context'
+import { useTheme } from '@/app/theme-context'
 
 const COMMODITIES = ['Arabica Cherry', 'Arabica Parchment', 'Robusta Cherry', 'Robusta Parchment', 'Cardamom', 'Arecanut', 'Pepper']
 
@@ -13,6 +14,8 @@ export default function RawMarketplacePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const { t } = useLanguage()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const [listings, setListings] = useState<RawListing[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -174,7 +177,7 @@ export default function RawMarketplacePage() {
               <h1 className="font-luxe text-5xl font-bold text-brand-spectrum">
                 {t('Raw Commodity Marketplace', 'ರಾ ಕಮೋಡಿಟಿ ಮಾರುಕಟ್ಟೆ')}
               </h1>
-              <p className="mt-2 text-[#c8bca9] text-lg">{t('Buy and sell raw coffee, pepper, cardamom, and arecanut directly from farmers 🌱', 'ರೈತರಿಂದ ನೇರವಾಗಿ ರಾ ಕಾಫಿ, ಮೆಣಸು, ಏಲಕ್ಕಿ ಮತ್ತು ಅಡಿಕೆ ಖರೀದಿ/ಮಾರಾಟ ಮಾಡಿ 🌱')}</p>
+              <p className={`mt-2 text-lg ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Buy and sell raw coffee, pepper, cardamom, and arecanut directly from farmers 🌱', 'ರೈತರಿಂದ ನೇರವಾಗಿ ರಾ ಕಾಫಿ, ಮೆಣಸು, ಏಲಕ್ಕಿ ಮತ್ತು ಅಡಿಕೆ ಖರೀದಿ/ಮಾರಾಟ ಮಾಡಿ 🌱')}</p>
             </div>
           </div>
         </div>
@@ -182,7 +185,7 @@ export default function RawMarketplacePage() {
         <div className="flex gap-8">
           {/* Filters Sidebar */}
           <aside className="w-72 flex-shrink-0 fade-in">
-            <div className="glass rounded-2xl shadow-lg p-6 sticky top-36 border border-emerald-200/30">
+            <div className={`glass rounded-2xl shadow-lg p-6 sticky top-36 border ${isDark ? 'border-emerald-200/30' : 'border-black/10'}`}>
               <div className="flex items-center space-x-2 mb-6">
                 <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -192,7 +195,7 @@ export default function RawMarketplacePage() {
               
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-semibold text-[#dbcdbb] mb-2">🌾 {t('Commodity', 'ವಸ್ತು')}</label>
+                  <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-[#dbcdbb]' : 'text-[#2f2f2f]'}`}>🌾 {t('Commodity', 'ವಸ್ತು')}</label>
                   <select
                     className="lux-input w-full rounded-xl px-4 py-3 transition-all"
                     value={filters.commodity || ''}
@@ -206,7 +209,7 @@ export default function RawMarketplacePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-[#dbcdbb] mb-2">📍 {t('Location', 'ಸ್ಥಳ')}</label>
+                  <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-[#dbcdbb]' : 'text-[#2f2f2f]'}`}>📍 {t('Location', 'ಸ್ಥಳ')}</label>
                   <input
                     type="text"
                     className="lux-input w-full rounded-xl px-4 py-3 transition-all"
@@ -228,7 +231,7 @@ export default function RawMarketplacePage() {
               <div className="mt-6 pt-6 border-t border-emerald-200/25">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-emerald-600">{listings.length}</p>
-                  <p className="text-sm text-[#c8bca9] mt-1">{t('Active Listings', 'ಸಕ್ರಿಯ ಲಿಸ್ಟಿಂಗ್‌ಗಳು')}</p>
+                  <p className={`text-sm mt-1 ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Active Listings', 'ಸಕ್ರಿಯ ಲಿಸ್ಟಿಂಗ್‌ಗಳು')}</p>
                 </div>
               </div>
             </div>
@@ -237,7 +240,7 @@ export default function RawMarketplacePage() {
           {/* Listings Grid */}
           <main className="flex-1">
             <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 slide-in-up">
-              <p className="text-[#c8bca9] font-medium">
+              <p className={`font-medium ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>
                 {loading
                   ? t('Loading...', 'ಲೋಡ್ ಆಗುತ್ತಿದೆ...')
                   : `${listings.length} ${listings.length === 1 ? t('listing', 'ಲಿಸ್ಟಿಂಗ್') : t('listings', 'ಲಿಸ್ಟಿಂಗ್‌ಗಳು')} ${t('found', 'ಕಂಡುಬಂದವು')}`}
@@ -266,7 +269,7 @@ export default function RawMarketplacePage() {
                   <div className="w-3 h-3 bg-emerald-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                   <div className="w-3 h-3 bg-emerald-700 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                 </div>
-                <p className="text-[#c8bca9] font-medium">{t('Loading marketplace...', 'ಮಾರುಕಟ್ಟೆ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
+                <p className={`font-medium ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Loading marketplace...', 'ಮಾರುಕಟ್ಟೆ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
               </div>
             ) : listings.length === 0 ? (
               <div className="text-center py-20 glass rounded-2xl shadow-xl fade-in">
@@ -275,8 +278,8 @@ export default function RawMarketplacePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-[#efe4d4] mb-2">{t('No Listings Yet', 'ಇನ್ನೂ ಲಿಸ್ಟಿಂಗ್‌ಗಳಿಲ್ಲ')}</h3>
-                <p className="text-[#bbae9a] mb-6">{t('Be the first to list your commodity!', 'ನಿಮ್ಮ ವಸ್ತುವನ್ನು ಮೊದಲು ಲಿಸ್ಟ್ ಮಾಡಿ!')}</p>
+                <h3 className={`text-2xl font-bold mb-2 ${isDark ? 'text-[#efe4d4]' : 'text-[#1f1f1f]'}`}>{t('No Listings Yet', 'ಇನ್ನೂ ಲಿಸ್ಟಿಂಗ್‌ಗಳಿಲ್ಲ')}</h3>
+                <p className={`mb-6 ${isDark ? 'text-[#bbae9a]' : 'text-[#4a4a4a]'}`}>{t('Be the first to list your commodity!', 'ನಿಮ್ಮ ವಸ್ತುವನ್ನು ಮೊದಲು ಲಿಸ್ಟ್ ಮಾಡಿ!')}</p>
                 <button
                   onClick={() => status === 'authenticated' ? setShowCreateModal(true) : router.push('/auth')}
                   className="lux-btn-primary px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all inline-flex items-center space-x-2"
@@ -292,13 +295,13 @@ export default function RawMarketplacePage() {
                 {listings.map((listing, idx) => (
                   <div 
                     key={listing.id} 
-                    className="glass rounded-2xl shadow-lg hover:shadow-2xl transition-all p-6 border border-emerald-200/30 card-hover fade-in"
+                    className={`glass rounded-2xl shadow-lg hover:shadow-2xl transition-all p-6 border card-hover fade-in ${isDark ? 'border-emerald-200/30' : 'border-black/10'}`}
                     style={{ animationDelay: `${idx * 100}ms` }}
                   >
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className="font-bold text-xl text-[#efe4d4]">{listing.commodity}</h3>
-                        <p className="text-sm text-[#b8ab97] mt-1">📍 {listing.location}</p>
+                        <h3 className={`font-bold text-xl ${isDark ? 'text-[#efe4d4]' : 'text-[#1f1f1f]'}`}>{listing.commodity}</h3>
+                        <p className={`text-sm mt-1 ${isDark ? 'text-[#b8ab97]' : 'text-[#4a4a4a]'}`}>📍 {listing.location}</p>
                       </div>
                       {listing.grade && (
                         <span className="gradient-brand-spectrum text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-md">
@@ -325,7 +328,7 @@ export default function RawMarketplacePage() {
                     </div>
 
                     {listing.description && (
-                      <p className="text-sm text-gray-600 mb-4 line-clamp-2">{listing.description}</p>
+                      <p className={`text-sm mb-4 line-clamp-2 ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{listing.description}</p>
                     )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -344,7 +347,7 @@ export default function RawMarketplacePage() {
                       </button>
                       <button
                         onClick={() => handleOpenConversation(listing, false)}
-                        className="w-full bg-blue-600 text-white py-3 rounded-xl font-semibold shadow-md hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center space-x-2"
+                        className="w-full lux-btn-secondary py-3 rounded-xl font-semibold shadow-md hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center space-x-2"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -354,7 +357,7 @@ export default function RawMarketplacePage() {
                     </div>
                     <button
                       onClick={() => handleOpenConversation(listing, true)}
-                      className="mt-2 w-full bg-white border-2 border-emerald-300 text-emerald-700 py-2.5 rounded-xl font-semibold hover:bg-emerald-50 transition-all"
+                      className="mt-2 w-full lux-btn-secondary py-2.5 rounded-xl font-semibold transition-all"
                     >
                       {t('Contact Seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ')}
                     </button>

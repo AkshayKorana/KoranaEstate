@@ -219,13 +219,13 @@ export default function EstateBlockPage() {
       <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-10 space-y-8">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="font-luxe text-4xl font-bold text-brand-spectrum">{title}</h1>
-            <p className={`mt-1 ${isDark ? 'text-gray-300' : 'text-[#c8bca9]'}`}>{t('View listings, add service, and chat with sellers.', 'ಪಟ್ಟಿಗಳನ್ನು ನೋಡಿ, ಸೇವೆ ಸೇರಿಸಿ, ಮಾರಾಟಗಾರರ ಜೊತೆ ಚಾಟ್ ಮಾಡಿ.')}</p>
+            <h1 className={`font-luxe text-4xl font-bold ${isDark ? 'text-brand-spectrum' : 'text-[#1f1f1f]'}`}>{title}</h1>
+            <p className={`mt-1 ${isDark ? 'text-gray-300' : 'text-[#4a4a4a]'}`}>{t('View listings, add service, and chat with sellers.', 'ಪಟ್ಟಿಗಳನ್ನು ನೋಡಿ, ಸೇವೆ ಸೇರಿಸಿ, ಮಾರಾಟಗಾರರ ಜೊತೆ ಚಾಟ್ ಮಾಡಿ.')}</p>
           </div>
           <div className="flex gap-2">
             <Link
               href="/estate-marketplace"
-              className={`rounded-lg border px-4 py-2 text-sm font-semibold ${isDark ? 'border-slate-600 bg-slate-800 text-gray-200' : 'border-emerald-200/30 bg-[#171411] text-[#e6d8c5]'}`}
+              className={`rounded-lg border px-4 py-2 text-sm font-semibold ${isDark ? 'border-slate-600 bg-slate-800 text-gray-200' : 'border-black/10 bg-white text-[#2f2f2f]'}`}
             >
               {t('Back', 'ಹಿಂತಿರುಗಿ')}
             </Link>
@@ -239,7 +239,7 @@ export default function EstateBlockPage() {
                 setFormError('')
                 setShowCreateModal(true)
               }}
-              className="rounded-lg gradient-brand-spectrum px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
+              className="rounded-lg lux-btn-primary px-4 py-2 text-sm font-semibold"
             >
               {t('+ Add Service', '+ ಸೇವೆ ಸೇರಿಸಿ')}
             </button>
@@ -247,31 +247,31 @@ export default function EstateBlockPage() {
         </div>
 
         {loading ? (
-          <div className={`rounded-xl border p-6 ${isDark ? 'border-slate-700 bg-slate-900 text-gray-300' : 'border-emerald-200/30 bg-[#171411]/80 text-[#c8bca9]'}`}>{t('Loading services...', 'ಸೇವೆಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}</div>
+          <div className={`rounded-xl border p-6 ${isDark ? 'border-slate-700 bg-slate-900 text-gray-300' : 'border-black/10 bg-white text-[#4a4a4a]'}`}>{t('Loading services...', 'ಸೇವೆಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}</div>
         ) : listings.length === 0 ? (
-          <div className={`rounded-xl border p-6 ${isDark ? 'border-slate-700 bg-slate-900 text-gray-300' : 'border-emerald-200/30 bg-[#171411]/80 text-[#c8bca9]'}`}>{t('No listings yet in this service.', 'ಈ ಸೇವೆಯಲ್ಲಿ ಇನ್ನೂ ಪಟ್ಟಿಗಳಿಲ್ಲ.')}</div>
+          <div className={`rounded-xl border p-6 ${isDark ? 'border-slate-700 bg-slate-900 text-gray-300' : 'border-black/10 bg-white text-[#4a4a4a]'}`}>{t('No listings yet in this service.', 'ಈ ಸೇವೆಯಲ್ಲಿ ಇನ್ನೂ ಪಟ್ಟಿಗಳಿಲ್ಲ.')}</div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {listings.map((listing) => (
-              <div key={listing.id} className={`rounded-2xl border p-5 shadow-sm space-y-3 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-emerald-200/30 bg-[#171411]/80'}`}>
+              <div key={listing.id} className={`rounded-2xl border p-5 shadow-sm space-y-3 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-black/10 bg-white'}`}>
                 <div className="flex items-start justify-between gap-2">
-                  <h3 className={`font-bold text-lg leading-tight ${isDark ? 'text-gray-100' : 'text-[#efe4d4]'}`}>{listing.title}</h3>
+                  <h3 className={`font-bold text-lg leading-tight ${isDark ? 'text-gray-100' : 'text-[#1f1f1f]'}`}>{listing.title}</h3>
                   <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-semibold text-emerald-800">
                     {listing.listingType}
                   </span>
                 </div>
 
-                <div className={`text-sm space-y-1 ${isDark ? 'text-gray-300' : 'text-[#c8bca9]'}`}>
-                  {listing.subcategory && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#efe4d4]'}`}>{t('Sub:', 'ಉಪ:')}</span> {listing.subcategory}</p>}
-                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#efe4d4]'}`}>{t('Price:', 'ಬೆಲೆ:')}</span> ₹{listing.price.toLocaleString('en-IN')} / {listing.unit}</p>
-                  {listing.quantity != null && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#efe4d4]'}`}>{t('Qty:', 'ಪ್ರಮಾಣ:')}</span> {listing.quantity}</p>}
-                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#efe4d4]'}`}>{t('Location:', 'ಸ್ಥಳ:')}</span> {listing.location}</p>
-                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#efe4d4]'}`}>{t('Seller:', 'ಮಾರಾಟಗಾರ:')}</span> {listing.seller?.name || listing.seller?.email || t('Seller', 'ಮಾರಾಟಗಾರ')}</p>
-                  {listing.contactPhone && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#efe4d4]'}`}>{t('Phone:', 'ಫೋನ್:')}</span> {listing.contactPhone}</p>}
+                <div className={`text-sm space-y-1 ${isDark ? 'text-gray-300' : 'text-[#4a4a4a]'}`}>
+                  {listing.subcategory && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#2f2f2f]'}`}>{t('Sub:', 'ಉಪ:')}</span> {listing.subcategory}</p>}
+                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#2f2f2f]'}`}>{t('Price:', 'ಬೆಲೆ:')}</span> ₹{listing.price.toLocaleString('en-IN')} / {listing.unit}</p>
+                  {listing.quantity != null && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#2f2f2f]'}`}>{t('Qty:', 'ಪ್ರಮಾಣ:')}</span> {listing.quantity}</p>}
+                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#2f2f2f]'}`}>{t('Location:', 'ಸ್ಥಳ:')}</span> {listing.location}</p>
+                  <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#2f2f2f]'}`}>{t('Seller:', 'ಮಾರಾಟಗಾರ:')}</span> {listing.seller?.name || listing.seller?.email || t('Seller', 'ಮಾರಾಟಗಾರ')}</p>
+                  {listing.contactPhone && <p><span className={`font-semibold ${isDark ? 'text-gray-200' : 'text-[#2f2f2f]'}`}>{t('Phone:', 'ಫೋನ್:')}</span> {listing.contactPhone}</p>}
                 </div>
 
                 {listing.description && (
-                  <p className={`text-sm border-t pt-3 ${isDark ? 'text-gray-300 border-slate-700' : 'text-gray-600 border-gray-100'}`}>{listing.description}</p>
+                  <p className={`text-sm border-t pt-3 ${isDark ? 'text-gray-300 border-slate-700' : 'text-[#4a4a4a] border-black/10'}`}>{listing.description}</p>
                 )}
 
                 <div className="grid grid-cols-2 gap-2">
@@ -296,10 +296,10 @@ export default function EstateBlockPage() {
 
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-xl rounded-2xl glass border border-emerald-200/30 p-6 shadow-2xl">
-            <h2 className="text-2xl font-bold text-[#efe4d4] mb-2">{t('Add Service', 'ಸೇವೆ ಸೇರಿಸಿ')}</h2>
-            <p className="text-sm text-[#c8bca9] mb-4">
-              {t('Adding under:', 'ಕೆಳಗೆ ಸೇರಿಸಲಾಗುತ್ತಿದೆ:')} <span className="font-semibold text-[#efe4d4]">{title}</span>
+          <div className={`w-full max-w-xl rounded-2xl border p-6 shadow-2xl ${isDark ? 'glass border-emerald-200/30' : 'bg-white border-black/10'}`}>
+            <h2 className={`text-2xl font-bold mb-2 ${isDark ? 'text-[#efe4d4]' : 'text-[#1f1f1f]'}`}>{t('Add Service', 'ಸೇವೆ ಸೇರಿಸಿ')}</h2>
+            <p className={`text-sm mb-4 ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>
+              {t('Adding under:', 'ಕೆಳಗೆ ಸೇರಿಸಲಾಗುತ್ತಿದೆ:')} <span className={`font-semibold ${isDark ? 'text-[#efe4d4]' : 'text-[#1f1f1f]'}`}>{title}</span>
             </p>
 
             <form onSubmit={handleCreateListing} className="space-y-3">
@@ -404,7 +404,7 @@ export default function EstateBlockPage() {
                     setShowCreateModal(false)
                     setFormError('')
                   }}
-                  className="flex-1 rounded-xl border border-emerald-200/30 px-4 py-2 font-semibold text-[#d8c8b3]"
+                  className={`flex-1 rounded-xl border px-4 py-2 font-semibold ${isDark ? 'border-emerald-200/30 text-[#d8c8b3]' : 'border-black/10 text-[#2f2f2f]'}`}
                 >
                   {t('Cancel', 'ರದ್ದುಮಾಡಿ')}
                 </button>

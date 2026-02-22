@@ -48,8 +48,8 @@ export default function ForgotPasswordForm({ onCancel }: ForgotPasswordFormProps
   if (isSuccessful) {
     return (
       <div className="space-y-4 text-center">
-        <h3 className="text-xl font-semibold text-[#efe4d4]">{t('Check your email', 'ನಿಮ್ಮ ಇಮೇಲ್ ಪರಿಶೀಲಿಸಿ')}</h3>
-        <p className="text-sm text-[#c8bca9]">
+        <h3 className="text-xl font-semibold text-[#1f1f1f] dark:text-[#efe4d4]">{t('Check your email', 'ನಿಮ್ಮ ಇಮೇಲ್ ಪರಿಶೀಲಿಸಿ')}</h3>
+        <p className="text-sm text-[#4a4a4a] dark:text-[#c8bca9]">
           {t('We sent a password reset link to', 'ಪಾಸ್‌ವರ್ಡ್ ಮರುಹೊಂದಿಸುವ ಲಿಂಕ್ ಕಳುಹಿಸಲಾಗಿದೆ')} <span className="font-medium">{email}</span>
         </p>
         <div className="space-y-2">
@@ -75,14 +75,14 @@ export default function ForgotPasswordForm({ onCancel }: ForgotPasswordFormProps
   return (
     <form onSubmit={handleResetPassword} className="space-y-4">
       <div className="text-center">
-        <h3 className="text-xl font-semibold text-[#efe4d4]">{t('Reset your password', 'ನಿಮ್ಮ ಪಾಸ್‌ವರ್ಡ್ ಮರುಹೊಂದಿಸಿ')}</h3>
-        <p className="mt-2 text-sm text-[#c8bca9]">
+        <h3 className="text-xl font-semibold text-[#1f1f1f] dark:text-[#efe4d4]">{t('Reset your password', 'ನಿಮ್ಮ ಪಾಸ್‌ವರ್ಡ್ ಮರುಹೊಂದಿಸಿ')}</h3>
+        <p className="mt-2 text-sm text-[#4a4a4a] dark:text-[#c8bca9]">
           {t('Enter your email and we will send a reset link.', 'ನಿಮ್ಮ ಇಮೇಲ್ ನಮೂದಿಸಿ; ಮರುಹೊಂದಿಸುವ ಲಿಂಕ್ ಕಳುಹಿಸಲಾಗುತ್ತದೆ.')}
         </p>
       </div>
 
       <div>
-        <label htmlFor="forgot-email" className="block text-sm font-medium text-[#dbcdbb]">{t('Email', 'ಇಮೇಲ್')}</label>
+        <label htmlFor="forgot-email" className="block text-sm font-medium text-[#2f2f2f] dark:text-[#dbcdbb]">{t('Email', 'ಇಮೇಲ್')}</label>
         <input
           id="forgot-email"
           type="email"
@@ -110,7 +110,7 @@ export default function ForgotPasswordForm({ onCancel }: ForgotPasswordFormProps
           {t('Back to login', 'ಲಾಗಿನ್‌ಗೆ ಹಿಂತಿರುಗಿ')}
         </button>
       </div>
-      {error && <p className="text-sm text-red-300">{error}</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-300">{error}</p>}
     </form>
   )
 }

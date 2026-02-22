@@ -47,7 +47,7 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="login-email" className="block text-sm font-medium text-[#dbcdbb]">{t('Email', 'ಇಮೇಲ್')}</label>
+        <label htmlFor="login-email" className="block text-sm font-medium text-[#2f2f2f] dark:text-[#dbcdbb]">{t('Email', 'ಇಮೇಲ್')}</label>
         <input
           id="login-email"
           type="email"
@@ -60,7 +60,7 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
       </div>
 
       <div>
-        <label htmlFor="login-password" className="block text-sm font-medium text-[#dbcdbb]">{t('Password', 'ಪಾಸ್‌ವರ್ಡ್')}</label>
+        <label htmlFor="login-password" className="block text-sm font-medium text-[#2f2f2f] dark:text-[#dbcdbb]">{t('Password', 'ಪಾಸ್‌ವರ್ಡ್')}</label>
         <input
           id="login-password"
           type="password"
@@ -80,7 +80,7 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
         {t('Forgot password?', 'ಪಾಸ್‌ವರ್ಡ್ ಮರೆತಿರುವಿರಾ?')}
       </button>
 
-      {error && <p className="text-sm text-red-300">{error}</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-300">{error}</p>}
 
       <button
         type="submit"

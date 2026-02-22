@@ -60,12 +60,12 @@ export default function ResetPasswordForm({ onSuccess }: ResetPasswordFormProps)
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="text-center">
-        <h3 className="text-xl font-semibold text-[#efe4d4]">{t('Set a new password', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್ ಹೊಂದಿಸಿ')}</h3>
-        <p className="mt-2 text-sm text-[#c8bca9]">{t('Enter and confirm your new password.', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್ ನಮೂದಿಸಿ ಮತ್ತು ದೃಢೀಕರಿಸಿ.')}</p>
+        <h3 className="text-xl font-semibold text-[#1f1f1f] dark:text-[#efe4d4]">{t('Set a new password', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್ ಹೊಂದಿಸಿ')}</h3>
+        <p className="mt-2 text-sm text-[#4a4a4a] dark:text-[#c8bca9]">{t('Enter and confirm your new password.', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್ ನಮೂದಿಸಿ ಮತ್ತು ದೃಢೀಕರಿಸಿ.')}</p>
       </div>
 
       <div>
-        <label htmlFor="new-password" className="block text-sm font-medium text-[#dbcdbb]">{t('New password', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್')}</label>
+        <label htmlFor="new-password" className="block text-sm font-medium text-[#2f2f2f] dark:text-[#dbcdbb]">{t('New password', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್')}</label>
         <input
           id="new-password"
           type="password"
@@ -78,7 +78,7 @@ export default function ResetPasswordForm({ onSuccess }: ResetPasswordFormProps)
       </div>
 
       <div>
-        <label htmlFor="confirm-password" className="block text-sm font-medium text-[#dbcdbb]">{t('Confirm password', 'ಪಾಸ್‌ವರ್ಡ್ ದೃಢೀಕರಿಸಿ')}</label>
+        <label htmlFor="confirm-password" className="block text-sm font-medium text-[#2f2f2f] dark:text-[#dbcdbb]">{t('Confirm password', 'ಪಾಸ್‌ವರ್ಡ್ ದೃಢೀಕರಿಸಿ')}</label>
         <input
           id="confirm-password"
           type="password"
@@ -89,7 +89,7 @@ export default function ResetPasswordForm({ onSuccess }: ResetPasswordFormProps)
         />
       </div>
 
-      {error && <p className="text-sm text-red-300">{error}</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-300">{error}</p>}
 
       <button
         type="submit"
