@@ -190,6 +190,7 @@ model Order {
 
   buyer User        @relation(fields: [buyerId], references: [id])
   items OrderItem[]
+  reviews Review[]
   payments Payment[]
   payouts  Payout[]
   disputes Dispute[]
