@@ -219,7 +219,7 @@ export default function EstateBlockPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className={`text-3xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{title}</h1>
+            <h1 className="text-3xl font-bold text-brand-spectrum">{title}</h1>
             <p className={`mt-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{t('View listings, add service, and chat with sellers.', 'ಪಟ್ಟಿಗಳನ್ನು ನೋಡಿ, ಸೇವೆ ಸೇರಿಸಿ, ಮಾರಾಟಗಾರರ ಜೊತೆ ಚಾಟ್ ಮಾಡಿ.')}</p>
           </div>
           <div className="flex gap-2">
@@ -239,7 +239,7 @@ export default function EstateBlockPage() {
                 setFormError('')
                 setShowCreateModal(true)
               }}
-              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+              className="rounded-lg gradient-brand-spectrum px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
             >
               {t('+ Add Service', '+ ಸೇವೆ ಸೇರಿಸಿ')}
             </button>

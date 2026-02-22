@@ -165,13 +165,13 @@ export default function RawMarketplacePage() {
         {/* Header */}
         <div className="mb-8 slide-in-up">
           <div className="flex items-center space-x-4 mb-3">
-            <div className="p-4 rounded-2xl gradient-emerald-coffee float-animation">
+            <div className="p-4 rounded-2xl gradient-brand-spectrum float-animation">
               <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 via-green-600 to-amber-700 bg-clip-text text-transparent">
+              <h1 className="text-4xl font-bold text-brand-spectrum">
                 {t('Raw Commodity Marketplace', 'ರಾ ಕಮೋಡಿಟಿ ಮಾರುಕಟ್ಟೆ')}
               </h1>
               <p className="mt-2 text-gray-600 text-lg">{t('Buy and sell raw coffee, pepper, cardamom, and arecanut directly from farmers 🌱', 'ರೈತರಿಂದ ನೇರವಾಗಿ ರಾ ಕಾಫಿ, ಮೆಣಸು, ಏಲಕ್ಕಿ ಮತ್ತು ಅಡಿಕೆ ಖರೀದಿ/ಮಾರಾಟ ಮಾಡಿ 🌱')}</p>
@@ -187,7 +187,7 @@ export default function RawMarketplacePage() {
                 <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
-                <h2 className="font-bold text-xl bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">{t('Filters', 'ಫಿಲ್ಟರ್‌ಗಳು')}</h2>
+                <h2 className="font-bold text-xl text-brand-spectrum">{t('Filters', 'ಫಿಲ್ಟರ್‌ಗಳು')}</h2>
               </div>
               
               <div className="space-y-5">
@@ -218,7 +218,7 @@ export default function RawMarketplacePage() {
 
                 <button
                   onClick={() => setFilters({})}
-                  className="w-full text-sm gradient-emerald text-white px-4 py-3 rounded-xl font-semibold hover:shadow-lg transition-all"
+                  className="w-full text-sm gradient-brand-spectrum text-white px-4 py-3 rounded-xl font-semibold hover:shadow-lg transition-all"
                 >
                   {t('Clear All Filters', 'ಎಲ್ಲಾ ಫಿಲ್ಟರ್‌ಗಳನ್ನು ತೆರವುಗೊಳಿಸಿ')}
                 </button>
@@ -250,7 +250,7 @@ export default function RawMarketplacePage() {
                     setShowCreateModal(true)
                   }
                 }}
-                className="gradient-emerald text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center space-x-2"
+                className="gradient-brand-spectrum text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center space-x-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -279,7 +279,7 @@ export default function RawMarketplacePage() {
                 <p className="text-gray-500 mb-6">{t('Be the first to list your commodity!', 'ನಿಮ್ಮ ವಸ್ತುವನ್ನು ಮೊದಲು ಲಿಸ್ಟ್ ಮಾಡಿ!')}</p>
                 <button
                   onClick={() => status === 'authenticated' ? setShowCreateModal(true) : router.push('/auth')}
-                  className="gradient-emerald text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all inline-flex items-center space-x-2"
+                  className="gradient-brand-spectrum text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all inline-flex items-center space-x-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -301,7 +301,7 @@ export default function RawMarketplacePage() {
                         <p className="text-sm text-gray-500 mt-1">📍 {listing.location}</p>
                       </div>
                       {listing.grade && (
-                        <span className="gradient-emerald text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-md">
+                        <span className="gradient-brand-spectrum text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-md">
                           {listing.grade}
                         </span>
                       )}
@@ -335,7 +335,7 @@ export default function RawMarketplacePage() {
                           setOfferData({ offerPrice: listing.pricePerKg, quantity: Math.min(50, listing.quantityKg), message: '' })
                           setShowOfferModal(true)
                         }}
-                        className="w-full gradient-emerald text-white py-3 rounded-xl font-semibold shadow-md hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center space-x-2"
+                        className="w-full gradient-brand-spectrum text-white py-3 rounded-xl font-semibold shadow-md hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center space-x-2"
                       >
                         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />

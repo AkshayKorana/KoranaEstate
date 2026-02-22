@@ -52,7 +52,7 @@ export default function EstateMarketplacePage() {
       <Navbar />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
         <div>
-          <h1 className={`text-3xl font-bold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{t('Estate Essentials Marketplace', 'ಎಸ್ಟೇಟ್ ಅವಶ್ಯಕತೆಗಳ ಮಾರುಕಟ್ಟೆ')}</h1>
+          <h1 className="text-3xl font-bold text-brand-spectrum">{t('Estate Essentials Marketplace', 'ಎಸ್ಟೇಟ್ ಅವಶ್ಯಕತೆಗಳ ಮಾರುಕಟ್ಟೆ')}</h1>
           <p className={`mt-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{t('Select a block to open a dedicated service page.', 'ಪ್ರತ್ಯೇಕ ಸೇವಾ ಪುಟವನ್ನು ತೆರೆಯಲು ಒಂದು ವಿಭಾಗವನ್ನು ಆಯ್ಕೆಮಾಡಿ.')}</p>
         </div>
 
@@ -65,7 +65,7 @@ export default function EstateMarketplacePage() {
                 href={`/estate-marketplace/${block.slug}`}
                 className={`group rounded-2xl border p-3 text-left transition-all hover:shadow-md ${isDark ? 'border-slate-700 bg-slate-900' : 'border-gray-200 bg-white'}`}
               >
-                <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-emerald-50">
+                <div className="relative aspect-[16/9] overflow-hidden rounded-xl bg-gradient-to-br from-emerald-50 via-white to-blue-50">
                   <Image
                     src={block.image}
                     alt={block.title}
@@ -78,7 +78,7 @@ export default function EstateMarketplacePage() {
                   <p className={`text-xs mt-1 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{t(block.subtitle, block.subtitleKn)}</p>
                   <p className="text-xs text-emerald-700 mt-2 font-semibold">{count} {t('active listings', 'ಸಕ್ರಿಯ ಪಟ್ಟಿಗಳು')}</p>
                 </div>
-                <div className="mt-3 rounded-lg bg-emerald-600 px-3 py-2 text-center text-xs font-semibold text-white">
+                <div className="mt-3 rounded-lg gradient-brand-spectrum px-3 py-2 text-center text-xs font-semibold text-white">
                   {t('Open', 'ತೆರೆಯಿರಿ')}
                 </div>
               </Link>

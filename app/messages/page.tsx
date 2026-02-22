@@ -147,11 +147,11 @@ export default function MessagesPage() {
     <div className={`min-h-screen content-under-navbar ${isDark ? 'bg-slate-950' : 'bg-gray-50'}`}>
       <Navbar />
       <div className="h-[calc(100vh-7.5rem)] max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className={`h-full rounded-lg shadow-sm flex overflow-hidden ${isDark ? 'bg-slate-900' : 'bg-white'}`}>
+        <div className={`h-full rounded-2xl shadow-sm flex overflow-hidden border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-emerald-100'}`}>
           {/* Conversations List */}
           <div className={`w-80 border-r flex flex-col ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
-            <div className={`p-4 border-b ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-emerald-50'}`}>
-              <h2 className={`text-xl font-semibold ${isDark ? 'text-gray-100' : 'text-gray-900'}`}>{t('Messages', 'ಸಂದೇಶಗಳು')}</h2>
+            <div className={`p-4 border-b ${isDark ? 'border-slate-700 bg-slate-800' : 'border-gray-200 bg-gradient-to-r from-emerald-50 via-white to-blue-50'}`}>
+              <h2 className="text-xl font-semibold text-brand-spectrum">{t('Messages', 'ಸಂದೇಶಗಳು')}</h2>
             </div>
             
             <div className={`flex-1 overflow-y-auto ${isDark ? 'bg-slate-800' : 'bg-[#efeae2]'}`}>
@@ -255,7 +255,7 @@ export default function MessagesPage() {
                     <button
                       type="submit"
                       disabled={!newMessage.trim()}
-                      className="bg-emerald-600 text-white px-6 py-2 rounded-full hover:bg-emerald-700 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+                      className="gradient-brand-spectrum text-white px-6 py-2 rounded-full hover:opacity-95 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
                     >
                       {t('Send', 'ಕಳುಹಿಸಿ')}
                     </button>
