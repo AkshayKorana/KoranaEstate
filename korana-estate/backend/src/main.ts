@@ -1,7 +1,7 @@
 import { ValidationPipe, VersioningType } from '@nestjs/common'
 import { NestFactory } from '@nestjs/core'
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger'
-import { ThrottlerException, ThrottlerGuard } from '@nestjs/throttler'
+import { ThrottlerException } from '@nestjs/throttler'
 import { AppModule } from './app.module'
 import { HttpExceptionFilter } from './common/filters/http-exception.filter'
 
@@ -26,7 +26,6 @@ async function bootstrap() {
       forbidNonWhitelisted: true,
     }),
   )
-  app.useGlobalGuards(app.get(ThrottlerGuard))
   app.useGlobalFilters(new HttpExceptionFilter())
 
   const swaggerConfig = new DocumentBuilder()
