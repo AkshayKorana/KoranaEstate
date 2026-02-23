@@ -7,6 +7,7 @@ import type { RawListing, RawListingFilters, CreateRawListingInput } from '@/typ
 import Navbar from '@/app/components/Navbar'
 import { useLanguage } from '@/app/language-context'
 import { useTheme } from '@/app/theme-context'
+import { sendMarketplaceMessage } from '@/app/lib/send-marketplace-message'
 
 const COMMODITIES = ['Arabica Cherry', 'Arabica Parchment', 'Robusta Cherry', 'Robusta Parchment', 'Cardamom', 'Arecanut', 'Pepper']
 
@@ -125,50 +126,15 @@ export default function RawMarketplacePage() {
       return
     }
 
-    const initialMessage = withIntro
-      ? t(
-          `Hi! I am interested in your listing: ${listing.commodity} (${listing.grade || 'Standard'}), ₹${listing.pricePerKg}/kg, quantity ${listing.quantityKg} kg, location ${listing.location}. Please share availability and best final price.`,
-          `ನಮಸ್ಕಾರ! ನಿಮ್ಮ ಲಿಸ್ಟಿಂಗ್ ಬಗ್ಗೆ ಆಸಕ್ತಿ ಇದೆ: ${listing.commodity} (${listing.grade || 'ಸ್ಟ್ಯಾಂಡರ್ಡ್'}), ₹${listing.pricePerKg}/ಕೆಜಿ, ಪ್ರಮಾಣ ${listing.quantityKg} ಕೆಜಿ, ಸ್ಥಳ ${listing.location}. ಲಭ್ಯತೆ ಮತ್ತು ಕೊನೆಯ ಉತ್ತಮ ಬೆಲೆ ತಿಳಿಸಿ.`
-        )
-      : t(
-          `Hi! I am interested in ${listing.commodity} (${listing.grade || 'Standard'}) at ₹${listing.pricePerKg}/kg from ${listing.location}. Is this still available?`,
-          `ನಮಸ್ಕಾರ! ${listing.commodity} (${listing.grade || 'ಸ್ಟ್ಯಾಂಡರ್ಡ್'}) ₹${listing.pricePerKg}/ಕೆಜಿ (${listing.location}) ಬಗ್ಗೆ ಆಸಕ್ತಿ ಇದೆ. ಇದು ಇನ್ನೂ ಲಭ್ಯವಿದೆಯೇ?`
-        )
-
     try {
-      const res = await fetch('/api/chat/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sellerId: listing.sellerId,
-          initialMessage: '',
-        }),
+      await sendMarketplaceMessage({
+        recipientId: listing.sellerId,
+        listingId: listing.id,
+        listingName: `${listing.commodity}${listing.grade ? ` (${listing.grade})` : ''}`,
+        kind: 'raw',
+        action: withIntro ? 'contact' : 'message',
+        router,
       })
-
-      const data = await res.json()
-      if (!res.ok) {
-        alert(data.error || t('Failed to connect with seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಲು ವಿಫಲವಾಗಿದೆ'))
-        return
-      }
-
-      const conversationId = data.conversation?.id
-      if (!conversationId) {
-        alert(t('Conversation not available', 'ಸಂಭಾಷಣೆ ಲಭ್ಯವಿಲ್ಲ'))
-        return
-      }
-
-      const msgRes = await fetch('/api/chat/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId, content: initialMessage }),
-      })
-      if (!msgRes.ok) {
-        const msgData = await msgRes.json().catch(() => ({}))
-        alert(msgData.error || t('Failed to send message to seller', 'ಮಾರಾಟಗಾರರಿಗೆ ಸಂದೇಶ ಕಳುಹಿಸಲು ವಿಫಲವಾಗಿದೆ'))
-        return
-      }
-
-      router.push(`/messages?conversationId=${encodeURIComponent(conversationId)}`)
     } catch (error) {
       console.error('Failed to open conversation:', error)
       alert(t('Failed to connect with seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಲು ವಿಫಲವಾಗಿದೆ'))

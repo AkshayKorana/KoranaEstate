@@ -7,6 +7,7 @@ import Link from 'next/link'
 import Navbar from '@/app/components/Navbar'
 import { useLanguage } from '@/app/language-context'
 import { useTheme } from '@/app/theme-context'
+import { sendMarketplaceMessage } from '@/app/lib/send-marketplace-message'
 import type { User } from '@/types/marketplace'
 import { LISTING_TYPES, UNITS, blockHasCategory, getEstateBlockBySlug } from '../blocks'
 
@@ -124,43 +125,17 @@ export default function EstateBlockPage() {
       return
     }
 
-    const initialMessage = withIntro
-      ? t(
-          `Hi! I am interested in your service/listing: ${listing.title} (${listing.category}${listing.subcategory ? ` - ${listing.subcategory}` : ''}), priced at ₹${listing.price}/${listing.unit}, location ${listing.location}. Please share availability and details.`,
-          `ನಮಸ್ಕಾರ! ನಿಮ್ಮ ಸೇವೆ/ಲಿಸ್ಟಿಂಗ್ ಬಗ್ಗೆ ಆಸಕ್ತಿ ಇದೆ: ${listing.title} (${listing.category}${listing.subcategory ? ` - ${listing.subcategory}` : ''}), ಬೆಲೆ ₹${listing.price}/${listing.unit}, ಸ್ಥಳ ${listing.location}. ದಯವಿಟ್ಟು ಲಭ್ಯತೆ ಮತ್ತು ವಿವರಗಳನ್ನು ಹಂಚಿಕೊಳ್ಳಿ.`
-        )
-      : t(
-          `Hi! I am interested in ${listing.title} (${listing.category}) at ₹${listing.price}/${listing.unit}. Is it available?`,
-          `ನಮಸ್ಕಾರ! ${listing.title} (${listing.category}) ₹${listing.price}/${listing.unit} ಬಗ್ಗೆ ಆಸಕ್ತಿ ಇದೆ. ಇದು ಲಭ್ಯವಿದೆಯೇ?`
-        )
-
     try {
-      const res = await fetch('/api/chat/conversations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sellerId: listing.sellerId, initialMessage: '' }),
+      await sendMarketplaceMessage({
+        recipientId: listing.sellerId,
+        listingId: listing.id,
+        listingName: `${listing.title} (${listing.category})`,
+        kind: 'estate',
+        action: withIntro ? 'contact' : 'message',
+        router,
       })
-      const data = await res.json()
-      if (!res.ok) {
-        alert(data.error || 'Failed to open chat')
-        return
-      }
-      if (data.conversation?.id) {
-        const conversationId = data.conversation.id as string
-        const msgRes = await fetch('/api/chat/messages', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ conversationId, content: initialMessage }),
-        })
-        if (!msgRes.ok) {
-          const msgData = await msgRes.json().catch(() => ({}))
-          alert(msgData.error || t('Failed to send message to seller', 'ಮಾರಾಟಗಾರರಿಗೆ ಸಂದೇಶ ಕಳುಹಿಸಲು ವಿಫಲವಾಗಿದೆ'))
-          return
-        }
-        router.push(`/messages?conversationId=${encodeURIComponent(conversationId)}`)
-      }
     } catch {
-      alert('Failed to open chat')
+      alert(t('Failed to connect with seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಲು ವಿಫಲವಾಗಿದೆ'))
     }
   }
 

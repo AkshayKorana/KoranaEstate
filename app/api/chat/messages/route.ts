@@ -127,11 +127,191 @@ export async function POST(request: NextRequest) {
     })
 
     const body = await request.json()
-    const { conversationId, content } = body
+    const conversationIdFromBody = typeof body?.conversationId === 'string' ? body.conversationId : ''
+    const contentFromBody = typeof body?.content === 'string' ? body.content.trim() : ''
+    const recipientId = typeof body?.recipientId === 'string' ? body.recipientId : ''
+    const listingId = typeof body?.listingId === 'string' ? body.listingId : ''
+    const text = typeof body?.text === 'string' ? body.text.trim() : ''
 
+    const isMarketplacePayload = recipientId.length > 0 && listingId.length > 0 && text.length > 0
+
+    if (isMarketplacePayload) {
+      if (recipientId === user.id) {
+        return NextResponse.json({ error: 'Cannot send message to yourself' }, { status: 400 })
+      }
+
+      const recipient = await prisma.user.findUnique({
+        where: { id: recipientId },
+        select: { id: true },
+      })
+      if (!recipient) {
+        return NextResponse.json({ error: 'Recipient not found' }, { status: 404 })
+      }
+
+      let conversationId = ''
+      let isMember = false
+
+      try {
+        let conversation = await prisma.conversation.findFirst({
+          where: {
+            OR: [
+              { buyerId: user.id, sellerId: recipientId },
+              { buyerId: recipientId, sellerId: user.id },
+            ],
+          },
+          select: { id: true },
+        })
+
+        if (!conversation) {
+          conversation = await prisma.conversation.create({
+            data: {
+              buyerId: user.id,
+              sellerId: recipientId,
+              lastMessageAt: new Date(),
+            },
+            select: { id: true },
+          })
+        }
+
+        conversationId = conversation.id
+        isMember = true
+      } catch (error) {
+        if (!isPrismaSchemaCompatibilityError(error)) throw error
+
+        const existingRows = await prisma.$queryRawUnsafe<Array<{ id: string }>>(
+          `SELECT c."id"
+           FROM "Conversation" c
+           JOIN "ConversationParticipant" cp1
+             ON cp1."conversationId" = c."id" AND cp1."userId" = $1
+           JOIN "ConversationParticipant" cp2
+             ON cp2."conversationId" = c."id" AND cp2."userId" = $2
+           LIMIT 1`,
+          user.id,
+          recipientId,
+        )
+
+        if (existingRows.length > 0) {
+          conversationId = existingRows[0].id
+          isMember = true
+        } else {
+          const newConversationId = randomUUID()
+          await prisma.$transaction(async (tx) => {
+            await tx.$executeRawUnsafe(
+              `INSERT INTO "Conversation" ("id","createdAt","updatedAt")
+               VALUES ($1, NOW(), NOW())`,
+              newConversationId,
+            )
+            await tx.$executeRawUnsafe(
+              `INSERT INTO "ConversationParticipant" ("id","conversationId","userId","createdAt")
+               VALUES ($1,$2,$3,NOW()),($4,$2,$5,NOW())`,
+              randomUUID(),
+              newConversationId,
+              user.id,
+              randomUUID(),
+              recipientId,
+            )
+          })
+          conversationId = newConversationId
+          isMember = true
+        }
+      }
+
+      if (!isMember || !conversationId) {
+        return NextResponse.json({ error: 'Unable to create conversation' }, { status: 500 })
+      }
+
+      // Add compatibility columns when missing; harmless if they already exist.
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE "User" ADD COLUMN IF NOT EXISTS "notificationCount" INTEGER NOT NULL DEFAULT 0`
+      )
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "recipientId" TEXT`
+      )
+      await prisma.$executeRawUnsafe(
+        `ALTER TABLE "Message" ADD COLUMN IF NOT EXISTS "listingId" TEXT`
+      )
+
+      const message = await prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(
+          `INSERT INTO "Message"
+            ("id","conversationId","senderId","recipientId","listingId","content","isRead","createdAt","updatedAt")
+           VALUES
+            ($1,$2,$3,$4,$5,$6,false,NOW(),NOW())`,
+          randomUUID(),
+          conversationId,
+          user.id,
+          recipientId,
+          listingId,
+          text,
+        )
+
+        const msgRows = await tx.$queryRawUnsafe<Array<{
+          id: string
+          conversationId: string
+          senderId: string
+          recipientId: string | null
+          listingId: string | null
+          content: string
+          isRead: boolean
+          createdAt: Date
+          senderName: string | null
+          senderEmail: string
+        }>>(
+          `SELECT
+             m."id",
+             m."conversationId",
+             m."senderId",
+             m."recipientId",
+             m."listingId",
+             m."content",
+             m."isRead",
+             m."createdAt",
+             COALESCE(u."name", u."fullName") AS "senderName",
+             u."email" AS "senderEmail"
+           FROM "Message" m
+           JOIN "User" u ON u."id" = m."senderId"
+           WHERE m."conversationId" = $1
+           ORDER BY m."createdAt" DESC
+           LIMIT 1`,
+          conversationId,
+        )
+
+        await tx.$executeRawUnsafe(
+          `UPDATE "Conversation" SET "updatedAt" = NOW() WHERE "id" = $1`,
+          conversationId,
+        )
+
+        await tx.$executeRawUnsafe(
+          `UPDATE "User" SET "notificationCount" = COALESCE("notificationCount", 0) + 1 WHERE "id" = $1`,
+          recipientId,
+        )
+
+        const row = msgRows[0]
+        return {
+          id: row.id,
+          conversationId: row.conversationId,
+          senderId: row.senderId,
+          recipientId: row.recipientId,
+          listingId: row.listingId,
+          content: row.content,
+          isRead: row.isRead,
+          createdAt: row.createdAt,
+          sender: {
+            id: row.senderId,
+            name: row.senderName,
+            email: row.senderEmail,
+          },
+        }
+      })
+
+      return NextResponse.json({ conversationId, message }, { status: 200 })
+    }
+
+    const conversationId = conversationIdFromBody
+    const content = contentFromBody
     if (!conversationId || !content) {
       return NextResponse.json(
-        { error: 'Missing required fields: conversationId, content' },
+        { error: 'Missing required fields: conversationId, content OR recipientId, listingId, text' },
         { status: 400 }
       )
     }
@@ -263,7 +443,7 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ message }, { status: 201 })
+    return NextResponse.json({ message }, { status: 200 })
   } catch (error) {
     console.error('Error sending message:', error)
     return NextResponse.json(

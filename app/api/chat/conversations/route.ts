@@ -40,35 +40,10 @@ export async function GET() {
     }>
 
     try {
-      conversations = await prisma.conversation.findMany({
-        where: {
-          OR: [
-            { buyerId: user.id },
-            { sellerId: user.id }
-          ]
-        },
-        include: {
-          buyer: {
-            select: { id: true, name: true, email: true }
-          },
-          seller: {
-            select: { id: true, name: true, email: true }
-          },
-          messages: {
-            orderBy: { createdAt: 'desc' },
-            take: 1
-          }
-        },
-        orderBy: { lastMessageAt: 'desc' }
-      })
-    } catch (error) {
-      if (!isPrismaSchemaCompatibilityError(error)) throw error
-
-      // Compatibility mode for backend schema: Conversation + ConversationParticipant.
-      const rows = await prisma.$queryRawUnsafe<Array<{
+      const participantRows = await prisma.$queryRawUnsafe<Array<{
         id: string
         createdAt: Date
-        lastMessageAt: Date
+        updatedAt: Date
         otherId: string | null
         otherName: string | null
         otherEmail: string | null
@@ -80,7 +55,7 @@ export async function GET() {
         `SELECT
            c."id" AS "id",
            c."createdAt" AS "createdAt",
-           c."updatedAt" AS "lastMessageAt",
+           c."updatedAt" AS "updatedAt",
            uo."id" AS "otherId",
            COALESCE(uo."name", uo."fullName") AS "otherName",
            uo."email" AS "otherEmail",
@@ -106,12 +81,12 @@ export async function GET() {
         user.id,
       )
 
-      conversations = rows.map((row) => ({
+      conversations = participantRows.map((row) => ({
         id: row.id,
         buyerId: user.id,
         sellerId: row.otherId ?? user.id,
         createdAt: row.createdAt,
-        lastMessageAt: row.lastMessageAt,
+        lastMessageAt: row.updatedAt,
         buyer: {
           id: user.id,
           name: user.name ?? user.fullName,
@@ -127,12 +102,30 @@ export async function GET() {
               {
                 id: row.messageId,
                 content: row.messageContent ?? '',
-                createdAt: row.messageCreatedAt ?? row.lastMessageAt,
+                createdAt: row.messageCreatedAt ?? row.updatedAt,
                 senderId: row.messageSenderId ?? user.id,
               },
             ]
           : [],
       }))
+    } catch (error) {
+      if (!isPrismaSchemaCompatibilityError(error)) throw error
+
+      // Compatibility mode for web schema using buyerId/sellerId.
+      conversations = await prisma.conversation.findMany({
+        where: {
+          OR: [{ buyerId: user.id }, { sellerId: user.id }],
+        },
+        include: {
+          buyer: { select: { id: true, name: true, email: true } },
+          seller: { select: { id: true, name: true, email: true } },
+          messages: {
+            orderBy: { createdAt: 'desc' },
+            take: 1,
+          },
+        },
+        orderBy: { lastMessageAt: 'desc' },
+      })
     }
 
     return NextResponse.json({ conversations })
