@@ -40,6 +40,7 @@ const FALLBACK_BENCHMARK: Record<CommodityName, number> = {
   Arabica: 338,
   Robusta: 265,
 }
+const STRICT_REAL_DATA = process.env.STRICT_REAL_DATA === 'true' || process.env.NODE_ENV === 'production'
 
 function median(values: number[]): number | null {
   if (values.length === 0) return null
@@ -177,13 +178,17 @@ export async function GET() {
       const benchmarkPrice = latestBenchmark ? rounded(latestBenchmark.price) : FALLBACK_BENCHMARK[commodity]
       const benchmarkSource = latestBenchmark?.source ?? 'Modelled Benchmark'
 
+      if (STRICT_REAL_DATA && !latestBenchmark) {
+        continue
+      }
+
       if (!benchmarkExists) {
         await prisma.priceObservation.create({
           data: {
             commodityName: commodity,
             grade: 'Futures derived',
             priceType: 'benchmark',
-            source: benchmarkSource,
+            source: STRICT_REAL_DATA ? (latestBenchmark?.source ?? 'Unavailable') : benchmarkSource,
             marketCenter: 'ICE Futures',
             state: 'Pan-India Benchmark',
             district: null,
@@ -191,13 +196,15 @@ export async function GET() {
             inrPerKg: benchmarkPrice,
             originalValue: benchmarkPrice,
             originalUnit: 'inr_per_kg',
-            reliability: latestBenchmark ? 0.82 : 0.4,
+            reliability: latestBenchmark ? 0.82 : STRICT_REAL_DATA ? 0 : 0.4,
             observedAt: new Date(),
           },
         })
       }
 
-      await ensureDerivedObservations(commodity, benchmarkPrice, new Date())
+      if (!STRICT_REAL_DATA) {
+        await ensureDerivedObservations(commodity, benchmarkPrice, new Date())
+      }
     }
 
     const commodities: CommodityIntel[] = []
@@ -240,11 +247,32 @@ export async function GET() {
       })
     }
 
+    const hasAnyRealSignal = commodities.some((c) =>
+      [c.benchmark.latestInrPerKg, c.mandi.latestInrPerKg, c.listing.latestInrPerKg].some((v) => v != null)
+    )
+
+    if (STRICT_REAL_DATA && !hasAnyRealSignal) {
+      return NextResponse.json(
+        {
+          error: 'No real price-intel signals available in strict mode.',
+          detail: 'Run market ingestion and collect real observations first.',
+          strictMode: true,
+          updatedAt: new Date().toISOString(),
+          updatedAtIst: toIstDisplay(new Date()),
+          unit: 'inr_per_kg',
+          standard: 'Indian Market Normalized Standard (INR/kg, IST)',
+          commodities: [],
+        },
+        { status: 503 }
+      )
+    }
+
     return NextResponse.json({
       updatedAt: new Date().toISOString(),
       updatedAtIst: toIstDisplay(new Date()),
       unit: 'inr_per_kg',
       standard: 'Indian Market Normalized Standard (INR/kg, IST)',
+      strictMode: STRICT_REAL_DATA,
       commodities,
     })
   } catch (error) {

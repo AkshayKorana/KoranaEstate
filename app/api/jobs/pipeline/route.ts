@@ -10,12 +10,27 @@ function isAuthorized(req: NextRequest): boolean {
 }
 
 async function runStep(origin: string, path: string) {
-  const res = await fetch(`${origin}${path}`, { cache: 'no-store' })
-  const text = await res.text()
-  if (!res.ok) {
-    throw new Error(`Step ${path} failed (${res.status}): ${text.slice(0, 300)}`)
+  const maxAttempts = 3
+  let attempt = 0
+  let lastError = ''
+
+  while (attempt < maxAttempts) {
+    attempt += 1
+    const res = await fetch(`${origin}${path}`, { cache: 'no-store' })
+    const text = await res.text()
+
+    if (res.ok) {
+      return { path, status: res.status, attempt }
+    }
+
+    lastError = `Step ${path} failed (${res.status}) attempt ${attempt}: ${text.slice(0, 300)}`
+    const retryable = res.status >= 500 && res.status <= 599
+    if (!retryable || attempt >= maxAttempts) break
+
+    await new Promise((resolve) => setTimeout(resolve, 1500 * attempt))
   }
-  return { path, status: res.status }
+
+  throw new Error(lastError || `Step ${path} failed`)
 }
 
 export async function POST(req: NextRequest) {

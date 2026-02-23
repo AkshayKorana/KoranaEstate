@@ -4,15 +4,17 @@ import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
 
 export const dynamic = 'force-dynamic'
+type RouteContext = { params: Promise<{ id: string }> }
 
 // GET /api/products/[id] - Get single product
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
+    const { id } = await context.params
     const product = await prisma.product.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
         seller: {
           select: { id: true, name: true, email: true }
@@ -37,9 +39,10 @@ export async function GET(
 // PUT /api/products/[id] - Update product (owner only)
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
+    const { id } = await context.params
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -54,7 +57,7 @@ export async function PUT(
     }
 
     const product = await prisma.product.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!product) {
@@ -100,7 +103,7 @@ export async function PUT(
     }
 
     const updated = await prisma.product.update({
-      where: { id: params.id },
+      where: { id },
       data: updates,
       include: {
         seller: {
@@ -122,9 +125,10 @@ export async function PUT(
 // DELETE /api/products/[id] - Delete product (owner only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: RouteContext
 ) {
   try {
+    const { id } = await context.params
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -139,7 +143,7 @@ export async function DELETE(
     }
 
     const product = await prisma.product.findUnique({
-      where: { id: params.id }
+      where: { id }
     })
 
     if (!product) {
@@ -154,7 +158,7 @@ export async function DELETE(
     }
 
     await prisma.product.delete({
-      where: { id: params.id }
+      where: { id }
     })
 
     return NextResponse.json({ message: 'Product deleted successfully' })

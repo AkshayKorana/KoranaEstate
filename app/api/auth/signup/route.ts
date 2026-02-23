@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
+import { Prisma } from '@prisma/client'
 import { prisma } from '@/lib/prisma'
 
 export async function GET() {
@@ -44,6 +45,31 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error('Signup error:', error)
     const message = error instanceof Error ? error.message : 'Unknown error'
+
+    if (message.toLowerCase().includes('readonly database') || message.toLowerCase().includes('attempt to write a readonly database')) {
+      return NextResponse.json(
+        {
+          error: 'Database is read-only on this runtime.',
+          detail: 'Ensure write permission for prisma/dev.db and prisma/ directory, and run app from a writable folder.',
+        },
+        { status: 500 }
+      )
+    }
+
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      if (error.code === 'P2002') {
+        return NextResponse.json({ error: 'Email is already registered.' }, { status: 409 })
+      }
+      if (error.code === 'P2021') {
+        return NextResponse.json(
+          {
+            error: 'Database schema is out of date.',
+            detail: 'Run: npx prisma migrate dev && npx prisma generate',
+          },
+          { status: 500 }
+        )
+      }
+    }
     return NextResponse.json(
       {
         error: 'Failed to create user.',

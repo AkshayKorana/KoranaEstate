@@ -13,13 +13,15 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+    const user = await prisma.user.upsert({
+      where: { email: session.user.email },
+      update: { name: session.user.name ?? undefined },
+      create: {
+        email: session.user.email,
+        name: session.user.name ?? null,
+        passwordHash: 'oauth_user_no_password',
+      },
     })
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
 
     const { searchParams } = new URL(request.url)
     const conversationId = searchParams.get('conversationId')
@@ -88,13 +90,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+    const user = await prisma.user.upsert({
+      where: { email: session.user.email },
+      update: { name: session.user.name ?? undefined },
+      create: {
+        email: session.user.email,
+        name: session.user.name ?? null,
+        passwordHash: 'oauth_user_no_password',
+      },
     })
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
 
     const body = await request.json()
     const { conversationId, content } = body

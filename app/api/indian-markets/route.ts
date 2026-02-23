@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getIstDayRangeUtc, toIstDisplay } from '@/lib/india-market'
+import { toIstDisplay } from '@/lib/india-market'
 
-// Indian market data sources
-const AGMARKNET_BASE = 'https://agmarknet.gov.in'
-const COMMODITIES_BOARD_API = 'https://indiancommodity.com/api'
+const STRICT_REAL_DATA = process.env.STRICT_REAL_DATA === 'true' || process.env.NODE_ENV === 'production'
 
 type MandiPrice = {
   commodity: string
@@ -338,12 +336,29 @@ export async function GET(request: NextRequest) {
       })
     }
 
+    const hasAnySample = results.some((row) => row.sampleCount > 0)
+    if (STRICT_REAL_DATA && !hasAnySample) {
+      return NextResponse.json(
+        {
+          error: 'No real Indian market samples available in strict mode.',
+          detail: 'Ingest Agmarknet/board/mandi observations first, then retry.',
+          strictMode: true,
+          markets: [],
+          updatedAt: new Date().toISOString(),
+          updatedAtIst: toIstDisplay(new Date()),
+          filtersApplied: { district, state, commodity: commodityFilter || null },
+        },
+        { status: 503 }
+      )
+    }
+
     return NextResponse.json({
       markets: results,
       updatedAt: new Date().toISOString(),
       updatedAtIst: toIstDisplay(new Date()),
       filtersApplied: { district, state, commodity: commodityFilter || null },
       note: 'Aggregated from multiple Indian mandi and commodity board sources',
+      strictMode: STRICT_REAL_DATA,
     })
   } catch (error) {
     console.error('GET /api/indian-markets failed:', error)

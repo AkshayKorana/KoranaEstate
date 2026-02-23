@@ -9,6 +9,7 @@ const ROBUSTA_SYMBOL = 'RC=F'
 const FALLBACK_USD_TO_INR = Number(process.env.USD_TO_INR ?? 83)
 const FALLBACK_ARABICA_USD_PER_LB = 1.85
 const FALLBACK_ROBUSTA_USD_PER_LB = 1.45
+const STRICT_REAL_DATA = process.env.STRICT_REAL_DATA === 'true' || process.env.NODE_ENV === 'production'
 
 type MarketPoint = {
   date: string
@@ -57,6 +58,9 @@ async function fetchLiveForexRate(): Promise<ForexRate> {
       timestamp: new Date().toISOString(),
     }
   } catch (error) {
+    if (STRICT_REAL_DATA) {
+      throw new Error(`Live forex fetch failed in strict mode: ${error instanceof Error ? error.message : String(error)}`)
+    }
     console.warn('Live forex fetch failed, using fallback:', error)
     return {
       usdToInr: FALLBACK_USD_TO_INR,
@@ -90,18 +94,6 @@ async function fetchYahooQuote(symbol: string): Promise<number> {
 
 function toInrPerKg(usdPerLb: number, usdToInr: number): number {
   return convertToInrPerKg(usdPerLb, 'usd_per_lb', usdToInr)
-}
-
-function buildSyntheticHistory(baseInrPerKg: number): MarketPoint[] {
-  const today = new Date()
-  return Array.from({ length: 14 }, (_, i) => {
-    const d = new Date(today)
-    d.setDate(today.getDate() - (13 - i))
-    const wave = Math.sin(i * 0.8) * 0.018
-    const noise = ((i % 3) - 1) * 0.003
-    const price = Number((baseInrPerKg * (1 + wave + noise)).toFixed(2))
-    return { date: d.toISOString(), inrPerKg: price }
-  })
 }
 
 async function upsertDailyCommodityPrice(name: 'Arabica' | 'Robusta', priceInrPerKg: number) {
@@ -203,8 +195,58 @@ async function getHistory(name: 'Arabica' | 'Robusta'): Promise<MarketPoint[]> {
   }
 }
 
+async function getLatestFromDb(name: 'Arabica' | 'Robusta'): Promise<MarketQuote | null> {
+  try {
+    const rows = await prisma.priceObservation.findMany({
+      where: {
+        commodityName: name,
+        priceType: 'benchmark',
+        source: 'Yahoo Finance',
+      },
+      orderBy: { observedAt: 'desc' },
+      take: 14,
+    })
+
+    if (!rows.length) return null
+
+    const latest = rows[0]
+    const history = rows
+      .map((row) => ({
+        date: row.observedAt.toISOString(),
+        inrPerKg: Number(row.inrPerKg.toFixed(2)),
+      }))
+      .reverse()
+
+    return {
+      usdPerLb: latest.originalValue ?? null,
+      inrPerKg: Number(latest.inrPerKg.toFixed(2)),
+      history,
+      source: 'Yahoo Finance (cached DB)',
+    }
+  } catch (error) {
+    console.error(`Failed to read cached benchmark for ${name}:`, error)
+    return null
+  }
+}
+
 export async function GET() {
-  const forex = await fetchLiveForexRate()
+  let forex: ForexRate
+  try {
+    forex = await fetchLiveForexRate()
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: 'Live forex source unavailable in strict real-data mode.',
+        detail: error instanceof Error ? error.message : String(error),
+        strictMode: true,
+        source: 'Unavailable',
+        updatedAt: new Date().toISOString(),
+        updatedAtIst: toIstDisplay(new Date()),
+      },
+      { status: 503 }
+    )
+  }
+
   let arabica: MarketQuote = { usdPerLb: null, inrPerKg: null, history: [], source: 'Yahoo Finance (ICE Futures)' }
   let robusta: MarketQuote = { usdPerLb: null, inrPerKg: null, history: [], source: 'Yahoo Finance (ICE Futures)' }
   let source = 'Yahoo Finance'
@@ -234,27 +276,52 @@ export async function GET() {
     robusta = { usdPerLb: Number(robustaUsdPerLb.toFixed(4)), inrPerKg: robustaInrPerKg, history: robustaHistory, source: 'Yahoo Finance (ICE Futures)' }
   } catch (error) {
     console.error('GET /api/market failed:', error)
-    const [arabicaHistory, robustaHistory] = await Promise.all([
-      getHistory('Arabica'),
-      getHistory('Robusta'),
+    const [arabicaCached, robustaCached] = await Promise.all([
+      getLatestFromDb('Arabica'),
+      getLatestFromDb('Robusta'),
     ])
 
-    const arabicaFallbackInr = toInrPerKg(FALLBACK_ARABICA_USD_PER_LB, forex.usdToInr)
-    const robustaFallbackInr = toInrPerKg(FALLBACK_ROBUSTA_USD_PER_LB, forex.usdToInr)
+    if (STRICT_REAL_DATA) {
+      if (!arabicaCached || !robustaCached) {
+        return NextResponse.json(
+          {
+            error: 'Live market source unavailable and no cached real observations found.',
+            detail: error instanceof Error ? error.message : String(error),
+            strictMode: true,
+            source: 'Unavailable',
+            updatedAt: new Date().toISOString(),
+            updatedAtIst: toIstDisplay(new Date()),
+          },
+          { status: 503 }
+        )
+      }
 
-    arabica = {
-      usdPerLb: FALLBACK_ARABICA_USD_PER_LB,
-      inrPerKg: arabicaHistory.at(-1)?.inrPerKg ?? arabicaFallbackInr,
-      history: arabicaHistory.length > 0 ? arabicaHistory : buildSyntheticHistory(arabicaFallbackInr),
-      source: 'Yahoo Finance (Fallback - API Error)',
+      arabica = arabicaCached
+      robusta = robustaCached
+      source = 'Yahoo Finance (cached DB)'
+    } else {
+      const [arabicaHistory, robustaHistory] = await Promise.all([
+        getHistory('Arabica'),
+        getHistory('Robusta'),
+      ])
+
+      const arabicaFallbackInr = toInrPerKg(FALLBACK_ARABICA_USD_PER_LB, forex.usdToInr)
+      const robustaFallbackInr = toInrPerKg(FALLBACK_ROBUSTA_USD_PER_LB, forex.usdToInr)
+
+      arabica = {
+        usdPerLb: FALLBACK_ARABICA_USD_PER_LB,
+        inrPerKg: arabicaHistory.at(-1)?.inrPerKg ?? arabicaFallbackInr,
+        history: arabicaHistory,
+        source: 'Yahoo Finance (Fallback - API Error)',
+      }
+      robusta = {
+        usdPerLb: FALLBACK_ROBUSTA_USD_PER_LB,
+        inrPerKg: robustaHistory.at(-1)?.inrPerKg ?? robustaFallbackInr,
+        history: robustaHistory,
+        source: 'Yahoo Finance (Fallback - API Error)',
+      }
+      source = 'Yahoo Finance (fallback)'
     }
-    robusta = {
-      usdPerLb: FALLBACK_ROBUSTA_USD_PER_LB,
-      inrPerKg: robustaHistory.at(-1)?.inrPerKg ?? robustaFallbackInr,
-      history: robustaHistory.length > 0 ? robustaHistory : buildSyntheticHistory(robustaFallbackInr),
-      source: 'Yahoo Finance (Fallback - API Error)',
-    }
-    source = 'Yahoo Finance (fallback)'
   }
 
   return NextResponse.json({
@@ -269,5 +336,6 @@ export async function GET() {
     updatedAt: new Date().toISOString(),
     updatedAtIst: toIstDisplay(new Date()),
     source,
+    strictMode: STRICT_REAL_DATA,
   })
 }

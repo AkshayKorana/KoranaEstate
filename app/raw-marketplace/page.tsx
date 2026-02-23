@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { RawListing, RawListingFilters, CreateRawListingInput } from '@/types/marketplace'
 import Navbar from '@/app/components/Navbar'
 import { useLanguage } from '@/app/language-context'
+import { useTheme } from '@/app/theme-context'
 
 const COMMODITIES = ['Arabica Cherry', 'Arabica Parchment', 'Robusta Cherry', 'Robusta Parchment', 'Cardamom', 'Arecanut', 'Pepper']
 
@@ -13,6 +14,8 @@ export default function RawMarketplacePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const { t } = useLanguage()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const [listings, setListings] = useState<RawListing[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -111,23 +114,70 @@ export default function RawMarketplacePage() {
     }
   }
 
+  async function handleOpenConversation(listing: RawListing, withIntro: boolean) {
+    if (status !== 'authenticated') {
+      router.push('/auth')
+      return
+    }
+
+    if (!listing.sellerId) {
+      alert(t('Seller details unavailable', 'ಮಾರಾಟಗಾರ ವಿವರಗಳು ಲಭ್ಯವಿಲ್ಲ'))
+      return
+    }
+
+    const initialMessage = withIntro
+      ? t(
+          `Hi, I am interested in your listing: ${listing.commodity}, ₹${listing.pricePerKg}/kg, ${listing.quantityKg} kg.`,
+          `ನಮಸ್ಕಾರ, ನಿಮ್ಮ ಲಿಸ್ಟಿಂಗ್ ಬಗ್ಗೆ ಆಸಕ್ತಿ ಇದೆ: ${listing.commodity}, ₹${listing.pricePerKg}/ಕೆಜಿ, ${listing.quantityKg} ಕೆಜಿ.`
+        )
+      : ''
+
+    try {
+      const res = await fetch('/api/chat/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          sellerId: listing.sellerId,
+          initialMessage,
+        }),
+      })
+
+      const data = await res.json()
+      if (!res.ok) {
+        alert(data.error || t('Failed to connect with seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+        return
+      }
+
+      const conversationId = data.conversation?.id
+      if (!conversationId) {
+        alert(t('Conversation not available', 'ಸಂಭಾಷಣೆ ಲಭ್ಯವಿಲ್ಲ'))
+        return
+      }
+
+      router.push(`/messages?conversationId=${encodeURIComponent(conversationId)}`)
+    } catch (error) {
+      console.error('Failed to open conversation:', error)
+      alert(t('Failed to connect with seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+    }
+  }
+
   return (
-    <div className="min-h-screen pt-24 pb-12">
+    <div className="min-h-screen content-under-navbar pb-12">
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-10">
         {/* Header */}
         <div className="mb-8 slide-in-up">
           <div className="flex items-center space-x-4 mb-3">
-            <div className="p-4 rounded-2xl gradient-emerald-coffee float-animation">
+            <div className="p-4 rounded-2xl gradient-brand-spectrum float-animation">
               <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 via-green-600 to-amber-700 bg-clip-text text-transparent">
+              <h1 className="font-luxe text-5xl font-bold text-brand-spectrum">
                 {t('Raw Commodity Marketplace', 'ರಾ ಕಮೋಡಿಟಿ ಮಾರುಕಟ್ಟೆ')}
               </h1>
-              <p className="mt-2 text-gray-600 text-lg">{t('Buy and sell raw coffee, pepper, cardamom, and arecanut directly from farmers 🌱', 'ರೈತರಿಂದ ನೇರವಾಗಿ ರಾ ಕಾಫಿ, ಮೆಣಸು, ಏಲಕ್ಕಿ ಮತ್ತು ಅಡಿಕೆ ಖರೀದಿ/ಮಾರಾಟ ಮಾಡಿ 🌱')}</p>
+              <p className={`mt-2 text-lg ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Buy and sell raw coffee, pepper, cardamom, and arecanut directly from farmers 🌱', 'ರೈತರಿಂದ ನೇರವಾಗಿ ರಾ ಕಾಫಿ, ಮೆಣಸು, ಏಲಕ್ಕಿ ಮತ್ತು ಅಡಿಕೆ ಖರೀದಿ/ಮಾರಾಟ ಮಾಡಿ 🌱')}</p>
             </div>
           </div>
         </div>
@@ -135,19 +185,19 @@ export default function RawMarketplacePage() {
         <div className="flex gap-8">
           {/* Filters Sidebar */}
           <aside className="w-72 flex-shrink-0 fade-in">
-            <div className="glass rounded-2xl shadow-xl p-6 sticky top-24 border-2 border-emerald-100">
+            <div className={`glass rounded-2xl shadow-lg p-6 sticky top-36 border ${isDark ? 'border-emerald-200/30' : 'border-black/10'}`}>
               <div className="flex items-center space-x-2 mb-6">
                 <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
                 </svg>
-                <h2 className="font-bold text-xl bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">{t('Filters', 'ಫಿಲ್ಟರ್‌ಗಳು')}</h2>
+                <h2 className="font-luxe font-bold text-2xl text-brand-spectrum">{t('Filters', 'ಫಿಲ್ಟರ್‌ಗಳು')}</h2>
               </div>
               
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">🌾 {t('Commodity', 'ವಸ್ತು')}</label>
+                  <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-[#dbcdbb]' : 'text-[#2f2f2f]'}`}>🌾 {t('Commodity', 'ವಸ್ತು')}</label>
                   <select
-                    className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
+                    className="lux-input w-full rounded-xl px-4 py-3 transition-all"
                     value={filters.commodity || ''}
                     onChange={(e) => setFilters({ ...filters, commodity: e.target.value || undefined })}
                   >
@@ -159,10 +209,10 @@ export default function RawMarketplacePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">📍 {t('Location', 'ಸ್ಥಳ')}</label>
+                  <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-[#dbcdbb]' : 'text-[#2f2f2f]'}`}>📍 {t('Location', 'ಸ್ಥಳ')}</label>
                   <input
                     type="text"
-                    className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
+                    className="lux-input w-full rounded-xl px-4 py-3 transition-all"
                     placeholder={t('City or region', 'ನಗರ ಅಥವಾ ಪ್ರದೇಶ')}
                     value={filters.location || ''}
                     onChange={(e) => setFilters({ ...filters, location: e.target.value || undefined })}
@@ -171,17 +221,17 @@ export default function RawMarketplacePage() {
 
                 <button
                   onClick={() => setFilters({})}
-                  className="w-full text-sm gradient-emerald text-white px-4 py-3 rounded-xl font-semibold hover:shadow-lg transition-all"
+                  className="w-full text-sm lux-btn-primary px-4 py-3 rounded-xl font-semibold hover:shadow-lg transition-all"
                 >
                   {t('Clear All Filters', 'ಎಲ್ಲಾ ಫಿಲ್ಟರ್‌ಗಳನ್ನು ತೆರವುಗೊಳಿಸಿ')}
                 </button>
               </div>
 
               {/* Stats Card */}
-              <div className="mt-6 pt-6 border-t-2 border-emerald-100">
+              <div className="mt-6 pt-6 border-t border-emerald-200/25">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-emerald-600">{listings.length}</p>
-                  <p className="text-sm text-gray-600 mt-1">{t('Active Listings', 'ಸಕ್ರಿಯ ಲಿಸ್ಟಿಂಗ್‌ಗಳು')}</p>
+                  <p className={`text-sm mt-1 ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Active Listings', 'ಸಕ್ರಿಯ ಲಿಸ್ಟಿಂಗ್‌ಗಳು')}</p>
                 </div>
               </div>
             </div>
@@ -190,7 +240,7 @@ export default function RawMarketplacePage() {
           {/* Listings Grid */}
           <main className="flex-1">
             <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 slide-in-up">
-              <p className="text-gray-600 font-medium">
+              <p className={`font-medium ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>
                 {loading
                   ? t('Loading...', 'ಲೋಡ್ ಆಗುತ್ತಿದೆ...')
                   : `${listings.length} ${listings.length === 1 ? t('listing', 'ಲಿಸ್ಟಿಂಗ್') : t('listings', 'ಲಿಸ್ಟಿಂಗ್‌ಗಳು')} ${t('found', 'ಕಂಡುಬಂದವು')}`}
@@ -203,7 +253,7 @@ export default function RawMarketplacePage() {
                     setShowCreateModal(true)
                   }
                 }}
-                className="gradient-emerald text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center space-x-2"
+                className="lux-btn-primary px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center space-x-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -219,7 +269,7 @@ export default function RawMarketplacePage() {
                   <div className="w-3 h-3 bg-emerald-600 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                   <div className="w-3 h-3 bg-emerald-700 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                 </div>
-                <p className="text-gray-600 font-medium">{t('Loading marketplace...', 'ಮಾರುಕಟ್ಟೆ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
+                <p className={`font-medium ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Loading marketplace...', 'ಮಾರುಕಟ್ಟೆ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
               </div>
             ) : listings.length === 0 ? (
               <div className="text-center py-20 glass rounded-2xl shadow-xl fade-in">
@@ -228,11 +278,11 @@ export default function RawMarketplacePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-700 mb-2">{t('No Listings Yet', 'ಇನ್ನೂ ಲಿಸ್ಟಿಂಗ್‌ಗಳಿಲ್ಲ')}</h3>
-                <p className="text-gray-500 mb-6">{t('Be the first to list your commodity!', 'ನಿಮ್ಮ ವಸ್ತುವನ್ನು ಮೊದಲು ಲಿಸ್ಟ್ ಮಾಡಿ!')}</p>
+                <h3 className={`text-2xl font-bold mb-2 ${isDark ? 'text-[#efe4d4]' : 'text-[#1f1f1f]'}`}>{t('No Listings Yet', 'ಇನ್ನೂ ಲಿಸ್ಟಿಂಗ್‌ಗಳಿಲ್ಲ')}</h3>
+                <p className={`mb-6 ${isDark ? 'text-[#bbae9a]' : 'text-[#4a4a4a]'}`}>{t('Be the first to list your commodity!', 'ನಿಮ್ಮ ವಸ್ತುವನ್ನು ಮೊದಲು ಲಿಸ್ಟ್ ಮಾಡಿ!')}</p>
                 <button
                   onClick={() => status === 'authenticated' ? setShowCreateModal(true) : router.push('/auth')}
-                  className="gradient-emerald text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all inline-flex items-center space-x-2"
+                  className="lux-btn-primary px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all inline-flex items-center space-x-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -245,16 +295,16 @@ export default function RawMarketplacePage() {
                 {listings.map((listing, idx) => (
                   <div 
                     key={listing.id} 
-                    className="glass rounded-2xl shadow-lg hover:shadow-2xl transition-all p-6 border-2 border-emerald-100 card-hover fade-in"
+                    className={`glass rounded-2xl shadow-lg hover:shadow-2xl transition-all p-6 border card-hover fade-in ${isDark ? 'border-emerald-200/30' : 'border-black/10'}`}
                     style={{ animationDelay: `${idx * 100}ms` }}
                   >
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className="font-bold text-xl text-gray-800">{listing.commodity}</h3>
-                        <p className="text-sm text-gray-500 mt-1">📍 {listing.location}</p>
+                        <h3 className={`font-bold text-xl ${isDark ? 'text-[#efe4d4]' : 'text-[#1f1f1f]'}`}>{listing.commodity}</h3>
+                        <p className={`text-sm mt-1 ${isDark ? 'text-[#b8ab97]' : 'text-[#4a4a4a]'}`}>📍 {listing.location}</p>
                       </div>
                       {listing.grade && (
-                        <span className="gradient-emerald text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-md">
+                        <span className="gradient-brand-spectrum text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-md">
                           {listing.grade}
                         </span>
                       )}
@@ -278,21 +328,38 @@ export default function RawMarketplacePage() {
                     </div>
 
                     {listing.description && (
-                      <p className="text-sm text-gray-600 mb-4 line-clamp-2">{listing.description}</p>
+                      <p className={`text-sm mb-4 line-clamp-2 ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{listing.description}</p>
                     )}
 
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <button
+                        onClick={() => {
+                          setSelectedListing(listing)
+                          setOfferData({ offerPrice: listing.pricePerKg, quantity: Math.min(50, listing.quantityKg), message: '' })
+                          setShowOfferModal(true)
+                        }}
+                        className="w-full gradient-brand-spectrum text-white py-3 rounded-xl font-semibold shadow-md hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center space-x-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{t('Make Offer', 'ಆಫರ್ ಮಾಡಿ')}</span>
+                      </button>
+                      <button
+                        onClick={() => handleOpenConversation(listing, false)}
+                        className="w-full lux-btn-secondary py-3 rounded-xl font-semibold shadow-md hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center space-x-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                        </svg>
+                        <span>{t('Message', 'ಸಂದೇಶ')}</span>
+                      </button>
+                    </div>
                     <button
-                      onClick={() => {
-                        setSelectedListing(listing)
-                        setOfferData({ offerPrice: listing.pricePerKg, quantity: Math.min(50, listing.quantityKg), message: '' })
-                        setShowOfferModal(true)
-                      }}
-                      className="w-full gradient-emerald text-white py-3 rounded-xl font-semibold shadow-md hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center space-x-2"
+                      onClick={() => handleOpenConversation(listing, true)}
+                      className="mt-2 w-full lux-btn-secondary py-2.5 rounded-xl font-semibold transition-all"
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <span>{t('Make Offer', 'ಆಫರ್ ಮಾಡಿ')}</span>
+                      {t('Contact Seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ')}
                     </button>
                   </div>
                 ))}

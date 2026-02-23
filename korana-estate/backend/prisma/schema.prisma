@@ -1,0 +1,394 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  BUYER
+  SELLER
+  WORKER
+  ADMIN
+}
+
+enum CommodityType {
+  COFFEE
+  SPICE
+}
+
+enum BidStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  EXPIRED
+}
+
+enum OrderStatus {
+  PENDING
+  PAID
+  SHIPPED
+  DELIVERED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
+
+enum PlanType {
+  FREE
+  PRO
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum VerificationLevel {
+  NONE
+  BASIC
+  TRUSTED
+  PREMIUM
+}
+
+enum PaymentProvider {
+  RAZORPAY
+  STRIPE
+}
+
+enum PaymentStatus {
+  CREATED
+  SUCCESS
+  FAILED
+}
+
+enum PayoutStatus {
+  PENDING
+  TRANSFERRED
+}
+
+enum DisputeStatus {
+  OPEN
+  UNDER_REVIEW
+  RESOLVED
+  REJECTED
+}
+
+model User {
+  id             String      @id @default(cuid())
+  email          String      @unique
+  fullName       String
+  passwordHash   String
+  role           UserRole    @default(BUYER)
+  phone          String?
+  location       String?
+  sellerVerified Boolean     @default(false)
+  verified       Boolean     @default(false)
+  verificationLevel VerificationLevel @default(NONE)
+  deletedAt      DateTime?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  rawProducts    RawProduct[]
+  retailProducts RetailProduct[]
+  bids           Bid[]
+  orders         Order[]
+  sentMessages   Message[]       @relation("sent_messages")
+  conversations  ConversationParticipant[]
+  reviewsGiven   Review[]        @relation("review_author")
+  reviewsGot     Review[]        @relation("review_target")
+  refreshTokens  RefreshToken[]
+  subscriptions  Subscription[]
+  payouts        Payout[]
+  disputesRaised Dispute[] @relation("dispute_raised_by")
+  payoutsReleased Payout[] @relation("payout_released_by")
+  sellerRating   SellerRating?
+
+  @@index([role])
+  @@index([sellerVerified])
+  @@index([deletedAt])
+}
+
+model RawProduct {
+  id            String        @id @default(cuid())
+  sellerId      String
+  title         String
+  commodityType CommodityType
+  commodityName String
+  grade         String?
+  quantityKg    Decimal       @db.Decimal(12, 2)
+  pricePerKg    Decimal       @db.Decimal(12, 2)
+  description   String?
+  isActive      Boolean       @default(true)
+  deletedAt     DateTime?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  seller User  @relation(fields: [sellerId], references: [id])
+  bids   Bid[]
+
+  @@index([sellerId])
+  @@index([commodityName, commodityType])
+  @@index([isActive, deletedAt])
+}
+
+model RetailProduct {
+  id          String    @id @default(cuid())
+  sellerId    String
+  title       String
+  category    String
+  price       Decimal   @db.Decimal(12, 2)
+  stock       Int
+  description String?
+  isActive    Boolean   @default(true)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  seller     User        @relation(fields: [sellerId], references: [id])
+  orderItems OrderItem[]
+
+  @@index([sellerId])
+  @@index([category])
+  @@index([isActive, deletedAt])
+}
+
+model Bid {
+  id           String    @id @default(cuid())
+  rawProductId String
+  buyerId      String
+  amountPerKg  Decimal   @db.Decimal(12, 2)
+  quantityKg   Decimal   @db.Decimal(12, 2)
+  status       BidStatus @default(PENDING)
+  note         String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  rawProduct RawProduct @relation(fields: [rawProductId], references: [id])
+  buyer      User       @relation(fields: [buyerId], references: [id])
+
+  @@index([rawProductId])
+  @@index([buyerId])
+  @@index([status])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  buyerId         String
+  status          OrderStatus @default(PENDING)
+  totalAmount     Decimal     @db.Decimal(12, 2)
+  commissionRate  Decimal     @default(0.05) @db.Decimal(5, 4)
+  platformFee     Decimal     @default(0) @db.Decimal(12, 2)
+  sellerPayout    Decimal     @default(0) @db.Decimal(12, 2)
+  shippingAddress String?
+  paymentRef      String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  buyer User        @relation(fields: [buyerId], references: [id])
+  items OrderItem[]
+  reviews Review[]
+  payments Payment[]
+  payouts  Payout[]
+  disputes Dispute[]
+
+  @@index([buyerId])
+  @@index([status])
+}
+
+model OrderItem {
+  id              String   @id @default(cuid())
+  orderId         String
+  retailProductId String
+  quantity        Int
+  unitPrice       Decimal  @db.Decimal(12, 2)
+  lineTotal       Decimal  @db.Decimal(12, 2)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  order         Order         @relation(fields: [orderId], references: [id])
+  retailProduct RetailProduct @relation(fields: [retailProductId], references: [id])
+
+  @@index([orderId])
+  @@index([retailProductId])
+}
+
+model Conversation {
+  id           String                    @id @default(cuid())
+  createdAt    DateTime                  @default(now())
+  updatedAt    DateTime                  @updatedAt
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@index([updatedAt])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  userId         String
+  createdAt      DateTime     @default(now())
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String   @id @default(cuid())
+  conversationId String
+  senderId       String
+  content        String
+  isRead         Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  sender       User         @relation("sent_messages", fields: [senderId], references: [id])
+
+  @@index([conversationId, createdAt])
+  @@index([senderId])
+}
+
+model MarketPrice {
+  id           String   @id @default(cuid())
+  commodityName String
+  market       String?
+  priceInrPerKg Decimal @db.Decimal(12, 2)
+  observedAt   DateTime
+  source       String?  @default("INGESTED")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([commodityName, observedAt])
+}
+
+model Review {
+  id         String   @id @default(cuid())
+  authorId   String
+  targetId   String
+  orderId    String?
+  rating     Int
+  comment    String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  author User  @relation("review_author", fields: [authorId], references: [id])
+  target User  @relation("review_target", fields: [targetId], references: [id])
+  order  Order? @relation(fields: [orderId], references: [id], onDelete: SetNull)
+
+  @@index([authorId])
+  @@index([targetId])
+  @@index([orderId])
+  @@unique([authorId, targetId, orderId])
+}
+
+model CommissionConfig {
+  id             Int      @id @default(1)
+  commissionRate Decimal  @default(0.05) @db.Decimal(5, 4)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+}
+
+model Subscription {
+  id        String             @id @default(cuid())
+  userId    String
+  planType  PlanType           @default(FREE)
+  status    SubscriptionStatus @default(ACTIVE)
+  startDate DateTime           @default(now())
+  endDate   DateTime
+  createdAt DateTime           @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status, planType])
+  @@index([endDate])
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String
+  expiresAt DateTime
+  createdAt DateTime  @default(now())
+  revokedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@index([revokedAt])
+}
+
+model Payment {
+  id                String          @id @default(cuid())
+  orderId           String
+  provider          PaymentProvider
+  providerPaymentId String          @unique
+  amount            Decimal         @db.Decimal(12, 2)
+  currency          String          @default("INR")
+  status            PaymentStatus   @default(CREATED)
+  createdAt         DateTime        @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
+  @@index([status])
+}
+
+model Payout {
+  id            String       @id @default(cuid())
+  sellerId      String
+  orderId       String
+  amount        Decimal      @db.Decimal(12, 2)
+  status        PayoutStatus @default(PENDING)
+  releaseEligibleAt DateTime?
+  releasedBy    String?
+  holdReason    String?
+  createdAt     DateTime     @default(now())
+  transferredAt DateTime?
+
+  seller User  @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  order  Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  releasedByAdmin User? @relation("payout_released_by", fields: [releasedBy], references: [id], onDelete: SetNull)
+
+  @@index([sellerId])
+  @@index([orderId])
+  @@index([status])
+  @@index([releaseEligibleAt])
+}
+
+model SellerRating {
+  id           String   @id @default(cuid())
+  sellerId     String   @unique
+  averageRating Decimal @default(0) @db.Decimal(4, 2)
+  totalReviews Int      @default(0)
+  weightedScore Decimal @default(0) @db.Decimal(6, 4)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  seller User @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([weightedScore])
+}
+
+model Dispute {
+  id             String        @id @default(cuid())
+  orderId        String
+  raisedByUserId String
+  reason         String
+  status         DisputeStatus @default(OPEN)
+  createdAt      DateTime      @default(now())
+  resolvedAt     DateTime?
+
+  order        Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  raisedByUser User  @relation("dispute_raised_by", fields: [raisedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, status])
+  @@index([raisedByUserId])
+}

@@ -1,5 +1,28 @@
 # Complete AI Dashboard Workflow - Start to End
 
+## Production Readiness Quick Start
+
+Set these environment variables before deployment:
+
+```bash
+NEXTAUTH_URL=https://your-domain.com
+NEXTAUTH_SECRET=replace-with-strong-secret
+DATABASE_URL=<production-db-url>
+STRICT_REAL_DATA=true
+```
+
+Notes:
+- `STRICT_REAL_DATA=true` disables synthetic/fake market responses and returns `503` when live/cached real data is unavailable.
+- `/api/health` returns deployment readiness for DB and auth env.
+
+Quick checks after deploy:
+
+```bash
+curl -s https://your-domain.com/api/health
+curl -s https://your-domain.com/api/market
+curl -s "https://your-domain.com/api/indian-markets?district=Kodagu&state=Karnataka"
+```
+
 ## 🎯 System Overview
 
 **KoranaEstate AI Dashboard** is a real-time commodity price forecasting platform for Indian coffee and spice farmers. It aggregates data from multiple sources, applies ML forecasting, and displays bilingual (English/Kannada) predictions with transparency.

@@ -1,6 +1,7 @@
 import { cloneElement, ReactElement, useState } from 'react'
 import ForgotPasswordForm from './ForgotPasswordForm'
 import ResetPasswordForm from './ResetPasswordForm'
+import { useLanguage } from '@/app/language-context'
 
 type AuthTab = 'login' | 'signup' | 'reset-password'
 
@@ -11,6 +12,7 @@ interface AuthCardProps {
 }
 
 export default function AuthCard({ loginForm, signupForm, defaultTab = 'login' }: AuthCardProps) {
+  const { t } = useLanguage()
   const initialTab: AuthTab = defaultTab === 'signup' || defaultTab === 'reset-password' ? defaultTab : 'login'
   const [showForgotPassword, setShowForgotPassword] = useState(false)
   const [currentTab, setCurrentTab] = useState<AuthTab>(initialTab)
@@ -21,35 +23,35 @@ export default function AuthCard({ loginForm, signupForm, defaultTab = 'login' }
   }
 
   return (
-    <div className="mx-auto mt-8 w-full max-w-lg rounded-xl border border-gray-200 bg-white p-6 shadow-md sm:p-8 dark:border-gray-700 dark:bg-gray-800">
+    <div className="mx-auto mt-8 w-full max-w-lg rounded-3xl border border-black/10 p-6 shadow-[0_8px_24px_rgba(0,0,0,0.08)] sm:p-8 dark:border-emerald-200/30 dark:glass dark:shadow-2xl">
       {showForgotPassword ? (
         <ForgotPasswordForm onCancel={handleBackToLogin} />
       ) : currentTab === 'reset-password' ? (
         <ResetPasswordForm onSuccess={handleBackToLogin} />
       ) : (
         <div>
-          <div className="mb-8 grid w-full grid-cols-2 rounded-lg bg-gray-100 p-1 dark:bg-gray-700">
+          <div className="mb-8 grid w-full grid-cols-2 rounded-xl border border-black/10 bg-[#f3ede4] p-1 dark:border-emerald-200/20 dark:bg-[#1a1411]/80">
             <button
               type="button"
               className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
                 currentTab === 'login'
-                  ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white'
-                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+                  ? 'bg-[#2f6b4f] text-white shadow-sm dark:bg-[#2b3b31] dark:text-[#f3e8d7]'
+                  : 'text-[#4a4a4a] hover:text-[#1f4d3a] dark:text-[#c3b5a2] dark:hover:text-[#f3e8d7]'
               }`}
-              onClick={() => setCurrentTab('login')}
-            >
-              Login
+            onClick={() => setCurrentTab('login')}
+          >
+              {t('Login', 'ಲಾಗಿನ್')}
             </button>
             <button
               type="button"
               className={`rounded-md px-4 py-2 text-sm font-medium transition-colors ${
                 currentTab === 'signup'
-                  ? 'bg-white text-gray-900 shadow-sm dark:bg-gray-900 dark:text-white'
-                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+                  ? 'bg-[#2f6b4f] text-white shadow-sm dark:bg-[#2b3b31] dark:text-[#f3e8d7]'
+                  : 'text-[#4a4a4a] hover:text-[#1f4d3a] dark:text-[#c3b5a2] dark:hover:text-[#f3e8d7]'
               }`}
-              onClick={() => setCurrentTab('signup')}
-            >
-              Sign Up
+            onClick={() => setCurrentTab('signup')}
+          >
+              {t('Sign Up', 'ಸೈನ್ ಅಪ್')}
             </button>
           </div>
 

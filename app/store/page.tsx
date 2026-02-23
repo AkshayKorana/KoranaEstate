@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import type { Product, CreateProductInput, CreateOrderInput } from '@/types/marketplace'
 import Navbar from '@/app/components/Navbar'
 import { useLanguage } from '@/app/language-context'
+import { useTheme } from '@/app/theme-context'
 
 const CATEGORIES = ['Coffee Powder', 'Roasted Beans', 'Pepper Powder', 'Cardamom Powder', 'Ground Spices', 'Gift Packs']
 
@@ -13,6 +14,8 @@ export default function StorePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const { t } = useLanguage()
+  const { theme } = useTheme()
+  const isDark = theme === 'dark'
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -121,22 +124,22 @@ export default function StorePage() {
   }
 
   return (
-    <div className="min-h-screen pt-24 pb-12">
+    <div className="min-h-screen content-under-navbar pb-12">
       <Navbar />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-10">
         {/* Header */}
         <div className="mb-8 slide-in-up">
           <div className="flex items-center space-x-4 mb-3">
-            <div className="p-4 rounded-2xl gradient-coffee-cream float-animation">
+            <div className="p-4 rounded-2xl gradient-brand-spectrum float-animation">
               <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
             </div>
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-amber-700 via-amber-600 to-emerald-600 bg-clip-text text-transparent">
+              <h1 className="font-luxe text-5xl font-bold text-brand-spectrum">
                 {t('Korana Store', 'ಕೊರಾನಾ ಸ್ಟೋರ್')}
               </h1>
-              <p className="mt-2 text-gray-600 text-lg">{t('Premium roasted coffee, ground spices, and gift packs ☕', 'ಪ್ರೀಮಿಯಂ ರೋಸ್ಟ್ ಕಾಫಿ, ಪುಡಿ ಮಸಾಲೆಗಳು ಮತ್ತು ಗಿಫ್ಟ್ ಪ್ಯಾಕ್‌ಗಳು ☕')}</p>
+              <p className={`mt-2 text-lg ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Premium roasted coffee, ground spices, and gift packs ☕', 'ಪ್ರೀಮಿಯಂ ರೋಸ್ಟ್ ಕಾಫಿ, ಪುಡಿ ಮಸಾಲೆಗಳು ಮತ್ತು ಗಿಫ್ಟ್ ಪ್ಯಾಕ್‌ಗಳು ☕')}</p>
             </div>
           </div>
         </div>
@@ -144,12 +147,12 @@ export default function StorePage() {
         <div className="flex gap-8">
           {/* Category Sidebar */}
           <aside className="w-72 flex-shrink-0 fade-in">
-            <div className="glass rounded-2xl shadow-xl p-6 sticky top-24 border-2 border-amber-100">
+            <div className={`glass rounded-2xl shadow-lg p-6 sticky top-36 border ${isDark ? 'border-emerald-200/30' : 'border-black/10'}`}>
               <div className="flex items-center space-x-2 mb-6">
                 <svg className="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                 </svg>
-                <h2 className="font-bold text-xl bg-gradient-to-r from-amber-700 to-amber-900 bg-clip-text text-transparent">{t('Categories', 'ವರ್ಗಗಳು')}</h2>
+                <h2 className="font-luxe font-bold text-2xl text-brand-spectrum">{t('Categories', 'ವರ್ಗಗಳು')}</h2>
               </div>
               
               <div className="space-y-2">
@@ -157,8 +160,10 @@ export default function StorePage() {
                   onClick={() => setSelectedCategory('')}
                   className={`w-full text-left px-4 py-3 rounded-xl transition-all font-semibold ${
                     selectedCategory === '' 
-                      ? 'gradient-coffee-cream text-white shadow-lg scale-105' 
-                      : 'bg-white/50 text-gray-700 hover:bg-amber-50 hover:text-amber-700'
+                      ? 'gradient-brand-spectrum text-white shadow-lg scale-105' 
+                      : isDark
+                        ? 'bg-[#171411]/75 text-[#d8c8b3] hover:bg-emerald-900/35 hover:text-[#e9dcc9]'
+                        : 'bg-white text-[#2f2f2f] border border-black/10 hover:bg-[#f3ede4] hover:text-[#1f4d3a]'
                   }`}
                 >
                   📦 {t('All Products', 'ಎಲ್ಲಾ ಉತ್ಪನ್ನಗಳು')}
@@ -169,8 +174,10 @@ export default function StorePage() {
                     onClick={() => setSelectedCategory(cat)}
                     className={`w-full text-left px-4 py-3 rounded-xl transition-all font-semibold ${
                       selectedCategory === cat 
-                        ? 'gradient-coffee-cream text-white shadow-lg scale-105' 
-                        : 'bg-white/50 text-gray-700 hover:bg-amber-50 hover:text-amber-700'
+                        ? 'gradient-brand-spectrum text-white shadow-lg scale-105' 
+                        : isDark
+                          ? 'bg-[#171411]/75 text-[#d8c8b3] hover:bg-emerald-900/35 hover:text-[#e9dcc9]'
+                          : 'bg-white text-[#2f2f2f] border border-black/10 hover:bg-[#f3ede4] hover:text-[#1f4d3a]'
                     }`}
                   >
                     {categoryLabel(cat)}
@@ -179,10 +186,10 @@ export default function StorePage() {
               </div>
 
               {/* Stats Card */}
-              <div className="mt-6 pt-6 border-t-2 border-amber-100">
+              <div className="mt-6 pt-6 border-t border-emerald-200/25">
                 <div className="text-center">
                   <p className="text-3xl font-bold text-amber-700">{products.length}</p>
-                  <p className="text-sm text-gray-600 mt-1">{t('Available Products', 'ಲಭ್ಯ ಉತ್ಪನ್ನಗಳು')}</p>
+                  <p className={`text-sm mt-1 ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Available Products', 'ಲಭ್ಯ ಉತ್ಪನ್ನಗಳು')}</p>
                 </div>
               </div>
             </div>
@@ -191,7 +198,7 @@ export default function StorePage() {
           {/* Products Grid */}
           <main className="flex-1">
             <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 slide-in-up">
-              <p className="text-gray-600 font-medium">
+              <p className={`font-medium ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>
                 {loading
                   ? t('Loading...', 'ಲೋಡ್ ಆಗುತ್ತಿದೆ...')
                   : `${products.length} ${products.length === 1 ? t('product', 'ಉತ್ಪನ್ನ') : t('products', 'ಉತ್ಪನ್ನಗಳು')} ${t('available', 'ಲಭ್ಯ')}`}
@@ -204,7 +211,7 @@ export default function StorePage() {
                     setShowCreateModal(true)
                   }
                 }}
-                className="gradient-coffee-cream text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center space-x-2"
+                className="lux-btn-primary px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all flex items-center justify-center space-x-2"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -220,7 +227,7 @@ export default function StorePage() {
                   <div className="w-3 h-3 bg-amber-700 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
                   <div className="w-3 h-3 bg-amber-800 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                 </div>
-                <p className="text-gray-600 font-medium">{t('Loading store...', 'ಸ್ಟೋರ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
+                <p className={`font-medium ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Loading store...', 'ಸ್ಟೋರ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
               </div>
             ) : products.length === 0 ? (
               <div className="text-center py-20 glass rounded-2xl shadow-xl fade-in">
@@ -229,11 +236,11 @@ export default function StorePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                   </svg>
                 </div>
-                <h3 className="text-2xl font-bold text-gray-700 mb-2">{t('No Products Yet', 'ಇನ್ನೂ ಉತ್ಪನ್ನಗಳಿಲ್ಲ')}</h3>
-                <p className="text-gray-500 mb-6">{t('List your first product and start selling!', 'ನಿಮ್ಮ ಮೊದಲ ಉತ್ಪನ್ನವನ್ನು ಲಿಸ್ಟ್ ಮಾಡಿ ಮತ್ತು ಮಾರಾಟ ಪ್ರಾರಂಭಿಸಿ!')}</p>
+                <h3 className={`text-2xl font-bold mb-2 ${isDark ? 'text-[#efe4d4]' : 'text-[#1f1f1f]'}`}>{t('No Products Yet', 'ಇನ್ನೂ ಉತ್ಪನ್ನಗಳಿಲ್ಲ')}</h3>
+                <p className={`mb-6 ${isDark ? 'text-[#bbae9a]' : 'text-[#4a4a4a]'}`}>{t('List your first product and start selling!', 'ನಿಮ್ಮ ಮೊದಲ ಉತ್ಪನ್ನವನ್ನು ಲಿಸ್ಟ್ ಮಾಡಿ ಮತ್ತು ಮಾರಾಟ ಪ್ರಾರಂಭಿಸಿ!')}</p>
                 <button
                   onClick={() => status === 'authenticated' ? setShowCreateModal(true) : router.push('/auth')}
-                  className="gradient-coffee-cream text-white px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all inline-flex items-center space-x-2"
+                  className="lux-btn-primary px-8 py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all inline-flex items-center space-x-2"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -246,7 +253,7 @@ export default function StorePage() {
                 {products.map((product, idx) => (
                   <div 
                     key={product.id} 
-                    className="glass rounded-2xl shadow-lg hover:shadow-2xl transition-all overflow-hidden border-2 border-amber-100 card-hover fade-in"
+                    className="glass rounded-2xl shadow-lg hover:shadow-2xl transition-all overflow-hidden border border-emerald-200/30 card-hover fade-in"
                     style={{ animationDelay: `${idx * 100}ms` }}
                   >
                     {/* Product Image */}
@@ -268,14 +275,14 @@ export default function StorePage() {
 
                     <div className="p-6">
                       <div className="flex justify-between items-start mb-3">
-                        <h3 className="font-bold text-lg text-gray-800 line-clamp-2">{product.name}</h3>
-                        <span className="gradient-emerald text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-md whitespace-nowrap ml-2">
+                        <h3 className="font-bold text-lg text-[#efe4d4] line-clamp-2">{product.name}</h3>
+                        <span className="gradient-brand-spectrum text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-md whitespace-nowrap ml-2">
                           {categoryLabel(product.category)}
                         </span>
                       </div>
                       
                       <div className="mb-4">
-                        <p className="text-3xl font-bold bg-gradient-to-r from-amber-700 to-amber-900 bg-clip-text text-transparent">
+                        <p className="text-3xl font-bold text-brand-spectrum">
                           ₹{product.price.toFixed(2)}
                         </p>
                       </div>
@@ -316,7 +323,7 @@ export default function StorePage() {
                         disabled={product.stock === 0}
                         className={`w-full py-3 rounded-xl font-semibold shadow-md transition-all flex items-center justify-center space-x-2 ${
                           product.stock > 0
-                            ? 'gradient-emerald text-white hover:shadow-lg hover:scale-105'
+                            ? 'gradient-brand-spectrum text-white hover:shadow-lg hover:scale-105'
                             : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         }`}
                       >
@@ -339,12 +346,12 @@ export default function StorePage() {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
           <div className="glass rounded-3xl max-w-lg w-full p-8 shadow-2xl border-2 border-amber-100 slide-in-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center space-x-3 mb-6">
-              <div className="p-3 rounded-xl gradient-coffee-cream">
+              <div className="p-3 rounded-xl gradient-brand-spectrum">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                 </svg>
               </div>
-              <h2 className="text-3xl font-bold bg-gradient-to-r from-amber-700 to-amber-900 bg-clip-text text-transparent">
+              <h2 className="text-3xl font-bold text-brand-spectrum">
                 {t('Add New Product', 'ಹೊಸ ಉತ್ಪನ್ನ ಸೇರಿಸಿ')}
               </h2>
             </div>

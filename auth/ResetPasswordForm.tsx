@@ -1,11 +1,13 @@
 import { FormEvent, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useLanguage } from '@/app/language-context'
 
 interface ResetPasswordFormProps {
   onSuccess: () => void
 }
 
 export default function ResetPasswordForm({ onSuccess }: ResetPasswordFormProps) {
+  const { t } = useLanguage()
   const router = useRouter()
   const searchParams = useSearchParams()
   const [password, setPassword] = useState('')
@@ -16,17 +18,17 @@ export default function ResetPasswordForm({ onSuccess }: ResetPasswordFormProps)
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (password.length < 8) {
-      setError('Password must be at least 8 characters.')
+      setError(t('Password must be at least 8 characters.', 'ಪಾಸ್‌ವರ್ಡ್ ಕನಿಷ್ಠ 8 ಅಕ್ಷರಗಳಿರಬೇಕು.'))
       return
     }
     if (password !== confirmPassword) {
-      setError('Passwords do not match.')
+      setError(t('Passwords do not match.', 'ಪಾಸ್‌ವರ್ಡ್‌ಗಳು ಹೊಂದಿಕೆಯಾಗುವುದಿಲ್ಲ.'))
       return
     }
 
     const token = searchParams.get('token') || ''
     if (!token) {
-      setError('Missing reset token. Please restart the forgot-password flow.')
+      setError(t('Missing reset token. Please restart the forgot-password flow.', 'ರೀಸೆಟ್ ಟೋಕನ್ ಕಾಣೆಯಾಗಿದೆ. ದಯವಿಟ್ಟು ಮರೆತ-ಪಾಸ್‌ವರ್ಡ್ ಪ್ರಕ್ರಿಯೆಯನ್ನು ಮರುಪ್ರಾರಂಭಿಸಿ.'))
       return
     }
 
@@ -43,7 +45,7 @@ export default function ResetPasswordForm({ onSuccess }: ResetPasswordFormProps)
 
       setIsLoading(false)
       if (!response.ok) {
-        setError(data?.error || 'Failed to reset password.')
+        setError(data?.error || t('Failed to reset password.', 'ಪಾಸ್‌ವರ್ಡ್ ಮರುಹೊಂದಿಸಲು ವಿಫಲವಾಗಿದೆ.'))
         return
       }
 
@@ -51,19 +53,19 @@ export default function ResetPasswordForm({ onSuccess }: ResetPasswordFormProps)
       router.push('/auth?tab=login')
     } catch {
       setIsLoading(false)
-      setError('Failed to reset password. Please try again.')
+      setError(t('Failed to reset password. Please try again.', 'ಪಾಸ್‌ವರ್ಡ್ ಮರುಹೊಂದಿಸಲು ವಿಫಲವಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.'))
     }
   }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="text-center">
-        <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100">Set a new password</h3>
-        <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">Enter and confirm your new password.</p>
+        <h3 className="text-xl font-semibold text-[#1f1f1f] dark:text-[#efe4d4]">{t('Set a new password', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್ ಹೊಂದಿಸಿ')}</h3>
+        <p className="mt-2 text-sm text-[#4a4a4a] dark:text-[#c8bca9]">{t('Enter and confirm your new password.', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್ ನಮೂದಿಸಿ ಮತ್ತು ದೃಢೀಕರಿಸಿ.')}</p>
       </div>
 
       <div>
-        <label htmlFor="new-password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">New password</label>
+        <label htmlFor="new-password" className="block text-sm font-medium text-[#2f2f2f] dark:text-[#dbcdbb]">{t('New password', 'ಹೊಸ ಪಾಸ್‌ವರ್ಡ್')}</label>
         <input
           id="new-password"
           type="password"
@@ -71,30 +73,30 @@ export default function ResetPasswordForm({ onSuccess }: ResetPasswordFormProps)
           minLength={8}
           value={password}
           onChange={e => setPassword(e.target.value)}
-          className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none ring-emerald-500 focus:ring-2 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+          className="lux-input mt-1 w-full rounded-xl px-3 py-2 text-sm"
         />
       </div>
 
       <div>
-        <label htmlFor="confirm-password" className="block text-sm font-medium text-gray-700 dark:text-gray-200">Confirm password</label>
+        <label htmlFor="confirm-password" className="block text-sm font-medium text-[#2f2f2f] dark:text-[#dbcdbb]">{t('Confirm password', 'ಪಾಸ್‌ವರ್ಡ್ ದೃಢೀಕರಿಸಿ')}</label>
         <input
           id="confirm-password"
           type="password"
           required
           value={confirmPassword}
           onChange={e => setConfirmPassword(e.target.value)}
-          className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 outline-none ring-emerald-500 focus:ring-2 dark:border-gray-600 dark:bg-gray-900 dark:text-gray-100"
+          className="lux-input mt-1 w-full rounded-xl px-3 py-2 text-sm"
         />
       </div>
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && <p className="text-sm text-red-600 dark:text-red-300">{error}</p>}
 
       <button
         type="submit"
         disabled={isLoading}
-        className="w-full rounded-md bg-emerald-600 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-60"
+        className="lux-btn-primary w-full rounded-xl px-4 py-2 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-60"
       >
-        {isLoading ? 'Updating...' : 'Update password'}
+        {isLoading ? t('Updating...', 'ನವೀಕರಿಸಲಾಗುತ್ತಿದೆ...') : t('Update password', 'ಪಾಸ್‌ವರ್ಡ್ ನವೀಕರಿಸಿ')}
       </button>
     </form>
   )

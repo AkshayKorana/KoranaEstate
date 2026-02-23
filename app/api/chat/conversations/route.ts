@@ -6,20 +6,22 @@ import { prisma } from '@/lib/prisma'
 export const dynamic = 'force-dynamic'
 
 // GET /api/chat/conversations - Get user's conversations
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
     const session = await getServerSession(authOptions)
     if (!session?.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+    const user = await prisma.user.upsert({
+      where: { email: session.user.email },
+      update: { name: session.user.name ?? undefined },
+      create: {
+        email: session.user.email,
+        name: session.user.name ?? null,
+        passwordHash: 'oauth_user_no_password',
+      },
     })
-
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
 
     const conversations = await prisma.conversation.findMany({
       where: {
@@ -61,16 +63,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { email: session.user.email }
+    const user = await prisma.user.upsert({
+      where: { email: session.user.email },
+      update: { name: session.user.name ?? undefined },
+      create: {
+        email: session.user.email,
+        name: session.user.name ?? null,
+        passwordHash: 'oauth_user_no_password',
+      },
     })
 
-    if (!user) {
-      return NextResponse.json({ error: 'User not found' }, { status: 404 })
-    }
-
     const body = await request.json()
-    const { sellerId } = body
+    const { sellerId, initialMessage } = body
 
     if (!sellerId) {
       return NextResponse.json(
@@ -104,8 +108,9 @@ export async function POST(request: NextRequest) {
       }
     })
 
+    let isNewConversation = false
     if (!conversation) {
-      // Create new conversation
+      isNewConversation = true
       conversation = await prisma.conversation.create({
         data: {
           buyerId: user.id,
@@ -122,7 +127,24 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    return NextResponse.json({ conversation }, { status: conversation ? 200 : 201 })
+    const content = typeof initialMessage === 'string' ? initialMessage.trim() : ''
+    if (content.length > 0) {
+      await prisma.$transaction(async (tx) => {
+        await tx.message.create({
+          data: {
+            conversationId: conversation.id,
+            senderId: user.id,
+            content,
+          },
+        })
+        await tx.conversation.update({
+          where: { id: conversation.id },
+          data: { lastMessageAt: new Date() },
+        })
+      })
+    }
+
+    return NextResponse.json({ conversation }, { status: isNewConversation ? 201 : 200 })
   } catch (error) {
     console.error('Error creating conversation:', error)
     return NextResponse.json(

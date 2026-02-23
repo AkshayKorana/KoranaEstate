@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useRouter } from 'next/navigation'
 import {
@@ -78,6 +78,7 @@ interface MarketQuote {
   usdPerLb: number | null
   inrPerKg: number | null
   history?: MarketPoint[]
+  source?: string
 }
 
 interface MarketResponse {
@@ -139,6 +140,8 @@ interface ForecastCommodity {
       ensembleWeightLinear: number
       ensembleWeightHolt: number
       regime: 'calm' | 'normal' | 'volatile'
+      ridgeMae?: number | null
+      ensembleWeightRidge?: number
     }
   }>
 }
@@ -175,13 +178,42 @@ const DASHBOARD_OPTIONS = [
 
 type ActionSignal = 'SELL_NOW' | 'WAIT' | 'HOLD'
 
+function CountUpPrice({ value }: { value: number | null }) {
+  const [display, setDisplay] = useState(0)
+  const targetValue = value != null && Number.isFinite(value) ? value : 0
+  const previousValueRef = useRef(0)
+
+  useEffect(() => {
+    const duration = 650
+    const start = performance.now()
+    const from = previousValueRef.current
+    let raf = 0
+
+    const tick = (now: number) => {
+      const progress = Math.min((now - start) / duration, 1)
+      const eased = 1 - Math.pow(1 - progress, 3)
+      const next = from + (targetValue - from) * eased
+      setDisplay(next)
+      if (progress < 1) raf = requestAnimationFrame(tick)
+    }
+
+    raf = requestAnimationFrame(tick)
+    previousValueRef.current = targetValue
+    return () => cancelAnimationFrame(raf)
+  }, [targetValue])
+
+  if (value == null) return <span>-</span>
+
+  return <span>₹{display.toLocaleString('en-IN', { maximumFractionDigits: 2 })}/kg</span>
+}
+
 export default function HomePage() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState<'Marketplace' | 'Dashboard'>('Marketplace')
+  const [activeTab, setActiveTab] = useState<'Marketplace' | 'Dashboard'>('Dashboard')
   const [selectedCommodityName, setSelectedCommodityName] = useState<string>('Arabica Cherry')
   const [selectedHorizon, setSelectedHorizon] = useState<number>(3)
   const [showAdvanced, setShowAdvanced] = useState(false)
-  const { lang: uiLang, setLang } = useLanguage()
+  const { lang: uiLang } = useLanguage()
 
   const [items, setItems] = useState<MarketplaceItem[]>([])
   const [itemsLoading, setItemsLoading] = useState(true)
@@ -319,26 +351,36 @@ export default function HomePage() {
     async function fetchMarketPrices() {
       try {
         const res = await fetch('/api/market', { cache: 'no-store' })
-        if (!res.ok) throw new Error(`Failed with status ${res.status}`)
+        if (!res.ok) {
+          const errorJson = await res.json().catch(() => ({}))
+          const detail = typeof errorJson?.error === 'string' ? errorJson.error : `Failed with status ${res.status}`
+          throw new Error(detail)
+        }
         const json: MarketResponse = await res.json()
         setMarket(json)
         setMarketError(null)
       } catch (err) {
         console.error(err)
-        setMarketError('Unable to load live benchmark prices right now.')
+        const message = err instanceof Error ? err.message : 'Unable to load live benchmark prices right now.'
+        setMarketError(message)
       }
     }
 
     async function fetchIndianMarkets() {
       try {
         const res = await fetch('/api/indian-markets?district=Kodagu&state=Karnataka', { cache: 'no-store' })
-        if (!res.ok) throw new Error(`Failed with status ${res.status}`)
+        if (!res.ok) {
+          const errorJson = await res.json().catch(() => ({}))
+          const detail = typeof errorJson?.error === 'string' ? errorJson.error : `Failed with status ${res.status}`
+          throw new Error(detail)
+        }
         const json: IndianMarketsResponse = await res.json()
         setIndianMarkets(json)
         setIndianMarketsError(null)
       } catch (err) {
         console.error(err)
-        setIndianMarketsError('Unable to load Indian mandi prices right now.')
+        const message = err instanceof Error ? err.message : 'Unable to load Indian mandi prices right now.'
+        setIndianMarketsError(message)
       }
     }
 
@@ -481,26 +523,17 @@ export default function HomePage() {
   }
 
   return (
-    <div id="top" className="space-y-12">
+    <div id="top" className="space-y-14 content-under-navbar">
       <Navbar />
 
-      <div className="pt-24">
+      <div>
         <Hero />
       </div>
 
-      <div className="container mx-auto px-6 space-y-6">
-        <div className="flex space-x-4 border-b-2 border-gray-200">
+      <div className="mx-auto w-full max-w-7xl px-6 md:px-8 lg:px-10 space-y-8">
+        <div className="flex space-x-4 border-b border-emerald-200/25">
           <button
-            className={`px-5 py-2 font-semibold rounded-t-xl transition-all ${activeTab === 'Marketplace' ? 'bg-white text-emerald-600 shadow-md border-t-4 border-emerald-500' : 'text-gray-500 hover:text-emerald-600'}`}
-            onClick={() => {
-              setActiveTab('Marketplace')
-              trackEvent('tab_change', { meta: { tab: 'Marketplace' } })
-            }}
-          >
-            {translate('Marketplace', 'ಮಾರುಕಟ್ಟೆ')}
-          </button>
-          <button
-            className={`px-5 py-2 font-semibold rounded-t-xl transition-all ${activeTab === 'Dashboard' ? 'bg-white text-purple-600 shadow-md border-t-4 border-purple-500' : 'text-gray-500 hover:text-purple-600'}`}
+            className={`tab-luxe px-5 py-2 font-semibold rounded-t-xl transition-all ${activeTab === 'Dashboard' ? 'active bg-[#1f241d] text-[#f2e8d8] shadow-md border-t-2 border-emerald-500' : 'text-[#bcae9a] hover:text-[#efe4d4]'}`}
             onClick={() => {
               setActiveTab('Dashboard')
               trackEvent('tab_change', { meta: { tab: 'Dashboard' } })
@@ -508,36 +541,45 @@ export default function HomePage() {
           >
             {translate('AI / Commodity Dashboard', 'AI / ವಸ್ತು ಡ್ಯಾಶ್‌ಬೋರ್ಡ್')}
           </button>
+          <button
+            className={`tab-luxe px-5 py-2 font-semibold rounded-t-xl transition-all ${activeTab === 'Marketplace' ? 'active bg-[#1f241d] text-[#f2e8d8] shadow-md border-t-2 border-emerald-500' : 'text-[#bcae9a] hover:text-[#efe4d4]'}`}
+            onClick={() => {
+              setActiveTab('Marketplace')
+              trackEvent('tab_change', { meta: { tab: 'Marketplace' } })
+            }}
+          >
+            {translate('Marketplace', 'ಮಾರುಕಟ್ಟೆ')}
+          </button>
         </div>
 
         {activeTab === 'Marketplace' && (
-          <div className="space-y-4">
+          <div className="space-y-4 section-reveal">
             {itemsLoading && (
-              <div className="rounded-xl border border-emerald-100 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+              <div className="lux-stat rounded-xl px-4 py-3 text-sm text-[#d8e8dc]">
                 {translate('Loading live listings...', 'ಲೈವ್ ಲಿಸ್ಟಿಂಗ್‌ಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}
               </div>
             )}
 
             {!itemsLoading && items.length === 0 && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <div className="rounded-xl border border-amber-300/35 bg-amber-950/30 px-4 py-3 text-sm text-amber-200">
                 {translate('No live listings found. Add items in Raw Marketplace or Store to see them here.', 'ಲೈವ್ ಲಿಸ್ಟಿಂಗ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ. ಇಲ್ಲಿ ಕಾಣಲು ರಾ ಮಾರುಕಟ್ಟೆ ಅಥವಾ ಸ್ಟೋರ್‌ನಲ್ಲಿ ಐಟಂಗಳನ್ನು ಸೇರಿಸಿ.')}
               </div>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {items.map(item => (
-              <div key={item.id} className="bg-black/20 backdrop-blur-md p-6 rounded-2xl shadow-lg hover:shadow-2xl transition transform hover:-translate-y-1">
-                <h3 className="text-xl font-bold text-white mb-1">{item.name}</h3>
-                <span className="inline-block mb-2 px-3 py-1 text-sm font-medium bg-gradient-to-r from-green-400 to-green-600 text-white rounded-full">{item.type}</span>
-                <p className="text-white/90 font-semibold">
+              <div key={item.id} className="glass card-hover soft-glow-hover p-6 rounded-3xl shadow-lg border border-emerald-200/25">
+                <h3 className="font-luxe text-2xl font-bold text-[#f3e4d0] mb-1">{item.name}</h3>
+                <span className="inline-block mb-2 px-3 py-1 text-xs font-medium gradient-brand-spectrum text-white rounded-full">{item.type}</span>
+                <p className="text-[#f1e6d7] font-semibold">
                   {translate('Price', 'ಬೆಲೆ')}: ₹{item.price.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
                   {item.kind === 'raw' ? '/kg' : ''}
                 </p>
-                <p className="text-white/80">{item.kind === 'raw' ? translate('Qty (kg)', 'ಪ್ರಮಾಣ (ಕೆಜಿ)') : translate('Stock', 'ಸ್ಟಾಕ್')}: {item.quantity}</p>
-                <p className="text-white/70">{translate('Location', 'ಸ್ಥಳ')}: {item.location || translate('India', 'ಭಾರತ')}</p>
+                <p className="text-[#d9c8b5]">{item.kind === 'raw' ? translate('Qty (kg)', 'ಪ್ರಮಾಣ (ಕೆಜಿ)') : translate('Stock', 'ಸ್ಟಾಕ್')}: {item.quantity}</p>
+                <p className="text-[#bca995]">{translate('Location', 'ಸ್ಥಳ')}: {item.location || translate('India', 'ಭಾರತ')}</p>
                 <div className="mt-4 flex gap-2">
                   <button
-                    className="flex-1 py-2 rounded-xl bg-emerald-600 text-white font-semibold hover:bg-emerald-700 shadow"
+                    className="flex-1 py-2 rounded-xl lux-btn-primary font-semibold shadow"
                     onClick={() => {
                       trackEvent('marketplace_view_click', {
                         commodity: item.name,
@@ -549,7 +591,7 @@ export default function HomePage() {
                     {translate('View', 'ವೀಕ್ಷಿಸಿ')}
                   </button>
                   <button
-                    className="flex-1 py-2 rounded-xl bg-blue-600 text-white font-semibold hover:bg-blue-700 shadow"
+                    className="flex-1 py-2 rounded-xl lux-btn-secondary font-semibold shadow"
                     onClick={() => {
                       trackEvent('marketplace_view_market_click', {
                         commodity: item.name,
@@ -568,46 +610,26 @@ export default function HomePage() {
         )}
 
         {activeTab === 'Dashboard' && (
-          <section className="bg-gray-50 p-6 rounded-2xl shadow-lg space-y-6">
+          <section className="luxe-surface p-6 rounded-3xl shadow-lg space-y-6 section-reveal">
             <div className="flex items-center justify-between gap-4">
-              <h2 className="text-2xl font-bold text-gray-800">{translate('Commodity Price Assistant', 'ಬೆಳೆ ಬೆಲೆ ಸಹಾಯಕ')}</h2>
-              <div className="inline-flex rounded-lg border border-gray-300 bg-white p-1">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLang('en')
-                    trackEvent('language_change', { meta: { lang: 'en' } })
-                  }}
-                  className={`px-3 py-1 text-sm font-semibold rounded ${uiLang === 'en' ? 'bg-emerald-600 text-white' : 'text-gray-700'}`}
-                >
-                  EN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setLang('kn')
-                    trackEvent('language_change', { meta: { lang: 'kn' } })
-                  }}
-                  className={`px-3 py-1 text-sm font-semibold rounded ${uiLang === 'kn' ? 'bg-emerald-600 text-white' : 'text-gray-700'}`}
-                >
-                  ಕನ್ನಡ
-                </button>
-              </div>
+              <h2 className="font-luxe text-3xl font-bold text-[#f6e8d7]">{translate('Commodity Price Assistant', 'ಬೆಳೆ ಬೆಲೆ ಸಹಾಯಕ')}</h2>
             </div>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-[#d5c4b2]">
               {translate(
                 "ML-powered price analysis: Real market data from Indian mandis (Agmarknet, Commodity Boards), ICE Futures (live forex conversion), zero synthetic fallbacks. Ensemble forecast with 80% confidence bands.",
                 'ಯಂತ್ರ ಕಲಿಕೆ ಮೂಲಕ ಬೆಲೆ ವಿಶ್ಲೇಷಣೆ: ಭಾರತೀಯ ಮಾಂಡಿಗಳಿಂದ ನೈಜ ಮಾರುಕಟ್ಟೆ ಡೇಟಾ (ಅಗ್‌ಮಾರ್ಕ್‌ನೆಟ್, ಕಮೋಡಿಟಿ ಬೋರ್ಡ್‌ಗಳು), ICE ಫ್ಯೂಚರ್ಸ್ (ಲೈವ್ ಫಾರೆಕ್ಸ್), ಶೂನ್ಯ ಸಿಂಥೆಟಿಕ್ ಫಾಲ್‌ಬ್ಯಾಕ್‌ಗಳು.'
               )}
             </p>
 
+            <div className="cinematic-divider" />
+
             <div className="max-w-sm">
-              <label htmlFor="commodity-select" className="block text-sm font-medium text-gray-700 mb-2">
+              <label htmlFor="commodity-select" className="block text-sm font-medium text-[#d7cab8] mb-2">
                 {translate('Choose Crop', 'ಬೆಳೆ ಆಯ್ಕೆಮಾಡಿ')}
               </label>
               <select
                 id="commodity-select"
-                className="w-full border p-3 rounded-xl text-gray-700 font-medium"
+                className="lux-input w-full p-3 rounded-xl font-medium"
                 value={selectedCommodityName}
                 onChange={e => {
                   const nextCommodity = e.target.value
@@ -628,7 +650,7 @@ export default function HomePage() {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium text-gray-700">Prediction Window:</span>
+              <span className="text-sm font-medium text-[#d7cab8]">Prediction Window:</span>
               {[3, 7].map((h) => (
                 <button
                   key={h}
@@ -637,26 +659,28 @@ export default function HomePage() {
                     setSelectedHorizon(h)
                     trackEvent('horizon_change', { horizonDays: h })
                   }}
-                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${selectedHorizon === h ? 'bg-emerald-600 text-white' : 'bg-white text-gray-700 border border-gray-300'}`}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-semibold ${selectedHorizon === h ? 'lux-btn-primary' : 'lux-btn-secondary'}`}
                 >
                   {translate(`${h} Days`, `${h} ದಿನ`)}
                 </button>
               ))}
             </div>
 
-            <div className="rounded-2xl bg-white p-5 shadow-lg space-y-3">
-              <h3 className="font-bold text-xl text-gray-800">{selectedCommodityName}</h3>
+            <div className="rounded-2xl bg-[#171411]/80 border border-emerald-200/25 p-5 shadow-lg space-y-3">
+              <h3 className="font-bold text-xl text-[#efe4d4]">{selectedCommodityName}</h3>
               
               {/* Multi-Source Price Display */}
-              <div className="rounded-lg border-2 border-blue-200 bg-blue-50 p-4 space-y-2">
+              <div className="rounded-2xl border border-[#9bb4cc] bg-gradient-to-br from-[#f6f4ef] to-[#e8f0f6] p-4 space-y-2 dark:from-slate-900 dark:to-slate-800 dark:border-slate-600">
                 <p className="text-xs font-semibold text-blue-900 uppercase tracking-wide mb-2">
                   {translate('📊 Multi-Source Price Comparison', '📊 ಬಹು-ಮೂಲ ಬೆಲೆ ಹೋಲಿಕೆ')}
                 </p>
                 
                 {/* Primary Display Price */}
-                <div className="bg-white rounded-lg p-3 border border-blue-300">
-                  <p className="text-sm text-gray-600">{translate('Best Estimate (Weighted)', 'ಅತ್ಯುತ್ತಮ ಅಂದಾಜು (ತೂಕ)')}</p>
-                  <p className="text-2xl font-bold text-gray-900">{formatInr(displayedPrice)}</p>
+                <div className="bg-white/90 dark:bg-slate-900 rounded-xl p-3 border border-blue-300 dark:border-slate-600">
+                  <p className="text-sm text-gray-600 dark:text-gray-300">{translate('Best Estimate (Weighted)', 'ಅತ್ಯುತ್ತಮ ಅಂದಾಜು (ತೂಕ)')}</p>
+                  <p className="metric-number text-4xl font-extrabold text-[#1f170f] dark:text-[#f2e5d5]">
+                    <CountUpPrice value={displayedPrice} />
+                  </p>
                   <p className="text-xs text-gray-500 mt-1">{selectedCommodity?.source || 'Aggregated data'}</p>
                 </div>
 
@@ -754,14 +778,14 @@ export default function HomePage() {
                 </p>
               </div>
               <p className="text-gray-500 text-sm">{translate('Local insight', 'ಸ್ಥಳೀಯ ಮಾಹಿತಿ')}: {insights[selectedCommodityName] || translate('Analyzing trend...', 'ಟ್ರೆಂಡ್ ವಿಶ್ಲೇಷಿಸಲಾಗುತ್ತಿದೆ...')}</p>
-              <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 space-y-2">
+              <div className="rounded-xl border border-emerald-200 bg-emerald-50/90 p-4 space-y-2">
                 <p className="text-sm text-emerald-900 font-semibold">
                   {translate('Recommended Action', 'ಶಿಫಾರಸು ಮಾಡಿದ ಕ್ರಮ')}: {recommendation.action}
                 </p>
                 <p className="text-sm text-emerald-800">{recommendation.note}</p>
                 {'detail' in recommendation && <p className="text-xs text-emerald-700 italic">{recommendation.detail}</p>}
               </div>
-              <div className="rounded-lg border border-indigo-200 bg-indigo-50 p-4">
+              <div className="rounded-xl border border-indigo-200 bg-indigo-50/90 p-4">
                 <p className="text-sm text-indigo-900 font-semibold">
                   {translate('Best Time to Sell', 'ಮಾರಾಟಕ್ಕೆ ಉತ್ತಮ ಸಮಯ')}
                 </p>
@@ -800,7 +824,7 @@ export default function HomePage() {
                   setShowAdvanced(v => !v)
                   trackEvent('toggle_technical_details', { meta: { next: !showAdvanced } })
                 }}
-                className="text-sm font-semibold text-blue-700 hover:text-blue-800"
+                className="lux-btn-ghost text-sm font-semibold"
               >
                 {showAdvanced
                   ? translate('Hide technical details', 'ತಾಂತ್ರಿಕ ವಿವರಗಳನ್ನು ಮರೆಮಾಡಿ')
@@ -832,8 +856,8 @@ export default function HomePage() {
             {leaderboardError && <p className="text-sm text-red-600">{leaderboardError}</p>}
 
             {showAdvanced && selectedLeaderboard && (
-              <div className="rounded-2xl bg-white p-5 shadow">
-                <h3 className="text-lg font-semibold text-gray-800 mb-2">Model Leaderboard (Out-of-Sample, {selectedHorizon}D)</h3>
+              <div className="glass rounded-2xl p-5 shadow">
+                <h3 className="font-luxe text-xl font-semibold text-[#2a1b15] dark:text-[#f6e8d7] mb-2">Model Leaderboard (Out-of-Sample, {selectedHorizon}D)</h3>
                 <div className="space-y-2 text-sm">
                   {selectedLeaderboard.ranking.map((row, idx) => (
                     <div key={row.modelVersion} className="flex flex-wrap gap-3 items-center rounded-lg border border-gray-200 px-3 py-2">
@@ -848,8 +872,8 @@ export default function HomePage() {
               </div>
             )}
 
-            <div className="rounded-2xl bg-white p-5 shadow">
-              <h3 className="text-lg font-semibold text-gray-800 mb-3">Price Trend (INR/kg)</h3>
+            <div className="glass rounded-2xl p-5 shadow">
+              <h3 className="font-luxe text-xl font-semibold text-[#2a1b15] dark:text-[#f6e8d7] mb-3">Price Trend (INR/kg)</h3>
               {selectedForecastHorizon ? (
                 <Line
                   data={{

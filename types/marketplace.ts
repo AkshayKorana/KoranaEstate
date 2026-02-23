@@ -185,3 +185,36 @@ export interface ProductFilters {
   limit?: number
   offset?: number
 }
+
+// Estate Essentials Marketplace
+export interface EstateListing {
+  id: string
+  sellerId: string
+  title: string
+  category: string
+  subcategory: string | null
+  listingType: 'Product' | 'Service' | string
+  price: number
+  unit: string
+  quantity: number | null
+  location: string
+  description: string | null
+  contactPhone: string | null
+  isActive: boolean
+  createdAt: Date | string
+  updatedAt: Date | string
+  seller?: User
+}
+
+export interface CreateEstateListingInput {
+  title: string
+  category: string
+  subcategory?: string
+  listingType: string
+  price: number
+  unit: string
+  quantity?: number | null
+  location: string
+  description?: string
+  contactPhone?: string
+}
