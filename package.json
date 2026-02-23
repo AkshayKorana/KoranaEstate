@@ -2,8 +2,20 @@
   "name": "coffee-backend",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "npm@10.2.4",
+  "engines": {
+    "node": ">=20 <21",
+    "npm": ">=10 <11"
+  },
   "scripts": {
     "dev": "next dev",
+    "dev:raw": "next dev",
+    "dev:web": "node scripts/run-web-dev.mjs",
+    "dev:backend": "node scripts/run-backend-dev.mjs",
+    "setup:all": "node scripts/setup-all.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "prisma:generate:web": "prisma generate --schema prisma/schema.prisma",
+    "prisma:generate:backend": "npm --prefix korana-estate/backend run prisma:generate",
     "build": "next build",
     "start": "next start",
     "lint": "eslint"
