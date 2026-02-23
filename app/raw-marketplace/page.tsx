@@ -127,10 +127,13 @@ export default function RawMarketplacePage() {
 
     const initialMessage = withIntro
       ? t(
-          `Hi, I am interested in your listing: ${listing.commodity}, ₹${listing.pricePerKg}/kg, ${listing.quantityKg} kg.`,
-          `ನಮಸ್ಕಾರ, ನಿಮ್ಮ ಲಿಸ್ಟಿಂಗ್ ಬಗ್ಗೆ ಆಸಕ್ತಿ ಇದೆ: ${listing.commodity}, ₹${listing.pricePerKg}/ಕೆಜಿ, ${listing.quantityKg} ಕೆಜಿ.`
+          `Hi! I am interested in your listing: ${listing.commodity} (${listing.grade || 'Standard'}), ₹${listing.pricePerKg}/kg, quantity ${listing.quantityKg} kg, location ${listing.location}. Please share availability and best final price.`,
+          `ನಮಸ್ಕಾರ! ನಿಮ್ಮ ಲಿಸ್ಟಿಂಗ್ ಬಗ್ಗೆ ಆಸಕ್ತಿ ಇದೆ: ${listing.commodity} (${listing.grade || 'ಸ್ಟ್ಯಾಂಡರ್ಡ್'}), ₹${listing.pricePerKg}/ಕೆಜಿ, ಪ್ರಮಾಣ ${listing.quantityKg} ಕೆಜಿ, ಸ್ಥಳ ${listing.location}. ಲಭ್ಯತೆ ಮತ್ತು ಕೊನೆಯ ಉತ್ತಮ ಬೆಲೆ ತಿಳಿಸಿ.`
         )
-      : ''
+      : t(
+          `Hi! I am interested in ${listing.commodity} (${listing.grade || 'Standard'}) at ₹${listing.pricePerKg}/kg from ${listing.location}. Is this still available?`,
+          `ನಮಸ್ಕಾರ! ${listing.commodity} (${listing.grade || 'ಸ್ಟ್ಯಾಂಡರ್ಡ್'}) ₹${listing.pricePerKg}/ಕೆಜಿ (${listing.location}) ಬಗ್ಗೆ ಆಸಕ್ತಿ ಇದೆ. ಇದು ಇನ್ನೂ ಲಭ್ಯವಿದೆಯೇ?`
+        )
 
     try {
       const res = await fetch('/api/chat/conversations', {
@@ -138,7 +141,7 @@ export default function RawMarketplacePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           sellerId: listing.sellerId,
-          initialMessage,
+          initialMessage: '',
         }),
       })
 
@@ -151,6 +154,17 @@ export default function RawMarketplacePage() {
       const conversationId = data.conversation?.id
       if (!conversationId) {
         alert(t('Conversation not available', 'ಸಂಭಾಷಣೆ ಲಭ್ಯವಿಲ್ಲ'))
+        return
+      }
+
+      const msgRes = await fetch('/api/chat/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversationId, content: initialMessage }),
+      })
+      if (!msgRes.ok) {
+        const msgData = await msgRes.json().catch(() => ({}))
+        alert(msgData.error || t('Failed to send message to seller', 'ಮಾರಾಟಗಾರರಿಗೆ ಸಂದೇಶ ಕಳುಹಿಸಲು ವಿಫಲವಾಗಿದೆ'))
         return
       }
 

@@ -125,14 +125,20 @@ export default function EstateBlockPage() {
     }
 
     const initialMessage = withIntro
-      ? `Hi, I am interested in your listing: ${listing.title} (${listing.category}) at ₹${listing.price}/${listing.unit}.`
-      : ''
+      ? t(
+          `Hi! I am interested in your service/listing: ${listing.title} (${listing.category}${listing.subcategory ? ` - ${listing.subcategory}` : ''}), priced at ₹${listing.price}/${listing.unit}, location ${listing.location}. Please share availability and details.`,
+          `ನಮಸ್ಕಾರ! ನಿಮ್ಮ ಸೇವೆ/ಲಿಸ್ಟಿಂಗ್ ಬಗ್ಗೆ ಆಸಕ್ತಿ ಇದೆ: ${listing.title} (${listing.category}${listing.subcategory ? ` - ${listing.subcategory}` : ''}), ಬೆಲೆ ₹${listing.price}/${listing.unit}, ಸ್ಥಳ ${listing.location}. ದಯವಿಟ್ಟು ಲಭ್ಯತೆ ಮತ್ತು ವಿವರಗಳನ್ನು ಹಂಚಿಕೊಳ್ಳಿ.`
+        )
+      : t(
+          `Hi! I am interested in ${listing.title} (${listing.category}) at ₹${listing.price}/${listing.unit}. Is it available?`,
+          `ನಮಸ್ಕಾರ! ${listing.title} (${listing.category}) ₹${listing.price}/${listing.unit} ಬಗ್ಗೆ ಆಸಕ್ತಿ ಇದೆ. ಇದು ಲಭ್ಯವಿದೆಯೇ?`
+        )
 
     try {
       const res = await fetch('/api/chat/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sellerId: listing.sellerId, initialMessage }),
+        body: JSON.stringify({ sellerId: listing.sellerId, initialMessage: '' }),
       })
       const data = await res.json()
       if (!res.ok) {
@@ -140,7 +146,18 @@ export default function EstateBlockPage() {
         return
       }
       if (data.conversation?.id) {
-        router.push(`/messages?conversationId=${encodeURIComponent(data.conversation.id)}`)
+        const conversationId = data.conversation.id as string
+        const msgRes = await fetch('/api/chat/messages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversationId, content: initialMessage }),
+        })
+        if (!msgRes.ok) {
+          const msgData = await msgRes.json().catch(() => ({}))
+          alert(msgData.error || t('Failed to send message to seller', 'ಮಾರಾಟಗಾರರಿಗೆ ಸಂದೇಶ ಕಳುಹಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+          return
+        }
+        router.push(`/messages?conversationId=${encodeURIComponent(conversationId)}`)
       }
     } catch {
       alert('Failed to open chat')
