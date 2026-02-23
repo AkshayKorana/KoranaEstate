@@ -33,6 +33,7 @@ model Commodity {
 model User {
   id               String    @id @default(cuid())
   name             String?
+  fullName         String?
   email            String    @unique
   passwordHash     String
   resetToken       String?   @unique

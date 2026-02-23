@@ -27,15 +27,19 @@ export async function POST(req: NextRequest) {
     }
 
     const passwordHash = await bcrypt.hash(password, 12)
+    const fullName = name || email.split('@')[0] || 'User'
+
     const user = await prisma.user.create({
       data: {
         name: name || null,
+        fullName,
         email,
         passwordHash,
       },
       select: {
         id: true,
         name: true,
+        fullName: true,
         email: true,
         createdAt: true,
       },

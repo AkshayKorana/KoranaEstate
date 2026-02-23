@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { deriveUserNames } from '@/lib/user-name'
+import { isPrismaSchemaCompatibilityError } from '@/lib/prisma-compat'
+import { randomUUID } from 'crypto'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,19 +19,114 @@ export async function GET(request: NextRequest) {
     const where: any = { isActive: true }
     if (category) where.category = category
 
-    const total = await prisma.product.count({ where })
+    let total = 0
+    let products: Array<{
+      id: string
+      sellerId: string
+      name: string
+      category: string
+      price: number
+      stock: number
+      description: string | null
+      imageUrl: string | null
+      isActive: boolean
+      createdAt: Date
+      updatedAt: Date
+      seller: { id: string; name: string | null; email: string }
+    }> = []
 
-    const products = await prisma.product.findMany({
-      where,
-      include: {
+    try {
+      total = await prisma.product.count({ where })
+
+      products = await prisma.product.findMany({
+        where,
+        include: {
+          seller: {
+            select: { id: true, name: true, email: true }
+          }
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset
+      })
+    } catch (error) {
+      if (!isPrismaSchemaCompatibilityError(error)) throw error
+
+      // Compatibility mode: read from backend RetailProduct table when Product is unavailable.
+      const countRows = await prisma.$queryRawUnsafe<Array<{ c: number }>>(
+        `SELECT COUNT(*)::int AS c
+         FROM "RetailProduct" rp
+         WHERE rp."isActive" = true
+           AND rp."deletedAt" IS NULL
+           AND ($1::text IS NULL OR rp."category" = $1)`,
+        category,
+      )
+      total = countRows[0]?.c ?? 0
+
+      const rows = await prisma.$queryRawUnsafe<
+        Array<{
+          id: string
+          sellerId: string
+          name: string
+          category: string
+          price: number
+          stock: number
+          description: string | null
+          imageUrl: string | null
+          isActive: boolean
+          createdAt: Date
+          updatedAt: Date
+          sellerIdRef: string
+          sellerName: string | null
+          sellerEmail: string
+        }>
+      >(
+        `SELECT
+           rp."id" AS "id",
+           rp."sellerId" AS "sellerId",
+           rp."title" AS "name",
+           rp."category" AS "category",
+           rp."price"::double precision AS "price",
+           rp."stock" AS "stock",
+           rp."description" AS "description",
+           NULL::text AS "imageUrl",
+           rp."isActive" AS "isActive",
+           rp."createdAt" AS "createdAt",
+           rp."updatedAt" AS "updatedAt",
+           u."id" AS "sellerIdRef",
+           COALESCE(u."name", u."fullName") AS "sellerName",
+           u."email" AS "sellerEmail"
+         FROM "RetailProduct" rp
+         JOIN "User" u ON u."id" = rp."sellerId"
+         WHERE rp."isActive" = true
+           AND rp."deletedAt" IS NULL
+           AND ($1::text IS NULL OR rp."category" = $1)
+         ORDER BY rp."createdAt" DESC
+         LIMIT $2 OFFSET $3`,
+        category,
+        limit,
+        offset,
+      )
+
+      products = rows.map((row) => ({
+        id: row.id,
+        sellerId: row.sellerId,
+        name: row.name,
+        category: row.category,
+        price: Number(row.price),
+        stock: row.stock,
+        description: row.description,
+        imageUrl: row.imageUrl,
+        isActive: row.isActive,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
         seller: {
-          select: { id: true, name: true, email: true }
-        }
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: offset
-    })
+          id: row.sellerIdRef,
+          name: row.sellerName,
+          email: row.sellerEmail,
+        },
+      }))
+    }
 
     return NextResponse.json({
       products,
@@ -56,14 +154,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const names = deriveUserNames({ name: session.user.name, email: session.user.email })
     const user = await prisma.user.upsert({
       where: { email: session.user.email },
       update: {
-        name: session.user.name ?? undefined,
+        name: names.name ?? undefined,
+        fullName: names.fullName,
       },
       create: {
         email: session.user.email,
-        name: session.user.name ?? null,
+        name: names.name,
+        fullName: names.fullName,
         // Placeholder for non-credentials users; credentials signup sets real hash.
         passwordHash: 'oauth_user_no_password',
       },
@@ -91,22 +192,77 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const product = await prisma.product.create({
-      data: {
+    let product: {
+      id: string
+      sellerId: string
+      name: string
+      category: string
+      price: number
+      stock: number
+      description: string | null
+      imageUrl: string | null
+      isActive: boolean
+      createdAt: Date
+      updatedAt: Date
+      seller: { id: string; name: string | null; email: string }
+    }
+
+    try {
+      product = await prisma.product.create({
+        data: {
+          sellerId: user.id,
+          name: nameStr,
+          category: categoryStr,
+          price: Number(priceNum.toFixed(2)),
+          stock: Math.floor(stockNum),
+          description,
+          imageUrl
+        },
+        include: {
+          seller: {
+            select: { id: true, name: true, email: true }
+          }
+        }
+      })
+    } catch (error) {
+      if (!isPrismaSchemaCompatibilityError(error)) throw error
+
+      const id = randomUUID()
+      const now = new Date()
+      await prisma.$queryRawUnsafe(
+        `INSERT INTO "RetailProduct"
+          ("id","sellerId","title","category","price","stock","description","isActive","createdAt","updatedAt")
+         VALUES
+          ($1,$2,$3,$4,$5::numeric,$6,$7,true,$8,$8)`,
+        id,
+        user.id,
+        nameStr,
+        categoryStr,
+        Number(priceNum.toFixed(2)),
+        Math.floor(stockNum),
+        typeof description === 'string' ? description : null,
+        now,
+      )
+
+      product = {
+        id,
         sellerId: user.id,
         name: nameStr,
         category: categoryStr,
         price: Number(priceNum.toFixed(2)),
         stock: Math.floor(stockNum),
-        description,
-        imageUrl
-      },
-      include: {
+        description: typeof description === 'string' ? description : null,
+        imageUrl: typeof imageUrl === 'string' ? imageUrl : null,
+        isActive: true,
+        createdAt: now,
+        updatedAt: now,
         seller: {
-          select: { id: true, name: true, email: true }
-        }
+          id: user.id,
+          name: user.name,
+          email: user.email,
+        },
       }
-    })
+    }
 
     return NextResponse.json({ product }, { status: 201 })
   } catch (error) {

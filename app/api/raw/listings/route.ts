@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { deriveUserNames } from '@/lib/user-name'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,14 +51,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const names = deriveUserNames({ name: session.user.name, email: session.user.email })
     const user = await prisma.user.upsert({
       where: { email: session.user.email },
       update: {
-        name: session.user.name ?? undefined,
+        name: names.name ?? undefined,
+        fullName: names.fullName,
       },
       create: {
         email: session.user.email,
-        name: session.user.name ?? null,
+        name: names.name,
+        fullName: names.fullName,
         // Placeholder for non-credentials users; credentials signup sets real hash.
         passwordHash: 'oauth_user_no_password',
       },

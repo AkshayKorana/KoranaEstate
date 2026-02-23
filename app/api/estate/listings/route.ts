@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { getToken } from 'next-auth/jwt'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { deriveUserNames } from '@/lib/user-name'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,12 +73,14 @@ export async function POST(request: NextRequest) {
 
     let user: { id: string } | null = null
     if (sessionEmail) {
+      const names = deriveUserNames({ name: sessionName, email: sessionEmail })
       user = await prisma.user.upsert({
         where: { email: sessionEmail },
-        update: { name: sessionName ?? undefined },
+        update: { name: names.name ?? undefined, fullName: names.fullName },
         create: {
           email: sessionEmail,
-          name: sessionName,
+          name: names.name,
+          fullName: names.fullName,
           passwordHash: 'oauth_user_no_password',
         },
         select: { id: true },

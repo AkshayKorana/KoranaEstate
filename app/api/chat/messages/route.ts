@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { deriveUserNames } from '@/lib/user-name'
+import { isPrismaSchemaCompatibilityError } from '@/lib/prisma-compat'
+import { randomUUID } from 'crypto'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,12 +16,14 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const names = deriveUserNames({ name: session.user.name, email: session.user.email })
     const user = await prisma.user.upsert({
       where: { email: session.user.email },
-      update: { name: session.user.name ?? undefined },
+      update: { name: names.name ?? undefined, fullName: names.fullName },
       create: {
         email: session.user.email,
-        name: session.user.name ?? null,
+        name: names.name,
+        fullName: names.fullName,
         passwordHash: 'oauth_user_no_password',
       },
     })
@@ -33,19 +38,38 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Verify user is part of this conversation
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId }
-    })
+    let isMember = false
 
-    if (!conversation) {
-      return NextResponse.json(
-        { error: 'Conversation not found' },
-        { status: 404 }
+    try {
+      // Web schema membership path.
+      const conversation = await prisma.conversation.findUnique({
+        where: { id: conversationId }
+      })
+
+      if (!conversation) {
+        return NextResponse.json(
+          { error: 'Conversation not found' },
+          { status: 404 }
+        )
+      }
+
+      isMember = conversation.buyerId === user.id || conversation.sellerId === user.id
+    } catch (error) {
+      if (!isPrismaSchemaCompatibilityError(error)) throw error
+
+      // Backend schema membership path.
+      const rows = await prisma.$queryRawUnsafe<Array<{ exists: number }>>(
+        `SELECT 1::int AS exists
+         FROM "ConversationParticipant"
+         WHERE "conversationId" = $1 AND "userId" = $2
+         LIMIT 1`,
+        conversationId,
+        user.id,
       )
+      isMember = rows.length > 0
     }
 
-    if (conversation.buyerId !== user.id && conversation.sellerId !== user.id) {
+    if (!isMember) {
       return NextResponse.json(
         { error: 'Forbidden: You are not part of this conversation' },
         { status: 403 }
@@ -90,12 +114,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
+    const names = deriveUserNames({ name: session.user.name, email: session.user.email })
     const user = await prisma.user.upsert({
       where: { email: session.user.email },
-      update: { name: session.user.name ?? undefined },
+      update: { name: names.name ?? undefined, fullName: names.fullName },
       create: {
         email: session.user.email,
-        name: session.user.name ?? null,
+        name: names.name,
+        fullName: names.fullName,
         passwordHash: 'oauth_user_no_password',
       },
     })
@@ -110,47 +136,132 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Verify user is part of this conversation
-    const conversation = await prisma.conversation.findUnique({
-      where: { id: conversationId }
-    })
+    let isMember = false
 
-    if (!conversation) {
-      return NextResponse.json(
-        { error: 'Conversation not found' },
-        { status: 404 }
+    try {
+      // Web schema membership path.
+      const conversation = await prisma.conversation.findUnique({
+        where: { id: conversationId }
+      })
+
+      if (!conversation) {
+        return NextResponse.json(
+          { error: 'Conversation not found' },
+          { status: 404 }
+        )
+      }
+
+      isMember = conversation.buyerId === user.id || conversation.sellerId === user.id
+    } catch (error) {
+      if (!isPrismaSchemaCompatibilityError(error)) throw error
+
+      // Backend schema membership path.
+      const rows = await prisma.$queryRawUnsafe<Array<{ exists: number }>>(
+        `SELECT 1::int AS exists
+         FROM "ConversationParticipant"
+         WHERE "conversationId" = $1 AND "userId" = $2
+         LIMIT 1`,
+        conversationId,
+        user.id,
       )
+      isMember = rows.length > 0
     }
 
-    if (conversation.buyerId !== user.id && conversation.sellerId !== user.id) {
+    if (!isMember) {
       return NextResponse.json(
         { error: 'Forbidden: You are not part of this conversation' },
         { status: 403 }
       )
     }
 
-    // Create message and update conversation lastMessageAt in transaction
-    const message = await prisma.$transaction(async (tx) => {
-      const msg = await tx.message.create({
-        data: {
-          conversationId,
-          senderId: user.id,
-          content
-        },
-        include: {
-          sender: {
-            select: { id: true, name: true, email: true }
+    // Create message and update conversation timestamp in transaction
+    let message
+    try {
+      message = await prisma.$transaction(async (tx) => {
+        const msg = await tx.message.create({
+          data: {
+            conversationId,
+            senderId: user.id,
+            content
+          },
+          include: {
+            sender: {
+              select: { id: true, name: true, email: true }
+            }
           }
+        })
+
+        await tx.conversation.update({
+          where: { id: conversationId },
+          data: { lastMessageAt: new Date() }
+        })
+
+        return msg
+      })
+    } catch (error) {
+      if (!isPrismaSchemaCompatibilityError(error)) throw error
+
+      message = await prisma.$transaction(async (tx) => {
+        await tx.$executeRawUnsafe(
+          `INSERT INTO "Message"
+            ("id","conversationId","senderId","content","isRead","createdAt","updatedAt")
+           VALUES
+            ($1,$2,$3,$4,false,NOW(),NOW())`,
+          randomUUID(),
+          conversationId,
+          user.id,
+          content,
+        )
+
+        const msgRows = await tx.$queryRawUnsafe<Array<{
+          id: string
+          conversationId: string
+          senderId: string
+          content: string
+          isRead: boolean
+          createdAt: Date
+          senderName: string | null
+          senderEmail: string
+        }>>(
+          `SELECT
+             m."id",
+             m."conversationId",
+             m."senderId",
+             m."content",
+             m."isRead",
+             m."createdAt",
+             COALESCE(u."name", u."fullName") AS "senderName",
+             u."email" AS "senderEmail"
+           FROM "Message" m
+           JOIN "User" u ON u."id" = m."senderId"
+           WHERE m."conversationId" = $1
+           ORDER BY m."createdAt" DESC
+           LIMIT 1`,
+          conversationId,
+        )
+        const row = msgRows[0]
+        const msg = {
+          id: row.id,
+          conversationId: row.conversationId,
+          senderId: row.senderId,
+          content: row.content,
+          isRead: row.isRead,
+          createdAt: row.createdAt,
+          sender: {
+            id: row.senderId,
+            name: row.senderName,
+            email: row.senderEmail,
+          },
         }
-      })
 
-      await tx.conversation.update({
-        where: { id: conversationId },
-        data: { lastMessageAt: new Date() }
-      })
+        await tx.$executeRawUnsafe(
+          `UPDATE "Conversation" SET "updatedAt" = NOW() WHERE "id" = $1`,
+          conversationId,
+        )
 
-      return msg
-    })
+        return msg
+      })
+    }
 
     return NextResponse.json({ message }, { status: 201 })
   } catch (error) {
