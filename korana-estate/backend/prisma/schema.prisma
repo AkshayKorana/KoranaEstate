@@ -106,10 +106,28 @@ model User {
   disputesRaised Dispute[] @relation("dispute_raised_by")
   payoutsReleased Payout[] @relation("payout_released_by")
   sellerRating   SellerRating?
+  homeStays      HomeStay[]
 
   @@index([role])
   @@index([sellerVerified])
   @@index([deletedAt])
+}
+
+model HomeStay {
+  id            String   @id @default(cuid())
+  title         String
+  description   String
+  location      String
+  pricePerNight Float
+  imageUrl      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  ownerId       String
+
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@index([ownerId])
+  @@index([createdAt])
 }
 
 model RawProduct {

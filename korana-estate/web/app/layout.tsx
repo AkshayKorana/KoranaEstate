@@ -1,9 +1,26 @@
-import type { ReactNode } from 'react'
+import type { Metadata } from 'next'
+import './globals.css'
+import Navbar from './components/Navbar'
+import Providers from './providers'
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export const metadata: Metadata = {
+  title: 'Korana Estate Marketplace',
+  description: 'Coffee marketplace with commodity dashboard and auth',
+}
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
   return (
     <html lang="en">
-      <body style={{ fontFamily: 'ui-sans-serif, system-ui', margin: 0, background: '#f6f1e8' }}>{children}</body>
+      <body className="antialiased">
+        <Providers>
+          <Navbar />
+          <div className="content-under-navbar">{children}</div>
+        </Providers>
+      </body>
     </html>
   )
 }

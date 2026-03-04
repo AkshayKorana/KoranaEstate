@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config'
 import { ThrottlerModule } from '@nestjs/throttler'
 import { APP_GUARD } from '@nestjs/core'
 import { ThrottlerGuard } from '@nestjs/throttler'
+import { join } from 'node:path'
 import { PrismaModule } from './prisma/prisma.module'
 import { AuthModule } from './auth/auth.module'
 import { UsersModule } from './users/users.module'
@@ -14,12 +15,16 @@ import { MarketIntelligenceModule } from './market-intelligence/market-intellige
 import { SubscriptionsModule } from './subscriptions/subscriptions.module'
 import { PaymentsModule } from './payments/payments.module'
 import { AdminModule } from './admin/admin.module'
+import { HomeStaysModule } from './home-stays/home-stays.module'
 import { HealthController } from './health.controller'
 
 @Module({
   controllers: [HealthController],
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+      envFilePath: [join(process.cwd(), '.env'), join(process.cwd(), 'korana-estate/backend/.env')],
+    }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 120 }]),
     PrismaModule,
     AuthModule,
@@ -32,6 +37,7 @@ import { HealthController } from './health.controller'
     SubscriptionsModule,
     PaymentsModule,
     AdminModule,
+    HomeStaysModule,
   ],
   providers: [
     {

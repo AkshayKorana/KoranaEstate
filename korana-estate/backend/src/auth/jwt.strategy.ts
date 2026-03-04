@@ -5,10 +5,17 @@ import { ExtractJwt, Strategy } from 'passport-jwt'
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor() {
+    const jwtSecret = process.env.ACCESS_JWT_SECRET ?? process.env.JWT_SECRET
+    if (!jwtSecret) {
+      throw new Error(
+        'Missing JWT secret. Set ACCESS_JWT_SECRET (preferred) or JWT_SECRET in korana-estate/backend/.env',
+      )
+    }
+
     super({
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
       ignoreExpiration: false,
-      secretOrKey: process.env.ACCESS_JWT_SECRET ?? process.env.JWT_SECRET,
+      secretOrKey: jwtSecret,
     })
   }
 

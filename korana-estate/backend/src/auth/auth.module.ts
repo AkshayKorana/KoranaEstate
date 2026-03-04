@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common'
+import { ConfigModule, ConfigService } from '@nestjs/config'
 import { JwtModule } from '@nestjs/jwt'
 import { PassportModule } from '@nestjs/passport'
 import { AuthController } from './auth.controller'
@@ -8,10 +9,23 @@ import { JwtAuthGuard } from './jwt-auth.guard'
 
 @Module({
   imports: [
+    ConfigModule,
     PassportModule,
-    JwtModule.register({
-      secret: process.env.ACCESS_JWT_SECRET ?? process.env.JWT_SECRET,
-      signOptions: { expiresIn: '15m' },
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => {
+        const jwtSecret = configService.get<string>('ACCESS_JWT_SECRET') ?? configService.get<string>('JWT_SECRET')
+        if (!jwtSecret) {
+          throw new Error(
+            'Missing JWT secret. Set ACCESS_JWT_SECRET (preferred) or JWT_SECRET in korana-estate/backend/.env',
+          )
+        }
+        return {
+          secret: jwtSecret,
+          signOptions: { expiresIn: '15m' },
+        }
+      },
     }),
   ],
   controllers: [AuthController],
