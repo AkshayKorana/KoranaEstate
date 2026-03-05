@@ -20,134 +20,140 @@
 - Prices: `/api/v1/prices`
 - Jobs (prices): `/api/v1/jobs/prices`
 
-## Auth Tokens
-
-- Access token: 15 minutes (`ACCESS_JWT_SECRET`)
-- Refresh token: 30 days (`REFRESH_JWT_SECRET`)
-- Refresh endpoint: `POST /api/v1/auth/refresh`
-- Logout endpoint: `POST /api/v1/auth/logout`
-
-## Monetization
-
-- Global commission rate (admin): `PATCH /api/v1/orders/commission-rate`
-- Order stores: `commissionRate`, `platformFee`, `sellerPayout`
-- PRO-only advanced intelligence: `GET /api/v1/market-intelligence/:commodityName/advanced`
-- Payment webhook: `POST /api/v1/payments/webhook`
-- Admin metrics: `GET /api/v1/admin/metrics`
-- Admin payout release: `PATCH /api/v1/admin/payouts/:payoutId/release`
-- Admin payout hold: `PATCH /api/v1/admin/payouts/:payoutId/hold`
-- Raise dispute: `POST /api/v1/orders/:orderId/dispute`
-- Admin disputes list: `GET /api/v1/admin/disputes`
-- Admin dispute resolve: `PATCH /api/v1/admin/disputes/:id/resolve`
-- Buyer confirm order: `PATCH /api/v1/orders/:orderId/confirm`
-- Order review: `POST /api/v1/orders/:orderId/review`
-- User reputation: `GET /api/v1/users/:id/reputation`
-- Admin user verify: `PATCH /api/v1/admin/users/:id/verify`
-
-## Production Rules
-
-- Frontends call backend only.
-- Backend owns Prisma + Supabase access.
-- No Supabase service role key exposed to clients.
-
-## Daily Price Pipeline (Config-Driven + Python Playwright)
+## Daily Prices Pipeline
 
 ### Endpoints
 
-- `GET /api/v1/prices/products` -> enabled products from config table
-- `GET /api/v1/prices/latest` -> latest run + per-product latest values
-- `GET /api/v1/prices/history?days=30&productKey=arabica_cherry` -> historical points
-- `POST /api/v1/prices/ingest` -> ingest one run payload (requires `CRON_SECRET`)
-- `POST /api/v1/jobs/prices/run` -> trigger python playwright run (requires `CRON_SECRET`)
+- `GET /api/v1/prices/products`
+- `GET /api/v1/prices/latest`
+- `GET /api/v1/prices/history?days=30&productKey=arabica_cherry`
+- `POST /api/v1/prices/ingest`
+- `POST /api/v1/jobs/prices/run`
 
-All price endpoints send `Cache-Control: no-store`.
+All prices endpoints return `Cache-Control: no-store`.
 
-### Ingest Contract
+### Python Playwright Scraper
 
-```json
-{
-  "runAt": "2026-03-05T06:30:00.000Z",
-  "results": [
-    {
-      "productKey": "arabica_cherry",
-      "value": 345.25,
-      "unit": "INR/kg",
-      "source": "Stub Deterministic Generator",
-      "sourceUrl": "https://example.com/prices/arabica-cherry",
-      "confidence": 0.88,
-      "rawText": "Arabica Cherry 345.25 INR/kg"
-    }
-  ],
-  "errors": [
-    {
-      "productKey": "robusta_parchment",
-      "error": "Timeout",
-      "sourceUrl": "https://example.com/prices/robusta-parchment"
-    }
-  ]
-}
-```
+Script path:
+- `korana-estate/backend/scripts/playwright_prices/scrape_prices.py`
+- Wrapper path:
+- `korana-estate/backend/scripts/playwright_prices/run.sh`
 
-### Python scraper setup
+Requirements file:
+- `korana-estate/backend/scripts/playwright_prices/requirements.txt`
+
+Setup scraper once (idempotent):
 
 ```bash
-cd python/prices_scraper
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python -m playwright install chromium
+cd korana-estate/backend/scripts/playwright_prices
+./setup.sh
 ```
 
-Required env vars:
+Run scraper manually (prints JSON to stdout):
 
 ```bash
-CRON_SECRET=...
+cd korana-estate/backend/scripts/playwright_prices
+./run.sh | jq
+```
+
+The scraper writes debug text files to:
+- `korana-estate/backend/.artifacts/prices/`
+
+### Required / Optional env vars
+
+```bash
+CRON_SECRET=replace_with_long_random_secret
 PRICES_SCRAPER_ENABLED=true
-PRICES_PYTHON_BIN=python3
-PRICES_SCRAPER_SCRIPT=korana-estate/backend/python/prices_scraper/scraper.py
+PRICES_SCRAPER_RUNNER=korana-estate/backend/scripts/playwright_prices/run.sh
+PRICES_SCRAPER_ENTRY=scrape_prices.py
 PRICES_SCRAPER_TIMEOUT_MS=120000
 PRICES_SCRAPER_RETRIES=2
+BROWSER_CHANNEL=
 ```
 
-### Seed Initial Products (6)
+Notes:
+- Default browser mode: Chromium headless.
+- Optional desktop debugging mode:
+  - set `BROWSER_CHANNEL=msedge`
+  - scraper will try Edge channel with `headless=false` on supported platforms.
+
+### Run ingestion job manually
 
 ```bash
-npx tsx scripts/seed-price-products.ts
+curl -sS -X POST http://localhost:4000/api/v1/jobs/prices/run \
+  -H "Authorization: Bearer $CRON_SECRET" | jq
 ```
 
-### Manual Daily Run
+Or with header fallback:
 
 ```bash
-curl -X POST http://localhost:4000/api/v1/jobs/prices/run \
-  -H "Authorization: Bearer $CRON_SECRET"
+curl -sS -X POST http://localhost:4000/api/v1/jobs/prices/run \
+  -H "X-Cron-Secret: $CRON_SECRET" | jq
 ```
 
-### Manual Dry Run (no DB writes)
+### One Command Runbook
 
 ```bash
-curl -X POST "http://localhost:4000/api/v1/jobs/prices/run?dryRun=true" \
-  -H "Authorization: Bearer $CRON_SECRET"
+cd korana-estate/backend/scripts/playwright_prices && ./setup.sh
+cd korana-estate/backend/scripts/playwright_prices && ./run.sh | jq
+npm --prefix korana-estate/backend run dev
+curl -sS http://localhost:4000/api/v1/prices/products | jq
+curl -sS http://localhost:4000/api/v1/prices/latest | jq
+curl -sS -X POST http://localhost:4000/api/v1/jobs/prices/run -H "Authorization: Bearer $CRON_SECRET" | jq
 ```
 
-### Cron Example (9:00 AM Asia/Kolkata)
+### Scheduling at 9:00 AM Asia/Kolkata
+
+Linux cron (server timezone must be IST or converted):
 
 ```cron
 30 3 * * * curl -sS -X POST https://your-backend-domain/api/v1/jobs/prices/run -H "Authorization: Bearer YOUR_CRON_SECRET"
 ```
 
+macOS launchd example (`~/Library/LaunchAgents/com.korana.prices.plist`):
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <key>Label</key><string>com.korana.prices</string>
+    <key>ProgramArguments</key>
+    <array>
+      <string>/usr/bin/curl</string>
+      <string>-sS</string>
+      <string>-X</string>
+      <string>POST</string>
+      <string>https://your-backend-domain/api/v1/jobs/prices/run</string>
+      <string>-H</string>
+      <string>Authorization: Bearer YOUR_CRON_SECRET</string>
+    </array>
+    <key>StartCalendarInterval</key>
+    <dict>
+      <key>Hour</key><integer>9</integer>
+      <key>Minute</key><integer>0</integer>
+    </dict>
+    <key>StandardOutPath</key><string>/tmp/korana-prices.out</string>
+    <key>StandardErrorPath</key><string>/tmp/korana-prices.err</string>
+  </dict>
+</plist>
+```
+
+Load it:
+
+```bash
+launchctl load ~/Library/LaunchAgents/com.korana.prices.plist
+```
+
 ## Setup
 
 1. Copy `.env.example` to `.env`
-2. Set Supabase Postgres `DATABASE_URL`
+2. Set `DATABASE_URL`
 3. Run:
 
 ```bash
 npm install
-npm run prisma:generate -w backend
-npm run prisma:migrate -w backend
-npm run dev:backend
+npm run prisma:generate
+npm run prisma:migrate
+npm run dev
 ```
-
-## Realtime
-
-Use Supabase Realtime in backend for fanout to clients via backend-managed channels or websocket gateway.

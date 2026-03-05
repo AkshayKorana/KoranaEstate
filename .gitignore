@@ -4,3 +4,8 @@ node_modules
 prisma/dev.db
 dist
 coverage
+korana-estate/backend/.artifacts/
+**/*.pyc
+korana-estate/backend/scripts/playwright_prices/.pw-google-profile/
+korana-estate/backend/scripts/playwright_prices/.venv/
+korana-estate/backend/scripts/playwright_prices/__pycache__/

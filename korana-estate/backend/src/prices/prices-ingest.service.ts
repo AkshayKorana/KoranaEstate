@@ -5,13 +5,15 @@ import { type LatestPriceCard, type PricesIngestResponse, PricesService } from '
 
 export type ScrapedObservation = {
   productKey: string
-  price: number
+  value: number | null
   unit: string
-  source: string
-  sourceUrl: string
-  observedAt: string
-  rawText?: string
-  confidence?: number
+  meta?: {
+    query?: string
+    debugFile?: string
+    confidence?: number
+    reason?: string | null
+    sourceUrl?: string
+  }
 }
 
 export type ScraperError = {
@@ -21,8 +23,9 @@ export type ScraperError = {
 }
 
 export type ScraperOutput = {
-  runAt: string
-  observations: ScrapedObservation[]
+  source: string
+  fetchedAt: string
+  items: ScrapedObservation[]
   errors?: ScraperError[]
 }
 
@@ -52,29 +55,37 @@ export class PricesIngestService {
     trigger: string,
     dryRun = false,
   ): Promise<PricesIngestResponse | PricesDryRunResponse> {
-    const runAtDate = new Date(payload.runAt)
+    const runAtDate = new Date(payload.fetchedAt)
 
     const normalizedRunAt = Number.isNaN(runAtDate.getTime())
       ? new Date().toISOString()
       : runAtDate.toISOString()
 
-    const observations = (payload.observations || [])
-      .filter((item) => item?.productKey && Number.isFinite(item.price))
+    const observations = (payload.items || [])
+      .filter((item) => item?.productKey && Number.isFinite(item.value))
       .map((item) => ({
         productKey: item.productKey,
-        value: Number(item.price),
+        value: Number(item.value),
         unit: item.unit || 'INR/kg',
-        source: item.source || 'Python Playwright Scraper',
-        sourceUrl: item.sourceUrl || '',
-        confidence: Number.isFinite(item.confidence) ? Number(item.confidence) : 0.75,
-        rawText: item.rawText || `${item.productKey} ${item.price} ${item.unit || 'INR/kg'}`,
+        source: payload.source || 'Python Playwright Scraper',
+        sourceUrl: item.meta?.sourceUrl || '',
+        confidence: Number.isFinite(item.meta?.confidence) ? Number(item.meta?.confidence) : 0.75,
+        rawText: item.meta?.query || `${item.productKey} ${item.value} ${item.unit || 'INR/kg'}`,
       }))
 
-    const errors = (payload.errors || []).map((item) => ({
+    const perItemErrors = (payload.items || [])
+      .filter((item) => item?.productKey && !Number.isFinite(item.value))
+      .map((item) => ({
+        productKey: item.productKey,
+        error: item.meta?.reason || 'NO_DATA',
+        sourceUrl: item.meta?.sourceUrl || '',
+      }))
+
+    const errors = [...perItemErrors, ...(payload.errors || []).map((item) => ({
       productKey: item.productKey,
       error: item.error,
       sourceUrl: item.sourceUrl || '',
-    }))
+    }))]
 
     const dto: IngestPricesDto = {
       runAt: normalizedRunAt,

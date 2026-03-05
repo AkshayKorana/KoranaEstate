@@ -12,6 +12,14 @@ type ScriptRunResult = {
   stdout: string
 }
 
+type JobsConfig = {
+  runnerPath: string
+  scraperEntry: string
+  timeoutMs: number
+  retries: number
+  enabled: boolean
+}
+
 @Injectable()
 export class JobsService {
   private readonly logger = new Logger(JobsService.name)
@@ -21,35 +29,37 @@ export class JobsService {
     private readonly pricesIngestService: PricesIngestService,
   ) {}
 
-  private getConfig() {
-    const pythonBin = process.env.PRICES_PYTHON_BIN || 'python3'
-    const configuredPath = process.env.PRICES_SCRAPER_SCRIPT
+  private getConfig(): JobsConfig {
+    const configuredPath = process.env.PRICES_SCRAPER_RUNNER
+
     const candidatePaths = [
       configuredPath,
-      join(process.cwd(), 'python', 'prices_scraper', 'scraper.py'),
-      join(process.cwd(), 'korana-estate', 'backend', 'python', 'prices_scraper', 'scraper.py'),
+      join(process.cwd(), 'scripts', 'playwright_prices', 'run.sh'),
+      join(process.cwd(), 'korana-estate', 'backend', 'scripts', 'playwright_prices', 'run.sh'),
     ].filter((value): value is string => Boolean(value))
-    const scriptPath = candidatePaths.find((path) => existsSync(path)) || candidatePaths[0]
+    const runnerPath = candidatePaths.find((path) => existsSync(path)) || candidatePaths[0]
+    const scraperEntry = process.env.PRICES_SCRAPER_ENTRY || 'scrape_prices.py'
     const timeoutMs = Number(process.env.PRICES_SCRAPER_TIMEOUT_MS || 120000)
     const retries = Number(process.env.PRICES_SCRAPER_RETRIES || 2)
     const enabled = (process.env.PRICES_SCRAPER_ENABLED || 'true').toLowerCase() !== 'false'
 
     return {
-      pythonBin,
-      scriptPath,
+      runnerPath,
+      scraperEntry,
       timeoutMs: Number.isFinite(timeoutMs) && timeoutMs > 1000 ? timeoutMs : 120000,
       retries: Number.isFinite(retries) && retries >= 0 ? retries : 2,
       enabled,
     }
   }
 
-  private async runPythonScript(input: unknown, timeoutMs: number): Promise<ScriptRunResult> {
-    const config = this.getConfig()
-
+  private async runPythonScript(config: JobsConfig): Promise<ScriptRunResult> {
     return new Promise((resolve, reject) => {
-      const child = spawn(config.pythonBin, [config.scriptPath, '--input', '-'], {
-        env: process.env,
-        stdio: ['pipe', 'pipe', 'pipe'],
+      const child = spawn('bash', [config.runnerPath, config.scraperEntry], {
+        env: {
+          ...process.env,
+          PRICES_SCRAPER_ENTRY: config.scraperEntry,
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
       })
 
       let stdout = ''
@@ -59,7 +69,7 @@ export class JobsService {
       const timer = setTimeout(() => {
         timedOut = true
         child.kill('SIGTERM')
-      }, timeoutMs)
+      }, config.timeoutMs)
 
       child.stdout.setEncoding('utf8')
       child.stderr.setEncoding('utf8')
@@ -75,7 +85,7 @@ export class JobsService {
         clearTimeout(timer)
 
         if (timedOut) {
-          reject(new Error(`Python scraper timed out after ${timeoutMs}ms.`))
+          reject(new Error(`Python scraper timed out after ${config.timeoutMs}ms.`))
           return
         }
 
@@ -95,8 +105,6 @@ export class JobsService {
         resolve({ payload, stderr, stdout })
       })
 
-      child.stdin.write(JSON.stringify(input))
-      child.stdin.end()
     })
   }
 
@@ -113,33 +121,21 @@ export class JobsService {
       }
     }
 
-    if (!config.scriptPath || !config.scriptPath.endsWith('.py')) {
+    if (!config.runnerPath || !config.runnerPath.endsWith('.sh')) {
       return {
         ok: false,
         startedAt: startedAt.toISOString(),
         finishedAt: new Date().toISOString(),
-        error: 'PRICES_SCRAPER_SCRIPT is not configured correctly.',
+        error: 'PRICES_SCRAPER_RUNNER is not configured correctly.',
       }
     }
-    if (!config.scriptPath || !existsSync(config.scriptPath)) {
+    if (!config.runnerPath || !existsSync(config.runnerPath)) {
       return {
         ok: false,
         startedAt: startedAt.toISOString(),
         finishedAt: new Date().toISOString(),
-        error: `Scraper script not found at ${config.scriptPath}.`,
+        error: `Scraper runner not found at ${config.runnerPath}.`,
       }
-    }
-
-    const products = await this.pricesService.getEnabledProducts()
-    const scriptInput = {
-      runAt: startedAt.toISOString(),
-      products: products.map((product) => ({
-        productKey: product.productKey,
-        displayName: product.displayName,
-        unit: product.unit,
-        source: product.defaultSource || 'Python Playwright Scraper',
-        sourceUrl: product.sourceUrl || '',
-      })),
     }
 
     let lastError: Error | null = null
@@ -147,8 +143,10 @@ export class JobsService {
 
     for (let attempt = 0; attempt <= config.retries; attempt += 1) {
       try {
-        this.logger.log(`Running python scraper (attempt ${attempt + 1}/${config.retries + 1}) using ${config.scriptPath}`)
-        execution = await this.runPythonScript(scriptInput, config.timeoutMs)
+        this.logger.log(
+          `Running python scraper (attempt ${attempt + 1}/${config.retries + 1}) using ${config.runnerPath} entry=${config.scraperEntry}`,
+        )
+        execution = await this.runPythonScript(config)
         break
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error))
@@ -183,9 +181,9 @@ export class JobsService {
       startedAt: startedAt.toISOString(),
       finishedAt: new Date().toISOString(),
       scraper: {
-        observations: execution.payload.observations?.length || 0,
-        errors: execution.payload.errors?.length || 0,
-        runAt: execution.payload.runAt,
+        observations: execution.payload.items?.filter((item) => Number.isFinite(item.value)).length || 0,
+        errors: execution.payload.items?.filter((item) => !Number.isFinite(item.value)).length || 0,
+        runAt: execution.payload.fetchedAt,
       },
       ingest,
       logs: {

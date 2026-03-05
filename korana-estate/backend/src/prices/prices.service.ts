@@ -1,4 +1,11 @@
-import { BadRequestException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common'
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+  UnauthorizedException,
+} from '@nestjs/common'
 import { Prisma, PriceObservationStatus, PriceRunStatus, type PriceIngestionRun, type PriceProduct } from '@prisma/client'
 import type { Request } from 'express'
 import { PrismaService } from '../prisma/prisma.service'
@@ -95,7 +102,28 @@ type IngestRow = {
 
 @Injectable()
 export class PricesService {
+  private readonly logger = new Logger(PricesService.name)
+
   constructor(private readonly prisma: PrismaService) {}
+
+  private logPrismaError(operation: string, error: unknown) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError) {
+      this.logger.error(
+        `${operation} failed with Prisma code=${error.code} meta=${JSON.stringify(error.meta ?? {})}`,
+        error.stack,
+      )
+      return
+    }
+    if (error instanceof Prisma.PrismaClientValidationError) {
+      this.logger.error(`${operation} failed with Prisma validation error: ${error.message}`, error.stack)
+      return
+    }
+    if (error instanceof Error) {
+      this.logger.error(`${operation} failed: ${error.message}`, error.stack)
+      return
+    }
+    this.logger.error(`${operation} failed with unknown error: ${String(error)}`)
+  }
 
   assertCronAuthorized(request: Request) {
     const secret = process.env.CRON_SECRET
@@ -107,7 +135,7 @@ export class PricesService {
     const bearerToken = typeof authHeader === 'string' && authHeader.startsWith('Bearer ')
       ? authHeader.slice('Bearer '.length)
       : null
-    const rawHeader = request.headers['x-cron-secret']
+    const rawHeader = request.headers['x-cron-secret'] ?? request.get('X-Cron-Secret')
     const cronHeader = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader
 
     if (bearerToken !== secret && cronHeader !== secret) {
@@ -116,10 +144,15 @@ export class PricesService {
   }
 
   async getEnabledProducts(): Promise<PriceProduct[]> {
-    return this.prisma.priceProduct.findMany({
-      where: { enabled: true },
-      orderBy: [{ displayOrder: 'asc' }, { productKey: 'asc' }],
-    })
+    try {
+      return await this.prisma.priceProduct.findMany({
+        where: { enabled: true },
+        orderBy: [{ displayOrder: 'asc' }, { productKey: 'asc' }],
+      })
+    } catch (error) {
+      this.logPrismaError('getEnabledProducts', error)
+      throw new InternalServerErrorException('Failed to load price products.')
+    }
   }
 
   mapProduct(product: PriceProduct): PriceProductResponseItem {
@@ -157,14 +190,23 @@ export class PricesService {
 
   async latest(): Promise<PricesLatestResponse> {
     const enabledProducts = await this.getEnabledProducts()
-    const latestRun = await this.prisma.priceIngestionRun.findFirst({
-      orderBy: [{ runAt: 'desc' }, { createdAt: 'desc' }],
-      include: {
-        observations: {
-          include: { product: true },
+    let latestRun: Prisma.PriceIngestionRunGetPayload<{
+      include: { observations: { include: { product: true } } }
+    }> | null = null
+
+    try {
+      latestRun = await this.prisma.priceIngestionRun.findFirst({
+        orderBy: [{ runAt: 'desc' }, { createdAt: 'desc' }],
+        include: {
+          observations: {
+            include: { product: true },
+          },
         },
-      },
-    })
+      })
+    } catch (error) {
+      this.logPrismaError('latest.findLatestRun', error)
+      throw new InternalServerErrorException('Failed to load latest price run.')
+    }
 
     if (!latestRun) {
       return {
@@ -230,7 +272,14 @@ export class PricesService {
   }
 
   async history(query: HistoryQueryDto): Promise<PricesHistoryResponse> {
-    const product = await this.prisma.priceProduct.findUnique({ where: { productKey: query.productKey } })
+    let product: PriceProduct | null = null
+    try {
+      product = await this.prisma.priceProduct.findUnique({ where: { productKey: query.productKey } })
+    } catch (error) {
+      this.logPrismaError('history.findProduct', error)
+      throw new InternalServerErrorException('Failed to load price history product.')
+    }
+
     if (!product) {
       throw new NotFoundException(`Product ${query.productKey} not found.`)
     }
@@ -238,14 +287,20 @@ export class PricesService {
     const since = new Date()
     since.setDate(since.getDate() - query.days)
 
-    const rows = await this.prisma.priceObservation.findMany({
-      where: {
-        productKey: query.productKey,
-        capturedAt: { gte: since },
-      },
-      orderBy: { capturedAt: 'asc' },
-      include: { run: true },
-    })
+    let rows: Prisma.PriceObservationGetPayload<{ include: { run: true } }>[] = []
+    try {
+      rows = await this.prisma.priceObservation.findMany({
+        where: {
+          productKey: query.productKey,
+          capturedAt: { gte: since },
+        },
+        orderBy: { capturedAt: 'asc' },
+        include: { run: true },
+      })
+    } catch (error) {
+      this.logPrismaError('history.findRows', error)
+      throw new InternalServerErrorException('Failed to load price history.')
+    }
 
     return {
       updatedAt: new Date().toISOString(),

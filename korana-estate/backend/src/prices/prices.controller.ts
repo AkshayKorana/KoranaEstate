@@ -56,6 +56,24 @@ export class PricesController {
   @ApiOkResponse({ description: 'Observation run ingested successfully.' })
   ingestObservations(@Req() request: Request, @Body() dto: IngestObservationsDto) {
     this.pricesService.assertCronAuthorized(request)
-    return this.pricesIngestService.ingestScraperOutput(dto, 'external-observations-ingest', false)
+    return this.pricesIngestService.ingestScraperOutput(
+      {
+        source: 'external-observations-ingest',
+        fetchedAt: dto.runAt,
+        items: dto.observations.map((item) => ({
+          productKey: item.productKey,
+          value: item.price,
+          unit: item.unit,
+          meta: {
+            query: item.rawText,
+            confidence: item.confidence,
+            sourceUrl: item.sourceUrl,
+          },
+        })),
+        errors: dto.errors,
+      },
+      'external-observations-ingest',
+      false
+    )
   }
 }
