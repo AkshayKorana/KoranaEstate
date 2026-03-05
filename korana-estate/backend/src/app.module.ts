@@ -17,6 +17,8 @@ import { PaymentsModule } from './payments/payments.module'
 import { AdminModule } from './admin/admin.module'
 import { HomeStaysModule } from './home-stays/home-stays.module'
 import { HealthController } from './health.controller'
+import { PricesModule } from './prices/prices.module'
+import { JobsModule } from './jobs/jobs.module'
 
 @Module({
   controllers: [HealthController],
@@ -38,6 +40,8 @@ import { HealthController } from './health.controller'
     PaymentsModule,
     AdminModule,
     HomeStaysModule,
+    PricesModule,
+    JobsModule,
   ],
   providers: [
     {

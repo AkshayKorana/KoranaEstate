@@ -8,18 +8,18 @@
     "npm": ">=10 <11"
   },
   "scripts": {
-    "dev": "next dev",
-    "dev:raw": "next dev",
+    "dev": "npm --prefix korana-estate/web run dev",
+    "dev:raw": "npm --prefix korana-estate/web run dev",
     "dev:web": "node scripts/run-web-dev.mjs",
     "dev:backend": "node scripts/run-backend-dev.mjs",
     "setup:all": "node scripts/setup-all.mjs",
     "doctor": "node scripts/doctor.mjs",
-    "prisma:generate:web": "prisma generate --schema prisma/schema.prisma",
+    "prisma:generate:web": "echo \"No Prisma generate required for korana-estate/web\"",
     "prisma:generate:backend": "npm --prefix korana-estate/backend run prisma:generate",
     "test:e2e": "npm --prefix korana-estate/backend run test:e2e",
-    "build": "next build",
-    "start": "next start",
-    "lint": "eslint"
+    "build": "npm --prefix korana-estate/web run build",
+    "start": "npm --prefix korana-estate/web run start",
+    "lint": "npm --prefix korana-estate/web run lint"
   },
   "dependencies": {
     "@prisma/client": "^6.19.2",

@@ -2,7 +2,7 @@
 
 This repository currently contains two runnable apps:
 
-- Web app (Next.js): repo root
+- Web app (Next.js): `korana-estate/web`
 - Backend (NestJS): `korana-estate/backend`
 
 To avoid breakage, run each app with its own Prisma schema.
@@ -27,8 +27,7 @@ npm run dev:web
 
 What this does:
 
-- Generates Prisma client from `prisma/schema.prisma`
-- Starts Next.js dev server
+- Runs `korana-estate/web` Next.js dev server on port 3000
 
 ## 4) Run Backend (NestJS)
 
@@ -61,15 +60,11 @@ npm run dev:web
 
 ## 6) Important safety rule
 
-Do not mix Prisma generate commands between apps.
-
-- Web must use: `prisma/schema.prisma`
-- Backend must use: `korana-estate/backend/prisma/schema.prisma`
+Do not run the legacy root `app/` dashboard. Active dashboard is only under `korana-estate/web`.
 
 ## 7) Useful scripts
 
 ```bash
-npm run prisma:generate:web
 npm run prisma:generate:backend
 npm run doctor
 ```

@@ -1,7 +1,6 @@
 import { spawn } from 'node:child_process'
 
 const npmCmd = process.platform === 'win32' ? 'npm.cmd' : 'npm'
-const npxCmd = process.platform === 'win32' ? 'npx.cmd' : 'npx'
 
 function run(cmd, args, options = {}) {
   return new Promise((resolve, reject) => {
@@ -15,11 +14,8 @@ function run(cmd, args, options = {}) {
 }
 
 async function main() {
-  console.log('[web] Generating Prisma client from prisma/schema.prisma...')
-  await run(npxCmd, ['prisma', 'generate', '--schema', 'prisma/schema.prisma'])
-
-  console.log('[web] Starting Next.js dev server...')
-  await run(npmCmd, ['run', 'dev:raw'])
+  console.log('[web] Starting korana-estate/web Next.js dev server...')
+  await run(npmCmd, ['--prefix', 'korana-estate/web', 'run', 'dev'])
 }
 
 main().catch((error) => {

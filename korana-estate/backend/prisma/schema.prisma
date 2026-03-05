@@ -77,6 +77,17 @@ enum DisputeStatus {
   REJECTED
 }
 
+enum PriceRunStatus {
+  SUCCESS
+  PARTIAL
+  FAILED
+}
+
+enum PriceObservationStatus {
+  OK
+  FAILED
+}
+
 model User {
   id             String      @id @default(cuid())
   email          String      @unique
@@ -409,4 +420,66 @@ model Dispute {
 
   @@index([orderId, status])
   @@index([raisedByUserId])
+}
+
+model PriceProduct {
+  id            String   @id @default(cuid())
+  productKey    String   @unique
+  displayName   String
+  unit          String   @default("INR/kg")
+  defaultSource String?
+  sourceUrl     String?
+  enabled       Boolean  @default(true)
+  displayOrder  Int      @default(0)
+  baselineValue Float?
+  volatilityPct Float?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  observations PriceObservation[]
+
+  @@index([enabled, displayOrder])
+}
+
+model PriceIngestionRun {
+  id               String          @id @default(cuid())
+  runAt            DateTime
+  status           PriceRunStatus
+  totalProducts    Int
+  successfulCount  Int
+  failedCount      Int
+  trigger          String
+  rawPayload       Json?
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  observations PriceObservation[]
+
+  @@index([runAt, createdAt])
+}
+
+model PriceObservation {
+  id         String                 @id @default(cuid())
+  runId      String
+  productId  String
+  productKey String
+  capturedAt DateTime
+  status     PriceObservationStatus @default(OK)
+  value      Float?
+  unit       String
+  source     String?
+  sourceUrl  String?
+  confidence Float?
+  rawText    String?
+  error      String?
+  createdAt  DateTime               @default(now())
+  updatedAt  DateTime               @updatedAt
+
+  run     PriceIngestionRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  product PriceProduct      @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@unique([runId, productKey])
+  @@index([productKey, capturedAt])
+  @@index([productId, capturedAt])
+  @@index([runId])
 }
