@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useEffect, useMemo, useState } from 'react'
 import type { HomeStay } from '@/types/marketplace'
 import { useLanguage } from '@/app/language-context'
-import { useTheme } from '@/app/theme-context'
+import { useEffectiveTheme } from '@/app/theme-context'
 
 const HOME_STAY_PLACEHOLDER =
   'https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=1400&q=80'
@@ -45,8 +45,7 @@ function resolveImage(homeStay: HomeStay) {
 
 export default function HomeStaysClient() {
   const { t } = useLanguage()
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const { isDark } = useEffectiveTheme()
   const [homeStays, setHomeStays] = useState<HomeStay[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')

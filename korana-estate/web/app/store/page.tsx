@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import type { Product, CreateProductInput, CreateOrderInput } from '@/types/marketplace'
 import { useLanguage } from '@/app/language-context'
-import { useTheme } from '@/app/theme-context'
+import { useEffectiveTheme } from '@/app/theme-context'
 import { sendMarketplaceMessage } from '@/app/lib/send-marketplace-message'
 
 const CATEGORIES = ['Coffee Powder', 'Roasted Beans', 'Pepper Powder', 'Cardamom Powder', 'Ground Spices', 'Gift Packs']
@@ -17,8 +17,7 @@ export default function StorePage() {
     onUnauthenticated: () => router.replace('/auth'),
   })
   const { t } = useLanguage()
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const { isDark } = useEffectiveTheme()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)

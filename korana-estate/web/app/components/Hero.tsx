@@ -2,12 +2,11 @@
 
 import Image from 'next/image'
 import { useLanguage } from '@/app/language-context'
-import { useTheme } from '@/app/theme-context'
+import { useEffectiveTheme } from '@/app/theme-context'
 
 export default function Hero() {
   const { t } = useLanguage()
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const { isDark } = useEffectiveTheme()
 
   return (
     <section className={`hero-parallax section-reveal relative overflow-hidden rounded-3xl border px-6 py-16 sm:px-10 ${

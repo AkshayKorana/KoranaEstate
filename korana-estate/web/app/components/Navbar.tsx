@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
 import { useLanguage } from '@/app/language-context'
-import { useTheme } from '@/app/theme-context'
+import { useTheme, useEffectiveTheme } from '@/app/theme-context'
 import { handleSessionExpired, readResponsePayload, toChatApiError } from '@/app/lib/chat-client'
 
 function Icon({ label }: { label: string }) {
@@ -36,7 +36,8 @@ export default function Navbar() {
   const pathname = usePathname()
   const { data: session, status } = useSession()
   const { lang, setLang, t } = useLanguage()
-  const { theme, toggleTheme } = useTheme()
+  const { toggleTheme } = useTheme()
+  const { isDark } = useEffectiveTheme()
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
@@ -158,14 +159,14 @@ export default function Navbar() {
             </div>
             <div className="flex items-center gap-2 rounded-lg border px-2.5 py-1.5" style={{ borderColor: 'var(--lux-navbar-border)', background: 'color-mix(in oklab, var(--lux-navbar-bg) 72%, transparent)' }}>
               <span className="text-xs font-semibold" style={{ color: 'var(--lux-navbar-text-muted)' }}>
-                {theme === 'dark' ? t('Dark', 'ಡಾರ್ಕ್') : t('Light', 'ಲೈಟ್')}
+                {isDark ? t('Dark', 'ಡಾರ್ಕ್') : t('Light', 'ಲೈಟ್')}
               </span>
               <button
                 type="button"
                 onClick={toggleTheme}
                 className="lux-toggle"
-                data-on={theme === 'dark'}
-                aria-label={theme === 'dark' ? t('Switch to light', 'ಲೈಟ್‌ಗೆ ಬದಲಿಸಿ') : t('Switch to dark', 'ಡಾರ್ಕ್‌ಗೆ ಬದಲಿಸಿ')}
+                data-on={isDark}
+                aria-label={isDark ? t('Switch to light', 'ಲೈಟ್‌ಗೆ ಬದಲಿಸಿ') : t('Switch to dark', 'ಡಾರ್ಕ್‌ಗೆ ಬದಲಿಸಿ')}
               >
                 <span className="lux-toggle-thumb" />
               </button>
@@ -262,14 +263,14 @@ export default function Navbar() {
               </div>
               <div className="mb-3 flex items-center justify-between rounded-lg border border-emerald-200/20 bg-[#171411]/55 px-3 py-2">
                 <span className="text-sm font-semibold text-[#d8c8b3]">
-                  {theme === 'dark' ? t('Dark Mode', 'ಡಾರ್ಕ್ ಮೋಡ್') : t('Light Mode', 'ಲೈಟ್ ಮೋಡ್')}
+                  {isDark ? t('Dark Mode', 'ಡಾರ್ಕ್ ಮೋಡ್') : t('Light Mode', 'ಲೈಟ್ ಮೋಡ್')}
                 </span>
                 <button
                   type="button"
                   onClick={toggleTheme}
                   className="lux-toggle"
-                  data-on={theme === 'dark'}
-                  aria-label={theme === 'dark' ? t('Switch to light', 'ಲೈಟ್‌ಗೆ ಬದಲಿಸಿ') : t('Switch to dark', 'ಡಾರ್ಕ್‌ಗೆ ಬದಲಿಸಿ')}
+                  data-on={isDark}
+                  aria-label={isDark ? t('Switch to light', 'ಲೈಟ್‌ಗೆ ಬದಲಿಸಿ') : t('Switch to dark', 'ಡಾರ್ಕ್‌ಗೆ ಬದಲಿಸಿ')}
                 >
                   <span className="lux-toggle-thumb" />
                 </button>

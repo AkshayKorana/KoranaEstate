@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useLanguage } from '@/app/language-context'
-import { useTheme } from '@/app/theme-context'
+import { useEffectiveTheme } from '@/app/theme-context'
 import { sendMarketplaceMessage } from '@/app/lib/send-marketplace-message'
 import type { User } from '@/types/marketplace'
 import { LISTING_TYPES, UNITS, blockHasCategory, getEstateBlockBySlug } from '../blocks'
@@ -43,8 +43,7 @@ type CreateEstateListingInput = {
 
 export default function EstateBlockPage() {
   const { t } = useLanguage()
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const { isDark } = useEffectiveTheme()
   const params = useParams<{ block: string }>()
   const router = useRouter()
   const { status } = useSession({

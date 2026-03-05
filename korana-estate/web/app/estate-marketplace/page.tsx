@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useLanguage } from '@/app/language-context'
-import { useTheme } from '@/app/theme-context'
+import { useEffectiveTheme } from '@/app/theme-context'
 import { ESTATE_BLOCKS, blockHasCategory } from './blocks'
 
 type EstateListing = {
@@ -14,8 +14,7 @@ type EstateListing = {
 
 export default function EstateMarketplacePage() {
   const { t } = useLanguage()
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const { isDark } = useEffectiveTheme()
   const [listings, setListings] = useState<EstateListing[]>([])
 
   useEffect(() => {

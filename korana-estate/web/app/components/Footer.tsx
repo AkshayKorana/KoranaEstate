@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useLanguage } from '@/app/language-context'
-import { useTheme } from '@/app/theme-context'
+import { useEffectiveTheme } from '@/app/theme-context'
 
 function CoffeeIcon({ className = 'h-7 w-7' }: { className?: string }) {
   return (
@@ -51,8 +51,7 @@ function SocialIcon({ href, label, children }: SocialIconProps) {
 
 export default function Footer() {
   const { t } = useLanguage()
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const { isDark } = useEffectiveTheme()
 
   return (
     <footer id="site-footer" className={`pt-16 pb-8 border-t ${isDark ? 'bg-[linear-gradient(140deg,#0f0c0a_0%,#15100d_45%,#143327_100%)] border-emerald-200/20' : 'bg-[#efe6d8] border-black/10'}`}>

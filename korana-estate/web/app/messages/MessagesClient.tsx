@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type { Conversation, Message } from '@/types/marketplace'
 import { useLanguage } from '@/app/language-context'
-import { useTheme } from '@/app/theme-context'
+import { useEffectiveTheme } from '@/app/theme-context'
 import { handleSessionExpired, readResponsePayload, toChatApiError } from '@/app/lib/chat-client'
 
 export default function MessagesClient() {
@@ -17,8 +17,7 @@ export default function MessagesClient() {
   const searchParams = useSearchParams()
   const requestedConversationId = searchParams.get('conversationId')
   const { lang, t } = useLanguage()
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const { isDark } = useEffectiveTheme()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
   const [messages, setMessages] = useState<Message[]>([])

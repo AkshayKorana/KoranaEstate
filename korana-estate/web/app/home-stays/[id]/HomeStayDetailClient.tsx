@@ -7,7 +7,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import type { HomeStay } from '@/types/marketplace'
 import { useLanguage } from '@/app/language-context'
-import { useTheme } from '@/app/theme-context'
+import { useEffectiveTheme } from '@/app/theme-context'
 import { handleSessionExpired, readResponsePayload, toChatApiError } from '@/app/lib/chat-client'
 
 const HOME_STAY_PLACEHOLDER =
@@ -50,8 +50,7 @@ function buildImages(homeStay: HomeStay) {
 
 export default function HomeStayDetailClient({ id }: { id: string }) {
   const { t } = useLanguage()
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const { isDark } = useEffectiveTheme()
   const router = useRouter()
   const { status } = useSession()
   const [homeStay, setHomeStay] = useState<HomeStay | null>(null)

@@ -6,6 +6,7 @@ export type ThemeMode = 'light' | 'dark'
 
 type ThemeContextValue = {
   theme: ThemeMode
+  mounted: boolean
   setTheme: (theme: ThemeMode) => void
   toggleTheme: () => void
 }
@@ -15,19 +16,20 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
 const STORAGE_KEY = 'korana-ui-theme'
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeMode>(() => {
-    if (typeof window === 'undefined') return 'light'
+  const [theme, setThemeState] = useState<ThemeMode>('light')
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
     try {
       const saved = localStorage.getItem(STORAGE_KEY)
       if (saved === 'light' || saved === 'dark') {
-        return saved
+        setThemeState(saved)
       }
-      // Default to light mode unless user explicitly selected dark.
-      return 'light'
     } catch {
-      return 'light'
+      // ignore storage errors
     }
-  })
+  }, [])
 
   useEffect(() => {
     const root = document.documentElement
@@ -44,10 +46,11 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo<ThemeContextValue>(
     () => ({
       theme,
+      mounted,
       setTheme: setThemeState,
       toggleTheme: () => setThemeState((prev) => (prev === 'dark' ? 'light' : 'dark')),
     }),
-    [theme]
+    [theme, mounted]
   )
 
   return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>
@@ -59,4 +62,14 @@ export function useTheme() {
     throw new Error('useTheme must be used within ThemeProvider')
   }
   return ctx
+}
+
+export function useEffectiveTheme() {
+  const { theme, mounted } = useTheme()
+  const effectiveTheme: ThemeMode = mounted ? theme : 'light'
+  return {
+    mounted,
+    effectiveTheme,
+    isDark: effectiveTheme === 'dark',
+  }
 }

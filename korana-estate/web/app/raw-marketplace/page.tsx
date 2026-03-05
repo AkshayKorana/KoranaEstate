@@ -5,7 +5,7 @@ import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import type { RawListing, RawListingFilters, CreateRawListingInput } from '@/types/marketplace'
 import { useLanguage } from '@/app/language-context'
-import { useTheme } from '@/app/theme-context'
+import { useEffectiveTheme } from '@/app/theme-context'
 import { sendMarketplaceMessage } from '@/app/lib/send-marketplace-message'
 
 const COMMODITIES = ['Arabica Cherry', 'Arabica Parchment', 'Robusta Cherry', 'Robusta Parchment', 'Cardamom', 'Arecanut', 'Pepper']
@@ -17,8 +17,7 @@ export default function RawMarketplacePage() {
     onUnauthenticated: () => router.replace('/auth'),
   })
   const { t } = useLanguage()
-  const { theme } = useTheme()
-  const isDark = theme === 'dark'
+  const { isDark } = useEffectiveTheme()
   const [listings, setListings] = useState<RawListing[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
