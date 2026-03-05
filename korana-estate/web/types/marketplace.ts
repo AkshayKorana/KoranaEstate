@@ -231,3 +231,22 @@ export interface CreateEstateListingInput {
   description?: string
   contactPhone?: string
 }
+
+export interface HomeStay {
+  id: string
+  title?: string
+  name?: string
+  location: string
+  pricePerNight: number
+  description?: string | null
+  imageUrl?: string | null
+  imageUrls?: string[] | null
+  amenities?: string[] | null
+  maxGuests?: number | null
+  bedrooms?: number | null
+  bathrooms?: number | null
+  hostId?: string | null
+  host?: { id: string; name?: string | null; email?: string | null } | null
+  createdAt?: Date | string
+  updatedAt?: Date | string
+}

@@ -25,6 +25,7 @@ function CoffeeIcon({ className = 'h-8 w-8' }: { className?: string }) {
 
 const navItems = [
   { href: '/', label: { en: 'Home', kn: 'ಮುಖಪುಟ' }, icon: '🏠' },
+  { href: '/home-stays', label: { en: 'Home Stays', kn: 'ಹೋಂ ಸ್ಟೇಸ್' }, icon: '🏡' },
   { href: '/raw-marketplace', label: { en: 'Raw Marketplace', kn: 'ರಾ ಮಾರುಕಟ್ಟೆ' }, icon: '🌱' },
   { href: '/estate-marketplace', label: { en: 'Estate Essentials', kn: 'ಎಸ್ಟೇಟ್ ಅವಶ್ಯಕತೆಗಳು' }, icon: '🚜' },
   { href: '/store', label: { en: 'Store', kn: 'ಸ್ಟೋರ್' }, icon: '🛒' },
