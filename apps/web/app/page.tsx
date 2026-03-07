@@ -123,11 +123,87 @@ function formatPrice(value: number | null | undefined) {
   return value != null ? `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : '-'
 }
 
+function formatValueOrNotAvailable(value: string | null | undefined) {
+  return value && value.trim() ? value : 'Not available'
+}
+
+function formatRangeOrValue(
+  value: number | null | undefined,
+  min: number | null | undefined,
+  max: number | null | undefined
+) {
+  if (min != null && max != null) {
+    return `${formatPrice(min)} - ${formatPrice(max)}`
+  }
+  if (value != null) {
+    return formatPrice(value)
+  }
+  return 'Not available'
+}
+
 function formatPointLabel(point: InsightPoint, fallbackIndex: number) {
   if (point.label) return point.label
   if (point.day) return point.day
   if (point.date) return new Date(point.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
   return `Point ${fallbackIndex + 1}`
+}
+
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function cleanHighlightLine(line: string) {
+  return line.replace(/\s+/g, ' ').trim()
+}
+
+function isUsefulHighlightLine(line: string) {
+  const cleaned = cleanHighlightLine(line)
+  if (!cleaned || cleaned.length < 24 || cleaned.length > 220) return false
+  if (/^(privacy|terms|skip to content|images|videos|maps|news|shopping|allsearchimages)/i.test(cleaned)) return false
+  if (/^https?:\/\//i.test(cleaned)) return false
+  if (/^[A-Z0-9\s|:.-]{18,}$/.test(cleaned)) return false
+  if (!/[a-z]/i.test(cleaned)) return false
+  return true
+}
+
+function pickHighlightSentences(rawText: string | null | undefined, displayName: string | null | undefined) {
+  if (!rawText) return []
+
+  const productPattern = displayName ? new RegExp(escapeRegExp(displayName), 'i') : null
+  const priorityPatterns = [
+    /\b(today|current|latest|price|priced|traded|trading)\b/i,
+    /\b(last week|previous week|week ago|compared with last week)\b/i,
+    /\b(next week|forecast|expected|outlook|may|likely|could)\b/i,
+    /\b(trend|firm|steady|up|down|rise|fall|increase|decrease)\b/i,
+    /\b(demand|supply|rain|crop|arrival|market|export|quality)\b/i,
+  ]
+
+  const lines = rawText
+    .split(/\n+/)
+    .map(cleanHighlightLine)
+    .filter(isUsefulHighlightLine)
+
+  const selected: string[] = []
+  const seen = new Set<string>()
+
+  for (const pattern of priorityPatterns) {
+    const match = lines.find((line) => {
+      if (seen.has(line.toLowerCase())) return false
+      if (!pattern.test(line)) return false
+      if (productPattern && !productPattern.test(line) && /coffee/i.test(line) && !/\barabica|robusta\b/i.test(line)) {
+        return false
+      }
+      return true
+    })
+
+    if (match) {
+      const key = match.toLowerCase()
+      seen.add(key)
+      selected.push(match)
+    }
+  }
+
+  return selected
 }
 
 export default function HomePage() {
@@ -149,6 +225,28 @@ export default function HomePage() {
   useEffect(() => {
     let mounted = true
 
+    async function loadLatestData() {
+      try {
+        const latestRes = await fetch('/api/prices/latest', { cache: 'no-store' })
+        if (!latestRes.ok) {
+          const payload = await latestRes.json().catch(() => ({}))
+          throw new Error(payload?.message || `Latest request failed (${latestRes.status})`)
+        }
+
+        const latestPayload: PricesLatestResponse = await latestRes.json()
+        if (!mounted) return
+        setLatest(latestPayload)
+        setLatestError(null)
+      } catch (error) {
+        if (!mounted) return
+        const message = error instanceof Error ? error.message : 'Failed to refresh latest prices.'
+        setLatestError(message)
+      } finally {
+        if (!mounted) return
+        setLoadingLatest(false)
+      }
+    }
+
     async function load() {
       setLoadingProducts(true)
       setLoadingLatest(true)
@@ -156,32 +254,24 @@ export default function HomePage() {
       setLatestError(null)
 
       try {
-        const [productsRes, latestRes] = await Promise.all([
-          fetch('/api/prices/products', { cache: 'no-store' }),
-          fetch('/api/prices/latest', { cache: 'no-store' }),
-        ])
+        const productsRes = await fetch('/api/prices/products', { cache: 'no-store' })
 
         if (!productsRes.ok) {
           const payload = await productsRes.json().catch(() => ({}))
           throw new Error(payload?.message || `Products request failed (${productsRes.status})`)
         }
 
-        if (!latestRes.ok) {
-          const payload = await latestRes.json().catch(() => ({}))
-          throw new Error(payload?.message || `Latest request failed (${latestRes.status})`)
-        }
-
         const productsPayload: PricesProductsResponse = await productsRes.json()
-        const latestPayload: PricesLatestResponse = await latestRes.json()
 
         if (!mounted) return
 
         setProducts(productsPayload.products)
-        setLatest(latestPayload)
 
         if (productsPayload.products.length > 0) {
           setSelectedKey((current) => current || productsPayload.products[0].productKey)
         }
+
+        await loadLatestData()
       } catch (error) {
         if (!mounted) return
         const message = error instanceof Error ? error.message : 'Failed to load price dashboard data.'
@@ -195,8 +285,13 @@ export default function HomePage() {
     }
 
     load()
+    const intervalId = window.setInterval(() => {
+      void loadLatestData()
+    }, 30_000)
+
     return () => {
       mounted = false
+      window.clearInterval(intervalId)
     }
   }, [])
 
@@ -303,6 +398,58 @@ export default function HomePage() {
     selectedLatest?.sources?.length
   )
   const lastUpdated = latest?.run?.runAt || latest?.updatedAt || null
+  const latestPriceDisplay = formatRangeOrValue(
+    selectedLatest?.todayPrice ?? selectedLatest?.currentPrice ?? selectedLatest?.value,
+    selectedLatest?.todayPriceMin,
+    selectedLatest?.todayPriceMax
+  )
+  const currentEquivalentDisplay = selectedLatest?.currentPrice != null || selectedLatest?.value != null
+    ? `${formatPrice(selectedLatest?.currentPrice ?? selectedLatest?.value)} ${selectedLatest?.unit || selectedProduct?.unit || 'INR/kg'}`
+    : 'Not available'
+  const lastWeekDisplay = formatRangeOrValue(
+    selectedLatest?.lastWeekPrice,
+    selectedLatest?.lastWeekPriceMin,
+    selectedLatest?.lastWeekPriceMax
+  )
+  const nextWeekDisplay = formatRangeOrValue(
+    selectedLatest?.expectedNextPrice,
+    selectedLatest?.expectedNextPriceMin,
+    selectedLatest?.expectedNextPriceMax
+  )
+  const trendDisplay = formatValueOrNotAvailable(selectedLatest?.trend)
+  const confidenceDisplay =
+    selectedLatest?.confidence != null ? `${Math.round(selectedLatest.confidence * 100)}%` : 'Not available'
+  const derivedHighlights = useMemo(() => {
+    const normalized = new Set<string>()
+    const items: string[] = []
+
+    for (const bullet of selectedLatest?.analysisBullets || []) {
+      const cleaned = cleanHighlightLine(bullet)
+      if (!isUsefulHighlightLine(cleaned)) continue
+      const key = cleaned.toLowerCase()
+      if (normalized.has(key)) continue
+      normalized.add(key)
+      items.push(cleaned)
+    }
+
+    const summary = cleanHighlightLine(selectedLatest?.analysisSummary || selectedLatest?.shortDescription || '')
+    if (isUsefulHighlightLine(summary)) {
+      const key = summary.toLowerCase()
+      if (!normalized.has(key)) {
+        normalized.add(key)
+        items.push(summary)
+      }
+    }
+
+    for (const line of pickHighlightSentences(selectedLatest?.rawText, selectedProduct?.displayName)) {
+      const key = line.toLowerCase()
+      if (normalized.has(key)) continue
+      normalized.add(key)
+      items.push(line)
+    }
+
+    return items.slice(0, 6)
+  }, [selectedLatest, selectedProduct])
 
   return (
     <div id="top" className="space-y-14">
@@ -447,6 +594,43 @@ export default function HomePage() {
 
                 <div className="grid grid-cols-1 xl:grid-cols-[1.4fr,0.9fr] gap-5">
                   <div className="rounded-2xl border border-emerald-200/25 bg-[#14110e] p-4 space-y-4">
+                    <div className="rounded-2xl border border-emerald-200/20 bg-[#100d0a] p-4 space-y-4">
+                      <h4 className="text-xl font-semibold text-[#efe4d4]">Market Report</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[#d6c8b9]">
+                        <div className="rounded-xl bg-[#171411] px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Latest Price</p>
+                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{latestPriceDisplay}</p>
+                        </div>
+                        <div className="rounded-xl bg-[#171411] px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Current INR/kg equivalent</p>
+                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{currentEquivalentDisplay}</p>
+                        </div>
+                        <div className="rounded-xl bg-[#171411] px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Last Week range/value</p>
+                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{lastWeekDisplay}</p>
+                        </div>
+                        <div className="rounded-xl bg-[#171411] px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Next Week outlook/range</p>
+                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{nextWeekDisplay}</p>
+                        </div>
+                        <div className="rounded-xl bg-[#171411] px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Trend</p>
+                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{trendDisplay}</p>
+                        </div>
+                        <div className="rounded-xl bg-[#171411] px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Confidence</p>
+                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{confidenceDisplay}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-emerald-200/20 bg-[#100d0a] p-4">
+                      <h4 className="text-xl font-semibold text-[#efe4d4]">Contextual Summary</h4>
+                      <p className="mt-3 text-sm leading-7 text-[#d6c8b9]">
+                        {selectedLatest?.analysisSummary || selectedLatest?.shortDescription || 'Not available'}
+                      </p>
+                    </div>
+
                     <div className="flex items-center justify-between gap-3">
                       <h4 className="text-lg font-semibold text-[#efe4d4]">
                         {t('Price Curve', 'ಬೆಲೆ ವಕ್ರ')}
@@ -513,20 +697,14 @@ export default function HomePage() {
                       <p className="mt-3 text-sm leading-6 text-[#d6c8b9]">
                         {selectedLatest?.analysisSummary || selectedLatest?.shortDescription || t('No analysis summary is available yet. The dashboard will keep rendering partial results safely.', 'ವಿಶ್ಲೇಷಣೆಯ ಸಾರಾಂಶ ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ. ಭಾಗಶಃ ಫಲಿತಾಂಶಗಳೂ ಸುರಕ್ಷಿತವಾಗಿ ತೋರಿಸಲಾಗುತ್ತವೆ.')}
                       </p>
-                      {selectedLatest?.rawText && (
-                        <p className="mt-3 text-xs leading-5 text-gray-400">
-                          {selectedLatest.rawText.slice(0, 420)}
-                          {selectedLatest.rawText.length > 420 ? '...' : ''}
-                        </p>
-                      )}
                     </div>
 
                     <div className="rounded-2xl border border-emerald-200/25 bg-[#14110e] p-4">
                       <h4 className="text-lg font-semibold text-[#efe4d4]">{t('Highlights', 'ಮುಖ್ಯಾಂಶಗಳು')}</h4>
                       <div className="mt-3 space-y-2">
-                        {(selectedLatest?.analysisBullets || []).length > 0 ? (
-                          (selectedLatest?.analysisBullets || []).map((bullet, index) => (
-                            <div key={`${bullet}-${index}`} className="rounded-xl bg-[#100d0a] px-3 py-2 text-sm text-[#d6c8b9]">
+                        {derivedHighlights.length > 0 ? (
+                          derivedHighlights.map((bullet, index) => (
+                            <div key={`${bullet}-${index}`} className="rounded-xl bg-[#100d0a] px-3 py-2 text-sm leading-6 text-[#d6c8b9]">
                               {bullet}
                             </div>
                           ))

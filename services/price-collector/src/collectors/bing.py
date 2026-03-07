@@ -1,15 +1,17 @@
 from __future__ import annotations
 
 import base64
+import os
 import random
 import sys
 import time
+from pathlib import Path
 from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 
 from playwright.sync_api import TimeoutError as PWTimeout
 from playwright.sync_api import sync_playwright
 
-from config import env_float, env_int, get_active_commodities
+from config import env_bool, env_float, env_int, get_active_commodities
 from models import build_error, build_item, now_iso
 from parsers import parse_commodity_intelligence
 
@@ -44,14 +46,25 @@ SOURCE_NAME = "bing"
 PAYLOAD_SOURCE = "Bing (Playwright)"
 SEARCH_BASE = "https://www.bing.com/search"
 
-NAV_TIMEOUT_MS = env_int("NAV_TIMEOUT_MS", 25000)
-RESULTS_TIMEOUT_MS = env_int("RESULTS_TIMEOUT_MS", 12000)
-PRODUCT_TIMEOUT_MS = env_int("PRODUCT_TIMEOUT_MS", 30000)
-FALLBACK_SOURCE_TIMEOUT_MS = min(NAV_TIMEOUT_MS, 12000)
-MAX_COFFEE_FALLBACK_SOURCES = 2
+SCRAPER_FAST_MODE = env_bool("SCRAPER_FAST_MODE", True)
+NAV_TIMEOUT_MS = env_int("NAV_TIMEOUT_MS", 9000 if SCRAPER_FAST_MODE else 25000)
+RESULTS_TIMEOUT_MS = env_int("RESULTS_TIMEOUT_MS", 5000 if SCRAPER_FAST_MODE else 12000)
+PRODUCT_TIMEOUT_MS = env_int("PRODUCT_TIMEOUT_MS", 9000 if SCRAPER_FAST_MODE else 30000)
+SCRAPER_HEADLESS = env_bool("SCRAPER_HEADLESS", True)
 
-DELAY_BETWEEN_PRODUCTS_MIN = env_float("DELAY_BETWEEN_PRODUCTS_MIN", 1.0)
-DELAY_BETWEEN_PRODUCTS_MAX = env_float("DELAY_BETWEEN_PRODUCTS_MAX", 2.0)
+DELAY_BETWEEN_PRODUCTS_MIN = env_float("DELAY_BETWEEN_PRODUCTS_MIN", 0.1 if SCRAPER_FAST_MODE else 1.0)
+DELAY_BETWEEN_PRODUCTS_MAX = env_float("DELAY_BETWEEN_PRODUCTS_MAX", 0.3 if SCRAPER_FAST_MODE else 2.0)
+NETWORK_IDLE_TIMEOUT_MS = 1200 if SCRAPER_FAST_MODE else 3000
+STABILIZE_WAIT_MS = 350 if SCRAPER_FAST_MODE else 1500
+BODY_TEXT_TIMEOUT_MS = 1500 if SCRAPER_FAST_MODE else 3000
+RESULT_BLOCK_LIMIT = 4 if SCRAPER_FAST_MODE else 8
+CONTEXT_BLOCK_LIMIT = 1 if SCRAPER_FAST_MODE else 2
+SOURCE_SCAN_LIMIT = 8 if SCRAPER_FAST_MODE else 20
+SOURCE_RETURN_LIMIT = 5 if SCRAPER_FAST_MODE else 8
+SEARCH_SCROLL_ROUNDS = 3 if SCRAPER_FAST_MODE else 10
+SCROLL_WAIT_MS = 350 if SCRAPER_FAST_MODE else 1000
+DEFAULT_PROFILE_DIR = Path(__file__).resolve().parents[2] / ".pw-bing-profile"
+SCRAPER_PROFILE_DIR = os.getenv("SCRAPER_PROFILE_DIR", str(DEFAULT_PROFILE_DIR))
 
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
@@ -66,14 +79,6 @@ BLOCK_MARKERS = [
     "access denied",
     "unusual traffic",
 ]
-
-PREFERRED_COFFEE_SOURCE_HOSTS = (
-    "kodaguexpress.com",
-    "commoditymarketlive.com",
-    "kirehalli.com",
-    "commodityonline.com",
-)
-
 
 def log(message: str) -> None:
     print(message, file=sys.stderr, flush=True)
@@ -94,27 +99,41 @@ def stabilize(page) -> None:
     except Exception:
         pass
     try:
-        page.wait_for_load_state("networkidle", timeout=3000)
+        page.wait_for_load_state("networkidle", timeout=NETWORK_IDLE_TIMEOUT_MS)
     except Exception:
         pass
-    safe_wait(page, 1500)
+    safe_wait(page, STABILIZE_WAIT_MS)
 
 
 def get_body_text(page) -> str:
     stabilize(page)
-    return (page.locator("body").inner_text(timeout=3000) or "")[:20000]
+    return (page.locator("body").inner_text(timeout=BODY_TEXT_TIMEOUT_MS) or "")[:20000]
 
 
-def click_search_top(page) -> None:
-    """
-    Click the Search tab/button at the top if it exists.
-    Safe no-op if already on search or not found.
-    """
+def submit_search(page, query: str) -> None:
+    page.goto("https://www.bing.com", wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
+    stabilize(page)
+
+    search_box_selectors = [
+        'textarea[name="q"]',
+        'input[name="q"]',
+        '#sb_form_q',
+    ]
+
+    for selector in search_box_selectors:
+        try:
+            locator = page.locator(selector).first
+            if locator.is_visible(timeout=1000):
+                locator.fill(query, timeout=2000)
+                break
+        except Exception:
+            continue
+
     selectors = [
-        'a[href*="/search"]',
-        'a:has-text("Search")',
+        '#search_icon',
+        '#sb_form_go',
         'button:has-text("Search")',
-        '[role="tab"]:has-text("Search")',
+        'input[type="submit"]',
     ]
 
     for selector in selectors:
@@ -127,6 +146,12 @@ def click_search_top(page) -> None:
         except Exception:
             continue
 
+    try:
+        page.locator('textarea[name="q"], input[name="q"], #sb_form_q').first.press("Enter", timeout=2000)
+        stabilize(page)
+    except Exception:
+        pass
+
 
 def scroll_entire_page(page, rounds: int = 8) -> None:
     last_height = 0
@@ -136,7 +161,7 @@ def scroll_entire_page(page, rounds: int = 8) -> None:
         try:
             current_height = page.evaluate("() => document.body.scrollHeight")
             page.mouse.wheel(0, 2500)
-            safe_wait(page, 1000)
+            safe_wait(page, SCROLL_WAIT_MS)
             new_height = page.evaluate("() => document.body.scrollHeight")
 
             if new_height == last_height or new_height == current_height:
@@ -177,44 +202,19 @@ def _decode_bing_redirect_url(href: str) -> str:
     return href
 
 
-def _extract_result_text(page) -> str:
-    blocks: list[str] = []
-    selectors = ["#b_context", "#b_ans", "#b_results li.b_algo"]
-
-    for selector in selectors:
-        try:
-            locator = page.locator(selector)
-            count = min(locator.count(), 8 if selector.endswith("b_algo") else 2)
-            for index in range(count):
-                block = locator.nth(index)
-                text = (block.inner_text(timeout=1200) or "").strip()
-                if text:
-                    blocks.append(text)
-        except Exception:
-            continue
-
-    return "\n\n".join(blocks).strip()
-
-
-def _extract_page_content(page) -> str:
-    parts: list[str] = []
+def capture_full_search_page_text(page) -> str:
     try:
-        title = (page.title() or "").strip()
-        if title:
-            parts.append(title)
+        page.wait_for_load_state("domcontentloaded", timeout=NAV_TIMEOUT_MS)
     except Exception:
         pass
     try:
-        heading = (page.locator("h1").first.inner_text(timeout=1000) or "").strip()
-        if heading:
-            parts.append(heading)
+        page.wait_for_load_state("networkidle", timeout=NETWORK_IDLE_TIMEOUT_MS)
     except Exception:
         pass
-    body = get_body_text(page)
-    if body:
-        parts.append(body)
-    return "\n\n".join(part for part in parts if part).strip()
-
+    safe_wait(page, STABILIZE_WAIT_MS)
+    scroll_entire_page(page, rounds=SEARCH_SCROLL_ROUNDS)
+    safe_wait(page, STABILIZE_WAIT_MS)
+    return (page.locator("body").inner_text(timeout=BODY_TEXT_TIMEOUT_MS) or "")[:20000]
 
 def _source_score(commodity, title: str, url: str) -> int:
     haystack = f"{title} {url}".lower()
@@ -247,7 +247,7 @@ def extract_sources(page, commodity) -> list[dict[str, str]]:
     for selector in selectors:
         try:
             locator = page.locator(selector)
-            count = min(locator.count(), 20)
+            count = min(locator.count(), SOURCE_SCAN_LIMIT)
             for index in range(count):
                 link = locator.nth(index)
                 href = (link.get_attribute("href") or "").strip()
@@ -278,142 +278,44 @@ def extract_sources(page, commodity) -> list[dict[str, str]]:
             continue
 
     sources.sort(key=lambda source: _source_score(commodity, source.get("title", ""), source.get("url", "")), reverse=True)
-    return sources[:8]
-
-
-def _is_coffee_commodity(commodity) -> bool:
-    return any(token in commodity.product_key for token in ("arabica", "robusta"))
-
-
-def _is_weak_coffee_match(intelligence: dict, commodity) -> bool:
-    if not _is_coffee_commodity(commodity):
-        return False
-    metadata = intelligence.get("metadata") or {}
-    return intelligence.get("currentPrice") is None or bool(metadata.get("genericCoffeeFallback")) or (intelligence.get("confidence") or 0) < 0.75
-
-
-def _fallback_source_score(commodity, source: dict[str, str]) -> int:
-    title = source.get("title", "")
-    url = source.get("url", "")
-    host = source.get("host", "")
-    score = _source_score(commodity, title, url)
-    if any(preferred in host for preferred in PREFERRED_COFFEE_SOURCE_HOSTS):
-        score += 5
-    if any(keyword in f"{title} {url}".lower() for keyword in ("robusta", "arabica", "cherry", "parchment")):
-        score += 4
-    if "market price today" in title.lower() or "price update" in title.lower():
-        score += 2
-    return score
-
-
-def _dedupe_sources(sources: list[dict[str, str]]) -> list[dict[str, str]]:
-    seen: set[str] = set()
-    merged: list[dict[str, str]] = []
-    for source in sources:
-        url = source.get("url") or ""
-        if not url or url in seen:
-            continue
-        seen.add(url)
-        merged.append(source)
-    return merged
-
-
-def _intelligence_score(intelligence: dict) -> float:
-    metadata = intelligence.get("metadata") or {}
-    score = 0.0
-    if intelligence.get("currentPrice") is not None:
-        score += 100
-    score += float((intelligence.get("confidence") or 0) * 10)
-    score += float(metadata.get("todayPriceSpecificity") or 0) * 8
-    score += min(len(intelligence.get("sources") or []), 4)
-    if metadata.get("genericCoffeeFallback"):
-        score -= 25
-    return score
-
-
-def _collect_fallback_intelligence(page, commodity, sources: list[dict[str, str]]) -> tuple[str | None, dict | None, list[dict[str, str]], str | None]:
-    if not _is_coffee_commodity(commodity) or not sources:
-        return None, None, sources, None
-
-    ranked_sources = sorted(sources, key=lambda source: _fallback_source_score(commodity, source), reverse=True)
-
-    best_text: str | None = None
-    best_intelligence: dict | None = None
-    best_sources = sources
-    best_url: str | None = None
-
-    for candidate in ranked_sources[:MAX_COFFEE_FALLBACK_SOURCES]:
-        url = candidate.get("url")
-        if not url:
-            continue
-        try:
-            page.goto(url, wait_until="domcontentloaded", timeout=FALLBACK_SOURCE_TIMEOUT_MS)
-            stabilize(page)
-            scroll_entire_page(page, rounds=3)
-            stabilize(page)
-            page_text = _extract_page_content(page)
-            if not page_text or looks_blocked(page_text):
-                continue
-
-            merged_sources = _dedupe_sources([candidate, *sources])
-            intelligence = parse_commodity_intelligence(commodity, page_text, merged_sources)
-
-            if best_intelligence is None or _intelligence_score(intelligence) > _intelligence_score(best_intelligence):
-                best_text = page_text
-                best_intelligence = intelligence
-                best_sources = merged_sources
-                best_url = url
-        except Exception:
-            continue
-
-    return best_text, best_intelligence, best_sources, best_url
-
+    return sources[:SOURCE_RETURN_LIMIT]
 
 def search_and_extract(page, commodity) -> tuple[str | None, str, list[dict[str, str]], str]:
     query = commodity.query
-    search_url = f"{SEARCH_BASE}?q={quote_plus(query)}"
+    search_url = SEARCH_BASE
 
-    # 1) Search for the text
-    page.goto(search_url, wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
-
-    # 2) Wait for content to load
-    stabilize(page)
+    # 1) Open search page
+    # 2) Wait for search UI
+    # 3) Click Search / submit query
+    submit_search(page, query)
 
     body_before = get_body_text(page)
     if looks_blocked(body_before):
         return None, body_before, [], page.url or search_url
 
-    # 3) Click Search button/tab on top
-    click_search_top(page)
-
-    # 4) Wait for content to load again
-    stabilize(page)
-
+    # 4) Wait for results
     body_mid = get_body_text(page)
     if looks_blocked(body_mid):
         return None, body_mid, [], page.url or search_url
 
     # 5) Scroll entire search page
-    scroll_entire_page(page, rounds=10)
-
     # 6) Final wait
-    stabilize(page)
-
-    # 7) Extract everything visible
-    body_text = get_body_text(page)
-    result_text = _extract_result_text(page)
+    # 7) Extract everything visible from the search page only
+    body_text = capture_full_search_page_text(page)
     sources = extract_sources(page, commodity)
 
     if looks_blocked(body_text):
         return None, body_text, sources, page.url or search_url
 
-    extracted_text = result_text if result_text.strip() else body_text
-    return (extracted_text if extracted_text.strip() else None), body_text, sources, page.url or search_url
+    return (body_text if body_text.strip() else None), body_text, sources, page.url or search_url
 
 
 def scrape_product(page, commodity) -> dict:
     started_at = time.monotonic()
-    log(f"[BING][headless=False] {commodity.product_key} -> {commodity.query}")
+    log(
+        f"[BING][headless={SCRAPER_HEADLESS}][fast={SCRAPER_FAST_MODE}] "
+        f"{commodity.product_key} -> {commodity.query}"
+    )
 
     try:
         if (time.monotonic() - started_at) * 1000 > PRODUCT_TIMEOUT_MS:
@@ -458,14 +360,6 @@ def scrape_product(page, commodity) -> dict:
             )
 
         intelligence = parse_commodity_intelligence(commodity, extracted_text, sources)
-        if _is_weak_coffee_match(intelligence, commodity):
-            fallback_text, fallback_intelligence, fallback_sources, fallback_url = _collect_fallback_intelligence(page, commodity, sources)
-            if fallback_intelligence and _intelligence_score(fallback_intelligence) > _intelligence_score(intelligence):
-                extracted_text = fallback_text or extracted_text
-                intelligence = fallback_intelligence
-                sources = fallback_sources
-                source_url = fallback_url or source_url
-
         value = intelligence.get("currentPrice")
         status = "OK" if value is not None else "FAILED"
         reason = "MATCHED" if value is not None else "NO_DATA"
@@ -525,29 +419,31 @@ def run() -> dict:
     commodities = get_active_commodities()
 
     with sync_playwright() as playwright:
-        browser = playwright.chromium.launch(
+        profile_dir = Path(SCRAPER_PROFILE_DIR).expanduser().resolve()
+        profile_dir.mkdir(parents=True, exist_ok=True)
+        log(f"[BING] using persistent profile: {profile_dir}")
+
+        context = playwright.chromium.launch_persistent_context(
+            user_data_dir=str(profile_dir),
             channel="msedge",
-            headless=False,
+            headless=SCRAPER_HEADLESS,
+            viewport={"width": 1440, "height": 900},
+            locale="en-IN",
+            timezone_id="Asia/Kolkata",
+            user_agent=random.choice(USER_AGENTS),
             args=[
                 "--start-maximized",
                 "--disable-blink-features=AutomationControlled",
             ],
         )
-
-        context = browser.new_context(
-            viewport={"width": 1440, "height": 900},
-            locale="en-IN",
-            timezone_id="Asia/Kolkata",
-            user_agent=random.choice(USER_AGENTS),
-        )
-        page = context.new_page()
-        page.add_init_script(
+        context.add_init_script(
             """
             Object.defineProperty(navigator, 'webdriver', {
                 get: () => undefined
             });
             """
         )
+        page = context.pages[0] if context.pages else context.new_page()
 
         try:
             for index, commodity in enumerate(commodities):
@@ -570,6 +466,5 @@ def run() -> dict:
                 context.close()
             except Exception:
                 pass
-            browser.close()
 
     return output
