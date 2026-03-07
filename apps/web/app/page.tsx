@@ -171,6 +171,86 @@ function formatRangeOrValue(
   return 'Not available'
 }
 
+function formatRangeOrValueParts(
+  value: number | null | undefined,
+  min: number | null | undefined,
+  max: number | null | undefined
+) {
+  const large = formatRangeOrValue(value, min, max)
+
+  if (min != null && max != null && min !== max) {
+    return {
+      large,
+      small: 'Observed market range',
+    }
+  }
+
+  if (value != null) {
+    return {
+      large,
+      small: 'Single observed value',
+    }
+  }
+
+  return {
+    large: 'Not available',
+    small: 'No parsed value available',
+  }
+}
+
+function isCoffeeCommodity(product: Pick<PriceProduct, 'productKey' | 'displayName'> | null | undefined) {
+  const marker = `${product?.productKey || ''} ${product?.displayName || ''}`.toLowerCase()
+  return /(arabica|robusta)/.test(marker)
+}
+
+function formatPer50KgEquivalent(value: number | null | undefined) {
+  if (value == null) return 'Not available'
+  return `≈ ${formatPrice(value * 50)} per 50 kg`
+}
+
+function buildMarketHorizonChart(
+  historyPoints: PriceHistoryPoint[] | undefined,
+  forecastPoints: InsightPoint[] | undefined,
+  expectedNextPrice: number | null | undefined
+) {
+  const labels = ['2d ago', '1d ago', 'Today', '+1d', '+2d']
+  const historicalSeries = [null, null, null, null, null] as Array<number | null>
+  const forecastSeries = [null, null, null, null, null] as Array<number | null>
+
+  const recentHistory = [...(historyPoints || [])]
+    .filter((point) => point.value != null)
+    .sort((a, b) => new Date(a.capturedAt).getTime() - new Date(b.capturedAt).getTime())
+    .slice(-3)
+
+  if (recentHistory.length === 1) {
+    historicalSeries[2] = recentHistory[0].value
+  } else if (recentHistory.length === 2) {
+    historicalSeries[1] = recentHistory[0].value
+    historicalSeries[2] = recentHistory[1].value
+  } else if (recentHistory.length >= 3) {
+    historicalSeries[0] = recentHistory[0].value
+    historicalSeries[1] = recentHistory[1].value
+    historicalSeries[2] = recentHistory[2].value
+  }
+
+  const futurePoints = (forecastPoints || []).filter((point) => point.value != null).slice(0, 2)
+  if (futurePoints[0]?.value != null) forecastSeries[3] = futurePoints[0].value
+  if (futurePoints[1]?.value != null) forecastSeries[4] = futurePoints[1].value
+  if (forecastSeries[3] == null && forecastSeries[4] == null && expectedNextPrice != null) {
+    forecastSeries[4] = expectedNextPrice
+  }
+
+  if (!historicalSeries.some((value) => value != null) && !forecastSeries.some((value) => value != null)) {
+    return null
+  }
+
+  return {
+    labels,
+    historicalSeries,
+    forecastSeries,
+  }
+}
+
 function formatPointLabel(point: InsightPoint, fallbackIndex: number) {
   if (point.label) return point.label
   if (point.day) return point.day
@@ -380,33 +460,10 @@ export default function HomePage() {
     [latestByKey, selectedKey]
   )
 
-  const dbHistoryChart = useMemo(() => {
-    const historicalPoints = (history?.daily || history?.history || []).filter((point) => point.value != null)
-    const forecastPoints = (selectedLatest?.forecastPoints || []).filter((point) => point.value != null)
-
-    if (historicalPoints.length === 0 && forecastPoints.length === 0) {
-      return null
-    }
-
-    const labels = [
-      ...historicalPoints.map((point, index) =>
-        new Date(point.capturedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) || formatPointLabel(point, index)
-      ),
-      ...forecastPoints.map((point, index) => formatPointLabel(point, historicalPoints.length + index)),
-    ]
-
-    return {
-      labels,
-      historicalSeries: [
-        ...historicalPoints.map((point) => point.value),
-        ...forecastPoints.map(() => null),
-      ],
-      forecastSeries: [
-        ...historicalPoints.map(() => null),
-        ...forecastPoints.map((point) => point.value ?? null),
-      ],
-    }
-  }, [history, selectedLatest])
+  const dbHistoryChart = useMemo(
+    () => buildMarketHorizonChart(history?.daily || history?.history, selectedLatest?.forecastPoints, selectedLatest?.expectedNextPrice),
+    [history, selectedLatest]
+  )
 
   const fallbackHistoryChart = useMemo(() => {
     const chartPoints = (history?.history || []).filter((point) => point.value != null)
@@ -451,6 +508,19 @@ export default function HomePage() {
   const trendDisplay = formatValueOrNotAvailable(selectedLatest?.trend)
   const confidenceDisplay =
     selectedLatest?.confidence != null ? `${Math.round(selectedLatest.confidence * 100)}%` : 'Not available'
+  const currentPer50KgDisplay = isCoffeeCommodity(selectedProduct)
+    ? formatPer50KgEquivalent(selectedLatest?.currentPrice ?? selectedLatest?.value)
+    : null
+  const lastWeekParts = formatRangeOrValueParts(
+    selectedLatest?.lastWeekPrice,
+    selectedLatest?.lastWeekPriceMin,
+    selectedLatest?.lastWeekPriceMax
+  )
+  const nextWeekParts = formatRangeOrValueParts(
+    selectedLatest?.expectedNextPrice,
+    selectedLatest?.expectedNextPriceMin,
+    selectedLatest?.expectedNextPriceMax
+  )
   const recentDailyHistory = useMemo(
     () => [...(history?.daily || [])].reverse().slice(0, 7),
     [history]
@@ -637,25 +707,20 @@ export default function HomePage() {
                   <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Current', 'ಪ್ರಸ್ತುತ')}</p>
                     <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{formatPrice(selectedLatest?.currentPrice ?? selectedLatest?.value)}</p>
-                    <p className="mt-1 text-xs text-gray-400">{selectedLatest?.unit || selectedProduct?.unit || 'INR/kg'}</p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      {selectedLatest?.unit || selectedProduct?.unit || 'INR/kg'}
+                      {currentPer50KgDisplay ? ` • ${currentPer50KgDisplay}` : ''}
+                    </p>
                   </div>
                   <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Last Week', 'ಕಳೆದ ವಾರ')}</p>
-                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{formatPrice(selectedLatest?.lastWeekPrice)}</p>
-                    {selectedLatest?.lastWeekPriceMin != null && selectedLatest?.lastWeekPriceMax != null && (
-                      <p className="mt-1 text-xs text-gray-400">
-                        {formatPrice(selectedLatest.lastWeekPriceMin)} - {formatPrice(selectedLatest.lastWeekPriceMax)}
-                      </p>
-                    )}
+                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{lastWeekParts.large}</p>
+                    <p className="mt-1 text-xs text-gray-400">{lastWeekParts.small}</p>
                   </div>
                   <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Next Week', 'ಮುಂದಿನ ವಾರ')}</p>
-                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{formatPrice(selectedLatest?.expectedNextPrice)}</p>
-                    {selectedLatest?.expectedNextPriceMin != null && selectedLatest?.expectedNextPriceMax != null && (
-                      <p className="mt-1 text-xs text-gray-400">
-                        {formatPrice(selectedLatest.expectedNextPriceMin)} - {formatPrice(selectedLatest.expectedNextPriceMax)}
-                      </p>
-                    )}
+                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{nextWeekParts.large}</p>
+                    <p className="mt-1 text-xs text-gray-400">{nextWeekParts.small}</p>
                   </div>
                   <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Trend', 'ಪ್ರವೃತ್ತಿ')}</p>
@@ -678,6 +743,9 @@ export default function HomePage() {
                         <div className="rounded-xl bg-[#171411] px-4 py-3">
                           <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Current INR/kg equivalent</p>
                           <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{currentEquivalentDisplay}</p>
+                          {currentPer50KgDisplay && (
+                            <p className="mt-1 text-xs text-gray-400">{currentPer50KgDisplay}</p>
+                          )}
                         </div>
                         <div className="rounded-xl bg-[#171411] px-4 py-3">
                           <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Last Week range/value</p>
