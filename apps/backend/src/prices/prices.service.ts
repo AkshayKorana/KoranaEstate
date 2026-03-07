@@ -11,6 +11,7 @@ import type { Request } from 'express'
 import { PrismaService } from '../prisma/prisma.service'
 import { HistoryQueryDto } from './dto/history-query.dto'
 import { IngestPricesDto } from './dto/ingest-prices.dto'
+import { normalizeDetectedPrice } from '../utils/normalizePrice'
 
 export type PriceProductResponseItem = {
   productKey: string
@@ -199,6 +200,43 @@ export class PricesService {
         url: String(item.url),
         host: this.asString(item.host),
       }))
+  }
+
+  private normalizeIngestField(
+    value: number | undefined,
+    rawText: string | undefined,
+    explicitUnit: string | undefined,
+    metadata: Record<string, unknown> | null,
+  ) {
+    if (!Number.isFinite(value)) {
+      return undefined
+    }
+
+    if (metadata?.normalizedUnit === 'kg') {
+      return Number(value)
+    }
+
+    const normalized = normalizeDetectedPrice(Number(value), rawText, explicitUnit)
+    return normalized.sane ? normalized.normalizedValue : null
+  }
+
+  private normalizeSeriesPoints(
+    points: Array<{ label?: string; date?: string; day?: string; value?: number | null }> | undefined,
+    rawText: string | undefined,
+    explicitUnit: string | undefined,
+    metadata: Record<string, unknown> | null,
+  ) {
+    return points
+      ?.map((point) => ({
+        ...point,
+        value: this.normalizeIngestField(
+          typeof point.value === 'number' ? point.value : undefined,
+          rawText,
+          explicitUnit,
+          metadata,
+        ) ?? null,
+      }))
+      .filter((point) => point.value != null)
   }
 
   private extractRawResults(rawPayload: unknown): Map<string, RawPriceResult> {
@@ -636,7 +674,46 @@ export class PricesService {
     const products = await this.getEnabledProducts()
     const productMap = new Map(products.map((product) => [product.productKey, product]))
 
-    const resultsByKey = new Map(dto.results.map((result) => [result.productKey, result]))
+    const normalizedResults = dto.results.flatMap((result) => {
+      const metadata = this.asRecord(result.metadata)
+      const normalizedValue = this.normalizeIngestField(result.value, result.rawText, result.unit, metadata)
+
+      if (normalizedValue == null) {
+        this.logger.warn(
+          `Skipping ${result.productKey} because normalized value fell outside sanity bounds. unit=${result.unit} raw=${JSON.stringify(result.rawText ?? '').slice(0, 200)}`,
+        )
+        return []
+      }
+
+      const originalUnit = metadata?.normalizedUnit === 'kg'
+        ? String(metadata.originalUnit || 'kg')
+        : normalizeDetectedPrice(result.value, result.rawText, result.unit).originalUnit
+
+      return [{
+        ...result,
+        value: normalizedValue,
+        unit: 'INR/kg',
+        currentPrice: this.normalizeIngestField(result.currentPrice, result.rawText, result.unit, metadata),
+        lastWeekPrice: this.normalizeIngestField(result.lastWeekPrice, result.rawText, result.unit, metadata),
+        lastWeekPriceMin: this.normalizeIngestField(result.lastWeekPriceMin, result.rawText, result.unit, metadata),
+        lastWeekPriceMax: this.normalizeIngestField(result.lastWeekPriceMax, result.rawText, result.unit, metadata),
+        todayPrice: this.normalizeIngestField(result.todayPrice, result.rawText, result.unit, metadata),
+        todayPriceMin: this.normalizeIngestField(result.todayPriceMin, result.rawText, result.unit, metadata),
+        todayPriceMax: this.normalizeIngestField(result.todayPriceMax, result.rawText, result.unit, metadata),
+        expectedNextPrice: this.normalizeIngestField(result.expectedNextPrice, result.rawText, result.unit, metadata),
+        expectedNextPriceMin: this.normalizeIngestField(result.expectedNextPriceMin, result.rawText, result.unit, metadata),
+        expectedNextPriceMax: this.normalizeIngestField(result.expectedNextPriceMax, result.rawText, result.unit, metadata),
+        historicalPoints: this.normalizeSeriesPoints(result.historicalPoints, result.rawText, result.unit, metadata),
+        forecastPoints: this.normalizeSeriesPoints(result.forecastPoints, result.rawText, result.unit, metadata),
+        metadata: {
+          ...(metadata || {}),
+          originalUnit,
+          normalizedUnit: 'kg',
+        },
+      }]
+    })
+
+    const resultsByKey = new Map(normalizedResults.map((result) => [result.productKey, result]))
     const errorsByKey = new Map((dto.errors ?? []).map((error) => [error.productKey, error]))
 
     const rows: IngestRow[] = products.map((product) => {
@@ -681,7 +758,7 @@ export class PricesService {
         capturedAt: runAt,
         status: PriceObservationStatus.OK,
         value: Number(result.value),
-        unit: result.unit || product.unit,
+          unit: result.unit || product.unit,
         source: result.source || product.defaultSource,
         sourceUrl: result.sourceUrl || product.sourceUrl,
         confidence: Number.isFinite(result.confidence) ? Number(result.confidence) : null,
@@ -702,7 +779,7 @@ export class PricesService {
       const payloadJson = {
         runAt: dto.runAt,
         metadata: dto.metadata ?? {},
-        results: dto.results.map((result) => ({
+        results: normalizedResults.map((result) => ({
           productKey: result.productKey,
           value: result.value,
           unit: result.unit,

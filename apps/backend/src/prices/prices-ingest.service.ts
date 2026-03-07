@@ -1,7 +1,8 @@
-import { Injectable } from '@nestjs/common'
+import { Injectable, Logger } from '@nestjs/common'
 import { PriceObservationStatus } from '@prisma/client'
 import { IngestPricesDto } from './dto/ingest-prices.dto'
 import { type LatestPriceCard, type PricesIngestResponse, PricesService } from './prices.service'
+import { normalizeDetectedPrice } from '../utils/normalizePrice'
 
 export type ScrapedObservation = {
   productKey: string
@@ -74,7 +75,22 @@ export type PricesDryRunResponse = {
 
 @Injectable()
 export class PricesIngestService {
+  private readonly logger = new Logger(PricesIngestService.name)
+
   constructor(private readonly pricesService: PricesService) {}
+
+  private normalizeNumericField(
+    value: number | null | undefined,
+    rawText: string | null | undefined,
+    explicitUnit: string | null | undefined,
+  ) {
+    if (!Number.isFinite(value)) {
+      return undefined
+    }
+
+    const normalized = normalizeDetectedPrice(Number(value), rawText, explicitUnit)
+    return normalized.sane ? normalized : null
+  }
 
   async ingestContract(dto: IngestPricesDto, trigger: string): Promise<PricesIngestResponse> {
     return this.pricesService.ingest(dto, trigger)
@@ -106,51 +122,133 @@ export class PricesIngestService {
       return Object.keys(metadata).length > 0 ? metadata : undefined
     }
 
+    const normalizeSeriesPoints = (
+      points: Array<{ label?: string; date?: string; day?: string; value?: number | null }> | undefined,
+      rawText: string,
+      explicitUnit: string | null | undefined,
+    ) => (
+      points
+        ?.map((point) => {
+          const normalized = this.normalizeNumericField(point.value, rawText, explicitUnit)
+          if (!normalized) {
+            return {
+              ...point,
+              value: null,
+            }
+          }
+
+          return {
+            ...point,
+            value: normalized.normalizedValue,
+          }
+        })
+        .filter((point) => point.value != null) || undefined
+    )
+
     const observations = (payload.items || [])
       .filter((item) => item?.productKey && (Number.isFinite(item.value) || Number.isFinite(item.currentPrice)))
-      .map((item) => ({
-        productKey: item.productKey,
-        value: Number.isFinite(item.value) ? Number(item.value) : Number(item.currentPrice),
-        unit: item.unit || 'INR/kg',
-        source: item.source || payload.source || 'Python Playwright Scraper',
-        sourceUrl: item.sourceUrl || item.meta?.sourceUrl || '',
-        confidence: Number.isFinite(item.confidence)
-          ? Number(item.confidence)
-          : Number.isFinite(item.meta?.confidence)
-            ? Number(item.meta?.confidence)
-            : 0.75,
-        rawText: item.rawText || item.meta?.query || `${item.productKey} ${item.value} ${item.unit || 'INR/kg'}`,
-        displayName: item.displayName,
-        currentPrice: Number.isFinite(item.currentPrice) ? Number(item.currentPrice) : undefined,
-        lastWeekPrice: Number.isFinite(item.lastWeekPrice) ? Number(item.lastWeekPrice) : undefined,
-        lastWeekPriceMin: Number.isFinite(item.lastWeekPriceMin) ? Number(item.lastWeekPriceMin) : undefined,
-        lastWeekPriceMax: Number.isFinite(item.lastWeekPriceMax) ? Number(item.lastWeekPriceMax) : undefined,
-        todayPrice: Number.isFinite(item.todayPrice) ? Number(item.todayPrice) : undefined,
-        todayPriceMin: Number.isFinite(item.todayPriceMin) ? Number(item.todayPriceMin) : undefined,
-        todayPriceMax: Number.isFinite(item.todayPriceMax) ? Number(item.todayPriceMax) : undefined,
-        expectedNextPrice: Number.isFinite(item.expectedNextPrice) ? Number(item.expectedNextPrice) : undefined,
-        expectedNextPriceMin: Number.isFinite(item.expectedNextPriceMin) ? Number(item.expectedNextPriceMin) : undefined,
-        expectedNextPriceMax: Number.isFinite(item.expectedNextPriceMax) ? Number(item.expectedNextPriceMax) : undefined,
-        shortDescription: item.shortDescription || undefined,
-        trend: item.trend || undefined,
-        analysisSummary: item.analysisSummary || undefined,
-        analysisBullets: item.analysisBullets || undefined,
-        historicalPoints: item.historicalPoints || undefined,
-        forecastPoints: item.forecastPoints || undefined,
-        metadata: normalizeMetadata(item),
-        sources: item.sources || undefined,
-      }))
+      .flatMap((item) => {
+        const rawText = item.rawText || item.meta?.query || `${item.productKey} ${item.value} ${item.unit || 'INR/kg'}`
+        const source = item.source || payload.source || 'Python Playwright Scraper'
+        const sourceUrl = item.sourceUrl || item.meta?.sourceUrl || ''
+        const normalizedValue = this.normalizeNumericField(
+          Number.isFinite(item.value) ? Number(item.value) : Number(item.currentPrice),
+          rawText,
+          item.unit,
+        )
 
-    const perItemErrors = (payload.items || [])
-      .filter((item) => item?.productKey && !Number.isFinite(item.value) && !Number.isFinite(item.currentPrice))
-      .map((item) => ({
-        productKey: item.productKey,
-        error: item.error || item.reason || item.meta?.reason || 'NO_DATA',
-        sourceUrl: item.sourceUrl || item.meta?.sourceUrl || '',
-        rawText: item.rawText || item.meta?.query || '',
-        source: item.source || payload.source || 'Python Playwright Scraper',
-        capturedAt: item.capturedAt,
-      }))
+        if (!normalizedValue) {
+          this.logger.warn(
+            `Skipping ${item.productKey} because normalized price is outside safety range. unit=${item.unit || 'kg'} raw=${JSON.stringify(rawText).slice(0, 200)}`,
+          )
+          return []
+        }
+
+        const currentPrice = this.normalizeNumericField(item.currentPrice, rawText, item.unit)
+        const lastWeekPrice = this.normalizeNumericField(item.lastWeekPrice, rawText, item.unit)
+        const lastWeekPriceMin = this.normalizeNumericField(item.lastWeekPriceMin, rawText, item.unit)
+        const lastWeekPriceMax = this.normalizeNumericField(item.lastWeekPriceMax, rawText, item.unit)
+        const todayPrice = this.normalizeNumericField(item.todayPrice, rawText, item.unit)
+        const todayPriceMin = this.normalizeNumericField(item.todayPriceMin, rawText, item.unit)
+        const todayPriceMax = this.normalizeNumericField(item.todayPriceMax, rawText, item.unit)
+        const expectedNextPrice = this.normalizeNumericField(item.expectedNextPrice, rawText, item.unit)
+        const expectedNextPriceMin = this.normalizeNumericField(item.expectedNextPriceMin, rawText, item.unit)
+        const expectedNextPriceMax = this.normalizeNumericField(item.expectedNextPriceMax, rawText, item.unit)
+        const metadata = {
+          ...(normalizeMetadata(item) || {}),
+          originalUnit: normalizedValue.originalUnit,
+          normalizedUnit: normalizedValue.normalizedUnit,
+        }
+
+        return [{
+          productKey: item.productKey,
+          value: normalizedValue.normalizedValue,
+          unit: 'INR/kg',
+          source,
+          sourceUrl,
+          confidence: Number.isFinite(item.confidence)
+            ? Number(item.confidence)
+            : Number.isFinite(item.meta?.confidence)
+              ? Number(item.meta?.confidence)
+              : 0.75,
+          rawText,
+          displayName: item.displayName,
+          currentPrice: currentPrice?.normalizedValue,
+          lastWeekPrice: lastWeekPrice?.normalizedValue,
+          lastWeekPriceMin: lastWeekPriceMin?.normalizedValue,
+          lastWeekPriceMax: lastWeekPriceMax?.normalizedValue,
+          todayPrice: todayPrice?.normalizedValue,
+          todayPriceMin: todayPriceMin?.normalizedValue,
+          todayPriceMax: todayPriceMax?.normalizedValue,
+          expectedNextPrice: expectedNextPrice?.normalizedValue,
+          expectedNextPriceMin: expectedNextPriceMin?.normalizedValue,
+          expectedNextPriceMax: expectedNextPriceMax?.normalizedValue,
+          shortDescription: item.shortDescription || undefined,
+          trend: item.trend || undefined,
+          analysisSummary: item.analysisSummary || undefined,
+          analysisBullets: item.analysisBullets || undefined,
+          historicalPoints: normalizeSeriesPoints(item.historicalPoints, rawText, item.unit),
+          forecastPoints: normalizeSeriesPoints(item.forecastPoints, rawText, item.unit),
+          metadata,
+          sources: item.sources || undefined,
+        }]
+      })
+
+    const perItemErrors = [
+      ...(payload.items || [])
+        .filter((item) => item?.productKey && !Number.isFinite(item.value) && !Number.isFinite(item.currentPrice))
+        .map((item) => ({
+          productKey: item.productKey,
+          error: item.error || item.reason || item.meta?.reason || 'NO_DATA',
+          sourceUrl: item.sourceUrl || item.meta?.sourceUrl || '',
+          rawText: item.rawText || item.meta?.query || '',
+          source: item.source || payload.source || 'Python Playwright Scraper',
+          capturedAt: item.capturedAt,
+        })),
+      ...(payload.items || [])
+        .filter((item) => item?.productKey && (Number.isFinite(item.value) || Number.isFinite(item.currentPrice)))
+        .flatMap((item) => {
+          const rawText = item.rawText || item.meta?.query || ''
+          const normalized = this.normalizeNumericField(
+            Number.isFinite(item.value) ? Number(item.value) : Number(item.currentPrice),
+            rawText,
+            item.unit,
+          )
+
+          if (normalized) {
+            return []
+          }
+
+          return [{
+            productKey: item.productKey,
+            error: `Normalized price is outside safety range for ${item.productKey}.`,
+            sourceUrl: item.sourceUrl || item.meta?.sourceUrl || '',
+            rawText,
+            source: item.source || payload.source || 'Python Playwright Scraper',
+            capturedAt: item.capturedAt,
+          }]
+        }),
+    ]
 
     const errors = [...perItemErrors, ...(payload.errors || []).map((item) => ({
       productKey: item.productKey,

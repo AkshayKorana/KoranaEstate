@@ -9,6 +9,7 @@
     "lint": "eslint \"src/**/*.ts\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
+    "test:unit": "node --test test/unit/**/*.test.cjs",
     "test:e2e": "jest --config ./jest.e2e.config.cjs --runInBand"
   },
   "dependencies": {
