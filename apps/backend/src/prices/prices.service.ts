@@ -51,6 +51,24 @@ export type LatestPriceCard = {
   rawText: string | null
   error: string | null
   capturedAt: string | null
+  currentPrice?: number | null
+  lastWeekPrice?: number | null
+  lastWeekPriceMin?: number | null
+  lastWeekPriceMax?: number | null
+  todayPrice?: number | null
+  todayPriceMin?: number | null
+  todayPriceMax?: number | null
+  expectedNextPrice?: number | null
+  expectedNextPriceMin?: number | null
+  expectedNextPriceMax?: number | null
+  shortDescription?: string | null
+  trend?: string | null
+  analysisSummary?: string | null
+  analysisBullets?: string[]
+  historicalPoints?: Array<{ label?: string; date?: string; day?: string; value?: number | null }>
+  forecastPoints?: Array<{ label?: string; date?: string; day?: string; value?: number | null }>
+  metadata?: Record<string, unknown> | null
+  sources?: Array<{ title?: string; url: string; host?: string }>
 }
 
 export type PricesLatestResponse = {
@@ -100,11 +118,107 @@ type IngestRow = {
   error: string | null
 }
 
+type RawPriceResult = Partial<LatestPriceCard> & {
+  productKey?: string
+}
+
 @Injectable()
 export class PricesService {
   private readonly logger = new Logger(PricesService.name)
 
   constructor(private readonly prisma: PrismaService) {}
+
+  private asRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null
+  }
+
+  private asNumber(value: unknown): number | null | undefined {
+    return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+  }
+
+  private asString(value: unknown): string | undefined {
+    return typeof value === 'string' ? value : undefined
+  }
+
+  private asStringArray(value: unknown): string[] | undefined {
+    return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : undefined
+  }
+
+  private asPointArray(value: unknown) {
+    if (!Array.isArray(value)) {
+      return undefined
+    }
+
+    return value
+      .map((item) => this.asRecord(item))
+      .filter((item): item is Record<string, unknown> => Boolean(item))
+      .map((item) => ({
+        label: this.asString(item.label),
+        date: this.asString(item.date),
+        day: this.asString(item.day),
+        value: this.asNumber(item.value) ?? null,
+      }))
+  }
+
+  private asSourceArray(value: unknown) {
+    if (!Array.isArray(value)) {
+      return undefined
+    }
+
+    return value
+      .map((item) => this.asRecord(item))
+      .filter((item): item is Record<string, unknown> => Boolean(item && typeof item.url === 'string'))
+      .map((item) => ({
+        title: this.asString(item.title),
+        url: String(item.url),
+        host: this.asString(item.host),
+      }))
+  }
+
+  private extractRawResults(rawPayload: unknown): Map<string, RawPriceResult> {
+    const payload = this.asRecord(rawPayload)
+    const results = payload?.results
+    if (!Array.isArray(results)) {
+      return new Map()
+    }
+
+    const entries = results
+      .map((item) => this.asRecord(item) as RawPriceResult | null)
+      .filter((item): item is RawPriceResult => Boolean(item?.productKey))
+      .map((item) => [String(item.productKey), item] as const)
+
+    return new Map(entries)
+  }
+
+  private pickRichFields(rawResult: unknown): Partial<LatestPriceCard> {
+    const result = this.asRecord(rawResult)
+    if (!result) {
+      return {}
+    }
+
+    return {
+      currentPrice: this.asNumber(result.currentPrice),
+      lastWeekPrice: this.asNumber(result.lastWeekPrice),
+      lastWeekPriceMin: this.asNumber(result.lastWeekPriceMin),
+      lastWeekPriceMax: this.asNumber(result.lastWeekPriceMax),
+      todayPrice: this.asNumber(result.todayPrice),
+      todayPriceMin: this.asNumber(result.todayPriceMin),
+      todayPriceMax: this.asNumber(result.todayPriceMax),
+      expectedNextPrice: this.asNumber(result.expectedNextPrice),
+      expectedNextPriceMin: this.asNumber(result.expectedNextPriceMin),
+      expectedNextPriceMax: this.asNumber(result.expectedNextPriceMax),
+      shortDescription: this.asString(result.shortDescription),
+      trend: this.asString(result.trend),
+      analysisSummary: this.asString(result.analysisSummary),
+      analysisBullets: this.asStringArray(result.analysisBullets),
+      historicalPoints: this.asPointArray(result.historicalPoints),
+      forecastPoints: this.asPointArray(result.forecastPoints),
+      metadata: this.asRecord(result.metadata),
+      sources: this.asSourceArray(result.sources),
+    }
+  }
 
   private logPrismaError(operation: string, error: unknown) {
     if (error instanceof Prisma.PrismaClientKnownRequestError) {
@@ -229,9 +343,11 @@ export class PricesService {
       }
     }
 
+    const rawResults = this.extractRawResults(latestRun.rawPayload)
     const observationByKey = new Map(latestRun.observations.map((row) => [row.productKey, row]))
     const cards = enabledProducts.map((product) => {
       const row = observationByKey.get(product.productKey)
+      const richFields = this.pickRichFields(rawResults.get(product.productKey))
       if (!row) {
         return {
           productKey: product.productKey,
@@ -246,6 +362,7 @@ export class PricesService {
           rawText: null,
           error: 'Product was not present in latest run payload.',
           capturedAt: latestRun.runAt.toISOString(),
+          ...richFields,
         }
       }
       return {
@@ -261,6 +378,7 @@ export class PricesService {
         rawText: row.rawText,
         error: row.error,
         capturedAt: row.capturedAt.toISOString(),
+        ...richFields,
       }
     })
 
@@ -412,6 +530,25 @@ export class PricesService {
               sourceUrl: result.sourceUrl,
               confidence: result.confidence,
               rawText: result.rawText,
+              displayName: result.displayName,
+              currentPrice: result.currentPrice,
+              lastWeekPrice: result.lastWeekPrice,
+              lastWeekPriceMin: result.lastWeekPriceMin,
+              lastWeekPriceMax: result.lastWeekPriceMax,
+              todayPrice: result.todayPrice,
+              todayPriceMin: result.todayPriceMin,
+              todayPriceMax: result.todayPriceMax,
+              expectedNextPrice: result.expectedNextPrice,
+              expectedNextPriceMin: result.expectedNextPriceMin,
+              expectedNextPriceMax: result.expectedNextPriceMax,
+              shortDescription: result.shortDescription,
+              trend: result.trend,
+              analysisSummary: result.analysisSummary,
+              analysisBullets: result.analysisBullets,
+              historicalPoints: result.historicalPoints,
+              forecastPoints: result.forecastPoints,
+              metadata: result.metadata,
+              sources: result.sources,
             })),
             errors: (dto.errors ?? []).map((error) => ({
               productKey: error.productKey,
@@ -463,6 +600,7 @@ export class PricesService {
       ok: true,
       run: this.toRunResponse(run),
       products: sortedObservations.map((row) => ({
+        ...this.pickRichFields(resultsByKey.get(row.productKey)),
         productKey: row.productKey,
         displayName: row.product.displayName,
         unit: row.unit,

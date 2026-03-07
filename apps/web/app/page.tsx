@@ -20,7 +20,7 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, T
 const Line = dynamic(() => import('react-chartjs-2').then((mod) => mod.Line), { ssr: false })
 
 type ProductStatus = 'OK' | 'FAILED'
-type ProductReason = 'NO_DATA' | 'MISSING_IN_RUN' | null
+type ProductReason = 'NO_DATA' | 'MISSING_IN_RUN' | string | null
 
 type PriceProduct = {
   productKey: string
@@ -30,6 +30,19 @@ type PriceProduct = {
   sourceUrl: string | null
   displayOrder: number
   enabled: boolean
+}
+
+type InsightPoint = {
+  label?: string
+  date?: string
+  day?: string
+  value?: number | null
+}
+
+type InsightSource = {
+  title?: string
+  url: string
+  host?: string
 }
 
 type PriceLatestCard = {
@@ -45,6 +58,24 @@ type PriceLatestCard = {
   rawText: string | null
   error: string | null
   capturedAt: string | null
+  currentPrice?: number | null
+  lastWeekPrice?: number | null
+  lastWeekPriceMin?: number | null
+  lastWeekPriceMax?: number | null
+  todayPrice?: number | null
+  todayPriceMin?: number | null
+  todayPriceMax?: number | null
+  expectedNextPrice?: number | null
+  expectedNextPriceMin?: number | null
+  expectedNextPriceMax?: number | null
+  shortDescription?: string | null
+  trend?: string | null
+  analysisSummary?: string | null
+  analysisBullets?: string[]
+  historicalPoints?: InsightPoint[]
+  forecastPoints?: InsightPoint[]
+  metadata?: Record<string, unknown> | null
+  sources?: InsightSource[]
 }
 
 type PricesProductsResponse = {
@@ -86,6 +117,17 @@ type PricesHistoryResponse = {
   product: PriceProduct
   days: number
   history: PriceHistoryPoint[]
+}
+
+function formatPrice(value: number | null | undefined) {
+  return value != null ? `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : '-'
+}
+
+function formatPointLabel(point: InsightPoint, fallbackIndex: number) {
+  if (point.label) return point.label
+  if (point.day) return point.day
+  if (point.date) return new Date(point.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+  return `Point ${fallbackIndex + 1}`
 }
 
 export default function HomePage() {
@@ -197,7 +239,9 @@ export default function HomePage() {
 
   const latestByKey = useMemo(() => {
     const map = new Map<string, PriceLatestCard>()
-    for (const row of latest?.products || []) map.set(row.productKey, row)
+    for (const row of latest?.products || []) {
+      map.set(row.productKey, row)
+    }
     return map
   }, [latest])
 
@@ -206,8 +250,58 @@ export default function HomePage() {
     [products, selectedKey]
   )
 
-  const chartPoints = (history?.history || []).filter((point) => point.value != null)
+  const selectedLatest = useMemo(
+    () => latestByKey.get(selectedKey) || null,
+    [latestByKey, selectedKey]
+  )
 
+  const richChart = useMemo(() => {
+    const historicalPoints = (selectedLatest?.historicalPoints || []).filter((point) => point.value != null)
+    const forecastPoints = (selectedLatest?.forecastPoints || []).filter((point) => point.value != null)
+
+    if (historicalPoints.length === 0 && forecastPoints.length === 0) {
+      return null
+    }
+
+    const labels = [
+      ...historicalPoints.map((point, index) => formatPointLabel(point, index)),
+      ...forecastPoints.map((point, index) => formatPointLabel(point, historicalPoints.length + index)),
+    ]
+
+    return {
+      labels,
+      historicalSeries: [
+        ...historicalPoints.map((point) => point.value ?? null),
+        ...forecastPoints.map(() => null),
+      ],
+      forecastSeries: [
+        ...historicalPoints.map(() => null),
+        ...forecastPoints.map((point) => point.value ?? null),
+      ],
+    }
+  }, [selectedLatest])
+
+  const fallbackHistoryChart = useMemo(() => {
+    const chartPoints = (history?.history || []).filter((point) => point.value != null)
+    if (chartPoints.length === 0) {
+      return null
+    }
+
+    return {
+      labels: chartPoints.map((point) =>
+        new Date(point.capturedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
+      ),
+      series: chartPoints.map((point) => point.value),
+    }
+  }, [history])
+
+  const chartConfig = richChart || fallbackHistoryChart
+  const hasRichDetail = Boolean(
+    selectedLatest?.analysisSummary ||
+    selectedLatest?.shortDescription ||
+    selectedLatest?.analysisBullets?.length ||
+    selectedLatest?.sources?.length
+  )
   const lastUpdated = latest?.run?.runAt || latest?.updatedAt || null
 
   return (
@@ -219,9 +313,17 @@ export default function HomePage() {
       <div className="mx-auto w-full max-w-7xl px-6 md:px-8 lg:px-10 space-y-8">
         <section className="luxe-surface p-6 rounded-3xl shadow-lg space-y-6 section-reveal">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-luxe text-3xl font-bold text-[#f6e8d7]">
-              {t('Commodity Price Dashboard', 'ವಸ್ತು ಬೆಲೆ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್')}
-            </h2>
+            <div>
+              <h2 className="font-luxe text-3xl font-bold text-[#f6e8d7]">
+                {t('Commodity Intelligence Dashboard', 'ವಸ್ತು ಬುದ್ಧಿವಂತಿಕೆ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್')}
+              </h2>
+              <p className="mt-2 max-w-2xl text-sm text-[#d5c4b2]">
+                {t(
+                  'Track today, last week, and next-week outlook per commodity with richer market notes.',
+                  'ಪ್ರತಿ ವಸ್ತುವಿಗೆ ಇಂದಿನ, ಕಳೆದ ವಾರದ ಮತ್ತು ಮುಂದಿನ ವಾರದ ಪ್ರವೃತ್ತಿಯನ್ನು ಮಾರುಕಟ್ಟೆ ವಿಶ್ಲೇಷಣೆಯೊಂದಿಗೆ ನೋಡಿ.'
+                )}
+              </p>
+            </div>
             <p className="text-xs text-[#d5c4b2]">
               {t('Last updated', 'ಕೊನೆಯ ನವೀಕರಣ')}: {lastUpdated ? new Date(lastUpdated).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}
             </p>
@@ -229,7 +331,7 @@ export default function HomePage() {
 
           {(loadingProducts || loadingLatest) && (
             <div className="lux-stat rounded-xl px-4 py-3 text-sm text-[#d8e8dc]">
-              {t('Loading prices...', 'ಬೆಲೆಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}
+              {t('Loading commodity intelligence...', 'ವಸ್ತು ಮಾಹಿತಿಯನ್ನು ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ...')}
             </div>
           )}
 
@@ -241,7 +343,7 @@ export default function HomePage() {
 
           {!loadingProducts && !loadingLatest && !productsError && !latestError && products.length === 0 && (
             <div className="rounded-xl border border-amber-300/35 bg-amber-950/25 px-4 py-3 text-sm text-amber-200">
-              {t('No enabled products found. Seed products in backend first.', 'ಸಕ್ರಿಯ ಉತ್ಪನ್ನಗಳು ಸಿಗಲಿಲ್ಲ. ಮೊದಲು ಬ್ಯಾಕೆಂಡ್‌ನಲ್ಲಿ ಸೀಡ್ ಮಾಡಿ.')}
+              {t('No enabled commodities found. Seed products in backend first.', 'ಸಕ್ರಿಯ ವಸ್ತುಗಳು ಸಿಗಲಿಲ್ಲ. ಮೊದಲು ಬ್ಯಾಕೆಂಡ್‌ನಲ್ಲಿ ಸೀಡ್ ಮಾಡಿ.')}
             </div>
           )}
 
@@ -251,40 +353,52 @@ export default function HomePage() {
                 {products.map((product) => {
                   const card = latestByKey.get(product.productKey)
                   const status = card?.status || 'FAILED'
-                  const valueText = card?.value != null
-                    ? `₹${card.value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}`
-                    : '-'
 
                   return (
                     <button
                       key={product.productKey}
                       type="button"
                       onClick={() => setSelectedKey(product.productKey)}
-                      className={`text-left rounded-2xl border p-4 transition ${selectedKey === product.productKey ? 'border-emerald-500/60 bg-[#1d1a15]' : 'border-[#2f3a33] bg-[#12100d]/80 hover:border-emerald-400/40'}`}
+                      className={`text-left rounded-2xl border p-4 transition ${
+                        selectedKey === product.productKey
+                          ? 'border-emerald-500/60 bg-[#1d1a15]'
+                          : 'border-[#2f3a33] bg-[#12100d]/80 hover:border-emerald-400/40'
+                      }`}
                     >
                       <div className="flex items-center justify-between gap-3">
                         <p className="font-semibold text-[#efe4d4]">{product.displayName}</p>
-                        <span className={`text-[11px] px-2 py-0.5 rounded-full border ${status === 'OK' ? 'border-emerald-500/40 text-emerald-300 bg-emerald-900/30' : 'border-red-500/40 text-red-300 bg-red-900/30'}`}>
+                        <span className={`text-[11px] px-2 py-0.5 rounded-full border ${
+                          status === 'OK'
+                            ? 'border-emerald-500/40 text-emerald-300 bg-emerald-900/30'
+                            : 'border-red-500/40 text-red-300 bg-red-900/30'
+                        }`}>
                           {status}
                         </span>
                       </div>
-                      <p className="text-2xl font-bold text-[#f4ead9] mt-2">{valueText}</p>
+                      <p className="mt-2 text-2xl font-bold text-[#f4ead9]">
+                        {formatPrice(card?.currentPrice ?? card?.value)}
+                      </p>
                       <p className="text-xs text-gray-400">{product.unit}</p>
-                      {card?.reason && <p className="text-xs text-amber-300 mt-1">{card.reason}</p>}
-                      {card?.error && <p className="text-xs text-red-300 mt-1">{card.error}</p>}
+                      {card?.trend && <p className="mt-1 text-xs text-emerald-300">{card.trend}</p>}
+                      {card?.error && <p className="mt-1 text-xs text-red-300">{card.error}</p>}
                     </button>
                   )
                 })}
               </div>
 
-              <div className="rounded-2xl bg-[#171411]/80 border border-emerald-200/25 p-5 shadow-lg space-y-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <h3 className="font-bold text-xl text-[#efe4d4]">
-                    {selectedProduct?.displayName || t('Price History', 'ಬೆಲೆ ಇತಿಹಾಸ')}
-                  </h3>
-                  <div className="max-w-sm min-w-[220px]">
+              <div className="rounded-2xl bg-[#171411]/80 border border-emerald-200/25 p-5 shadow-lg space-y-5">
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                  <div>
+                    <h3 className="font-bold text-2xl text-[#efe4d4]">
+                      {selectedProduct?.displayName || t('Commodity Detail', 'ವಸ್ತು ವಿವರ')}
+                    </h3>
+                    <p className="mt-1 text-sm text-[#cbbcae]">
+                      {selectedLatest?.analysisSummary || selectedLatest?.shortDescription || t('Structured intelligence updates appear here when available.', 'ಲಭ್ಯವಿರುವಾಗ ರಚಿತ ಮಾರುಕಟ್ಟೆ ಮಾಹಿತಿ ಇಲ್ಲಿ ಕಾಣುತ್ತದೆ.')}
+                    </p>
+                  </div>
+                  <div className="max-w-sm min-w-[240px]">
                     <select
-                      aria-label="Select product"
+                      aria-label="Select commodity"
                       className="lux-input w-full p-2.5 rounded-xl font-medium"
                       value={selectedKey}
                       onChange={(event) => setSelectedKey(event.target.value)}
@@ -298,36 +412,171 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {loadingHistory && (
-                  <p className="text-sm text-[#d8e8dc]">{t('Loading history...', 'ಇತಿಹಾಸ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
-                )}
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                  <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
+                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Current', 'ಪ್ರಸ್ತುತ')}</p>
+                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{formatPrice(selectedLatest?.currentPrice ?? selectedLatest?.value)}</p>
+                    <p className="mt-1 text-xs text-gray-400">{selectedLatest?.unit || selectedProduct?.unit || 'INR/kg'}</p>
+                  </div>
+                  <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
+                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Last Week', 'ಕಳೆದ ವಾರ')}</p>
+                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{formatPrice(selectedLatest?.lastWeekPrice)}</p>
+                    {selectedLatest?.lastWeekPriceMin != null && selectedLatest?.lastWeekPriceMax != null && (
+                      <p className="mt-1 text-xs text-gray-400">
+                        {formatPrice(selectedLatest.lastWeekPriceMin)} - {formatPrice(selectedLatest.lastWeekPriceMax)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
+                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Next Week', 'ಮುಂದಿನ ವಾರ')}</p>
+                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{formatPrice(selectedLatest?.expectedNextPrice)}</p>
+                    {selectedLatest?.expectedNextPriceMin != null && selectedLatest?.expectedNextPriceMax != null && (
+                      <p className="mt-1 text-xs text-gray-400">
+                        {formatPrice(selectedLatest.expectedNextPriceMin)} - {formatPrice(selectedLatest.expectedNextPriceMax)}
+                      </p>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
+                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Trend', 'ಪ್ರವೃತ್ತಿ')}</p>
+                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{selectedLatest?.trend || '-'}</p>
+                    <p className="mt-1 text-xs text-gray-400">
+                      {selectedLatest?.confidence != null ? `${Math.round(selectedLatest.confidence * 100)}% confidence` : t('Partial data is handled safely.', 'ಅಪೂರ್ಣ ಮಾಹಿತಿಯೂ ಸುರಕ್ಷಿತವಾಗಿ ತೋರಿಸಲಾಗುತ್ತದೆ.')}
+                    </p>
+                  </div>
+                </div>
 
-                {historyError && (
-                  <p className="text-sm text-red-300">{historyError}</p>
-                )}
+                <div className="grid grid-cols-1 xl:grid-cols-[1.4fr,0.9fr] gap-5">
+                  <div className="rounded-2xl border border-emerald-200/25 bg-[#14110e] p-4 space-y-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <h4 className="text-lg font-semibold text-[#efe4d4]">
+                        {t('Price Curve', 'ಬೆಲೆ ವಕ್ರ')}
+                      </h4>
+                      <p className="text-xs text-gray-400">
+                        {richChart ? t('Using collector intelligence points', 'ಕಲೆಕ್ಟರ್ ಪಾಯಿಂಟ್‌ಗಳನ್ನು ಬಳಸಿ') : t('Falling back to historical observations', 'ಇತಿಹಾಸ ಆಬ್ಸರ್ವೇಶನ್‌ಗಳಿಗೆ ಹಿಂತಿರುಗುತ್ತಿದೆ')}
+                      </p>
+                    </div>
 
-                {!loadingHistory && !historyError && chartPoints.length === 0 && (
-                  <p className="text-sm text-gray-400">{t('No history available for this product yet.', 'ಈ ಉತ್ಪನ್ನಕ್ಕೆ ಇನ್ನೂ ಇತಿಹಾಸ ಲಭ್ಯವಿಲ್ಲ.')}</p>
-                )}
+                    {loadingHistory && !richChart && (
+                      <p className="text-sm text-[#d8e8dc]">{t('Loading history...', 'ಇತಿಹಾಸ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
+                    )}
 
-                {!loadingHistory && !historyError && chartPoints.length > 0 && (
-                  <Line
-                    data={{
-                      labels: chartPoints.map((point) =>
-                        new Date(point.capturedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })
-                      ),
-                      datasets: [
-                        {
-                          label: `${selectedProduct?.displayName || 'Price'} (${selectedProduct?.unit || 'INR/kg'})`,
-                          data: chartPoints.map((point) => point.value),
-                          borderColor: 'rgb(16,185,129)',
-                          backgroundColor: 'rgba(16,185,129,0.2)',
-                          tension: 0.3,
-                        },
-                      ],
-                    }}
-                    options={{ responsive: true, plugins: { legend: { position: 'top' } } }}
-                  />
+                    {historyError && !richChart && (
+                      <p className="text-sm text-red-300">{historyError}</p>
+                    )}
+
+                    {!chartConfig && !loadingHistory && (
+                      <p className="text-sm text-gray-400">
+                        {t('No chartable points available for this commodity yet.', 'ಈ ವಸ್ತುವಿಗೆ ಇನ್ನೂ ಚಾರ್ಟ್ ಮಾಡಬಹುದಾದ ಪಾಯಿಂಟ್‌ಗಳು ಲಭ್ಯವಿಲ್ಲ.')}
+                      </p>
+                    )}
+
+                    {chartConfig && (
+                      <Line
+                        data={{
+                          labels: chartConfig.labels,
+                          datasets: richChart
+                            ? [
+                                {
+                                  label: t('Historical', 'ಇತಿಹಾಸ'),
+                                  data: richChart.historicalSeries,
+                                  borderColor: 'rgb(16,185,129)',
+                                  backgroundColor: 'rgba(16,185,129,0.2)',
+                                  tension: 0.25,
+                                },
+                                {
+                                  label: t('Forecast', 'ಅಂದಾಜು'),
+                                  data: richChart.forecastSeries,
+                                  borderColor: 'rgb(245,158,11)',
+                                  backgroundColor: 'rgba(245,158,11,0.2)',
+                                  tension: 0.25,
+                                  borderDash: [6, 4],
+                                },
+                              ]
+                            : [
+                                {
+                                  label: `${selectedProduct?.displayName || 'Price'} (${selectedProduct?.unit || 'INR/kg'})`,
+                                  data: fallbackHistoryChart?.series || [],
+                                  borderColor: 'rgb(16,185,129)',
+                                  backgroundColor: 'rgba(16,185,129,0.2)',
+                                  tension: 0.3,
+                                },
+                              ],
+                        }}
+                        options={{ responsive: true, plugins: { legend: { position: 'top' } } }}
+                      />
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-emerald-200/25 bg-[#14110e] p-4">
+                      <h4 className="text-lg font-semibold text-[#efe4d4]">{t('Analysis', 'ವಿಶ್ಲೇಷಣೆ')}</h4>
+                      <p className="mt-3 text-sm leading-6 text-[#d6c8b9]">
+                        {selectedLatest?.analysisSummary || selectedLatest?.shortDescription || t('No analysis summary is available yet. The dashboard will keep rendering partial results safely.', 'ವಿಶ್ಲೇಷಣೆಯ ಸಾರಾಂಶ ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ. ಭಾಗಶಃ ಫಲಿತಾಂಶಗಳೂ ಸುರಕ್ಷಿತವಾಗಿ ತೋರಿಸಲಾಗುತ್ತವೆ.')}
+                      </p>
+                      {selectedLatest?.rawText && (
+                        <p className="mt-3 text-xs leading-5 text-gray-400">
+                          {selectedLatest.rawText.slice(0, 420)}
+                          {selectedLatest.rawText.length > 420 ? '...' : ''}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="rounded-2xl border border-emerald-200/25 bg-[#14110e] p-4">
+                      <h4 className="text-lg font-semibold text-[#efe4d4]">{t('Highlights', 'ಮುಖ್ಯಾಂಶಗಳು')}</h4>
+                      <div className="mt-3 space-y-2">
+                        {(selectedLatest?.analysisBullets || []).length > 0 ? (
+                          (selectedLatest?.analysisBullets || []).map((bullet, index) => (
+                            <div key={`${bullet}-${index}`} className="rounded-xl bg-[#100d0a] px-3 py-2 text-sm text-[#d6c8b9]">
+                              {bullet}
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-400">
+                            {t('No structured highlights available yet.', 'ರಚಿತ ಮುಖ್ಯಾಂಶಗಳು ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ.')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-emerald-200/25 bg-[#14110e] p-4">
+                      <h4 className="text-lg font-semibold text-[#efe4d4]">{t('Sources', 'ಮೂಲಗಳು')}</h4>
+                      <div className="mt-3 space-y-2">
+                        {(selectedLatest?.sources || []).length > 0 ? (
+                          (selectedLatest?.sources || []).map((source, index) => (
+                            <a
+                              key={`${source.url}-${index}`}
+                              href={source.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block rounded-xl bg-[#100d0a] px-3 py-2 text-sm text-[#d6c8b9] hover:bg-[#17120d]"
+                            >
+                              <div className="font-medium text-[#efe4d4]">{source.title || source.host || source.url}</div>
+                              <div className="text-xs text-gray-400">{source.host || source.url}</div>
+                            </a>
+                          ))
+                        ) : selectedLatest?.sourceUrl ? (
+                          <a
+                            href={selectedLatest.sourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="block rounded-xl bg-[#100d0a] px-3 py-2 text-sm text-[#d6c8b9] hover:bg-[#17120d]"
+                          >
+                            {selectedLatest.sourceUrl}
+                          </a>
+                        ) : (
+                          <p className="text-sm text-gray-400">
+                            {t('No source links captured for this commodity yet.', 'ಈ ವಸ್ತುವಿಗೆ ಇನ್ನೂ ಮೂಲ ಲಿಂಕ್‌ಗಳು ಲಭ್ಯವಿಲ್ಲ.')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {!hasRichDetail && selectedLatest?.error && (
+                  <div className="rounded-xl border border-red-300/35 bg-red-950/25 px-4 py-3 text-sm text-red-200">
+                    {selectedLatest.error}
+                  </div>
                 )}
               </div>
             </>

@@ -7,6 +7,33 @@ export type ScrapedObservation = {
   productKey: string
   value: number | null
   unit: string
+  displayName?: string
+  currentPrice?: number | null
+  lastWeekPrice?: number | null
+  lastWeekPriceMin?: number | null
+  lastWeekPriceMax?: number | null
+  todayPrice?: number | null
+  todayPriceMin?: number | null
+  todayPriceMax?: number | null
+  expectedNextPrice?: number | null
+  expectedNextPriceMin?: number | null
+  expectedNextPriceMax?: number | null
+  shortDescription?: string | null
+  trend?: string | null
+  analysisSummary?: string | null
+  analysisBullets?: string[]
+  historicalPoints?: Array<{ label?: string; date?: string; day?: string; value?: number | null }>
+  forecastPoints?: Array<{ label?: string; date?: string; day?: string; value?: number | null }>
+  metadata?: Record<string, unknown>
+  sources?: Array<{ title?: string; url: string; host?: string }>
+  source?: string
+  sourceUrl?: string
+  rawText?: string | null
+  confidence?: number | null
+  capturedAt?: string
+  error?: string | null
+  status?: string
+  reason?: string | null
   meta?: {
     query?: string
     debugFile?: string
@@ -62,23 +89,46 @@ export class PricesIngestService {
       : runAtDate.toISOString()
 
     const observations = (payload.items || [])
-      .filter((item) => item?.productKey && Number.isFinite(item.value))
+      .filter((item) => item?.productKey && (Number.isFinite(item.value) || Number.isFinite(item.currentPrice)))
       .map((item) => ({
         productKey: item.productKey,
-        value: Number(item.value),
+        value: Number.isFinite(item.value) ? Number(item.value) : Number(item.currentPrice),
         unit: item.unit || 'INR/kg',
-        source: payload.source || 'Python Playwright Scraper',
-        sourceUrl: item.meta?.sourceUrl || '',
-        confidence: Number.isFinite(item.meta?.confidence) ? Number(item.meta?.confidence) : 0.75,
-        rawText: item.meta?.query || `${item.productKey} ${item.value} ${item.unit || 'INR/kg'}`,
+        source: item.source || payload.source || 'Python Playwright Scraper',
+        sourceUrl: item.sourceUrl || item.meta?.sourceUrl || '',
+        confidence: Number.isFinite(item.confidence)
+          ? Number(item.confidence)
+          : Number.isFinite(item.meta?.confidence)
+            ? Number(item.meta?.confidence)
+            : 0.75,
+        rawText: item.rawText || item.meta?.query || `${item.productKey} ${item.value} ${item.unit || 'INR/kg'}`,
+        displayName: item.displayName,
+        currentPrice: Number.isFinite(item.currentPrice) ? Number(item.currentPrice) : undefined,
+        lastWeekPrice: Number.isFinite(item.lastWeekPrice) ? Number(item.lastWeekPrice) : undefined,
+        lastWeekPriceMin: Number.isFinite(item.lastWeekPriceMin) ? Number(item.lastWeekPriceMin) : undefined,
+        lastWeekPriceMax: Number.isFinite(item.lastWeekPriceMax) ? Number(item.lastWeekPriceMax) : undefined,
+        todayPrice: Number.isFinite(item.todayPrice) ? Number(item.todayPrice) : undefined,
+        todayPriceMin: Number.isFinite(item.todayPriceMin) ? Number(item.todayPriceMin) : undefined,
+        todayPriceMax: Number.isFinite(item.todayPriceMax) ? Number(item.todayPriceMax) : undefined,
+        expectedNextPrice: Number.isFinite(item.expectedNextPrice) ? Number(item.expectedNextPrice) : undefined,
+        expectedNextPriceMin: Number.isFinite(item.expectedNextPriceMin) ? Number(item.expectedNextPriceMin) : undefined,
+        expectedNextPriceMax: Number.isFinite(item.expectedNextPriceMax) ? Number(item.expectedNextPriceMax) : undefined,
+        shortDescription: item.shortDescription || undefined,
+        trend: item.trend || undefined,
+        analysisSummary: item.analysisSummary || undefined,
+        analysisBullets: item.analysisBullets || undefined,
+        historicalPoints: item.historicalPoints || undefined,
+        forecastPoints: item.forecastPoints || undefined,
+        metadata: item.metadata || undefined,
+        sources: item.sources || undefined,
       }))
 
     const perItemErrors = (payload.items || [])
-      .filter((item) => item?.productKey && !Number.isFinite(item.value))
+      .filter((item) => item?.productKey && !Number.isFinite(item.value) && !Number.isFinite(item.currentPrice))
       .map((item) => ({
         productKey: item.productKey,
-        error: item.meta?.reason || 'NO_DATA',
-        sourceUrl: item.meta?.sourceUrl || '',
+        error: item.error || item.reason || item.meta?.reason || 'NO_DATA',
+        sourceUrl: item.sourceUrl || item.meta?.sourceUrl || '',
       }))
 
     const errors = [...perItemErrors, ...(payload.errors || []).map((item) => ({
