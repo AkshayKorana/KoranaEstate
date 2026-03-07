@@ -147,6 +147,18 @@ export class IngestErrorDto {
 
   @IsString()
   sourceUrl!: string
+
+  @IsOptional()
+  @IsString()
+  rawText?: string
+
+  @IsOptional()
+  @IsString()
+  source?: string
+
+  @IsOptional()
+  @IsString()
+  capturedAt?: string
 }
 
 export class IngestPricesDto {
@@ -163,4 +175,8 @@ export class IngestPricesDto {
   @Type(() => IngestErrorDto)
   @IsOptional()
   errors: IngestErrorDto[] = []
+
+  @IsOptional()
+  @IsObject()
+  metadata?: Record<string, unknown>
 }

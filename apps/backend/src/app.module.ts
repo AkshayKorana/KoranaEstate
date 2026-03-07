@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { ConfigModule } from '@nestjs/config'
 import { ThrottlerModule } from '@nestjs/throttler'
+import { ScheduleModule } from '@nestjs/schedule'
 import { APP_GUARD } from '@nestjs/core'
 import { ThrottlerGuard } from '@nestjs/throttler'
 import { join } from 'node:path'
@@ -33,6 +34,7 @@ import { JobsModule } from './jobs/jobs.module'
         join(process.cwd(), '..', '..', '.env'),
       ],
     }),
+    ScheduleModule.forRoot(),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 120 }]),
     PrismaModule,
     AuthModule,

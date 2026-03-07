@@ -356,6 +356,7 @@ model PriceIngestionRun {
   updatedAt       DateTime           @updatedAt
   observations    PriceObservation[]
 
+  @@unique([trigger, runAt])
   @@index([runAt, createdAt])
 }
 

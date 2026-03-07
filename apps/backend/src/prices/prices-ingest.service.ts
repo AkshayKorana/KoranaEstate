@@ -47,6 +47,9 @@ export type ScraperError = {
   productKey: string
   error: string
   sourceUrl: string
+  rawText?: string
+  source?: string
+  capturedAt?: string
 }
 
 export type ScraperOutput = {
@@ -88,6 +91,21 @@ export class PricesIngestService {
       ? new Date().toISOString()
       : runAtDate.toISOString()
 
+    const normalizeMetadata = (item: ScrapedObservation) => {
+      const metadata: Record<string, unknown> = { ...(item.metadata || {}) }
+
+      if (item.meta?.query) metadata.query = item.meta.query
+      if (item.meta?.debugFile) metadata.debugFile = item.meta.debugFile
+      if (item.meta?.reason) metadata.reason = item.meta.reason
+      if (item.status) metadata.scraperStatus = item.status
+      if (item.reason) metadata.scraperReason = item.reason
+      if (item.error) metadata.scraperError = item.error
+      if (item.source) metadata.scraperSource = item.source
+      if (item.capturedAt) metadata.sourceCapturedAt = item.capturedAt
+
+      return Object.keys(metadata).length > 0 ? metadata : undefined
+    }
+
     const observations = (payload.items || [])
       .filter((item) => item?.productKey && (Number.isFinite(item.value) || Number.isFinite(item.currentPrice)))
       .map((item) => ({
@@ -119,7 +137,7 @@ export class PricesIngestService {
         analysisBullets: item.analysisBullets || undefined,
         historicalPoints: item.historicalPoints || undefined,
         forecastPoints: item.forecastPoints || undefined,
-        metadata: item.metadata || undefined,
+        metadata: normalizeMetadata(item),
         sources: item.sources || undefined,
       }))
 
@@ -129,18 +147,29 @@ export class PricesIngestService {
         productKey: item.productKey,
         error: item.error || item.reason || item.meta?.reason || 'NO_DATA',
         sourceUrl: item.sourceUrl || item.meta?.sourceUrl || '',
+        rawText: item.rawText || item.meta?.query || '',
+        source: item.source || payload.source || 'Python Playwright Scraper',
+        capturedAt: item.capturedAt,
       }))
 
     const errors = [...perItemErrors, ...(payload.errors || []).map((item) => ({
       productKey: item.productKey,
       error: item.error,
       sourceUrl: item.sourceUrl || '',
+      rawText: item.rawText || '',
+      source: item.source || payload.source || 'Python Playwright Scraper',
+      capturedAt: item.capturedAt,
     }))]
 
     const dto: IngestPricesDto = {
       runAt: normalizedRunAt,
       results: observations,
       errors,
+      metadata: {
+        source: payload.source,
+        payloadFetchedAt: payload.fetchedAt,
+        ingestedAt: new Date().toISOString(),
+      },
     }
 
     if (!dryRun) {

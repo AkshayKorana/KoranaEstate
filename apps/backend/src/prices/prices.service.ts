@@ -74,6 +74,18 @@ export type LatestPriceCard = {
 export type PricesLatestResponse = {
   updatedAt: string
   run: LatestRunResponse | null
+  lastSuccessfulRun: LatestRunResponse | null
+  runHealth: {
+    stale: boolean
+    staleReason: string | null
+    freshnessHours: number | null
+    maxFreshnessHours: number
+    scheduleTimeLocal: string
+    scheduleTimezone: string
+    latestRunStatus: PriceRunStatus | null
+    latestRunAt: string | null
+    lastSuccessfulRunAt: string | null
+  }
   products: LatestPriceCard[]
 }
 
@@ -89,13 +101,22 @@ export type PriceHistoryPoint = {
   error: string | null
   runId: string
   runAt: string
+  runStatus: PriceRunStatus
 }
 
 export type PricesHistoryResponse = {
   updatedAt: string
   product: PriceProductResponseItem
   days: number
+  summary: {
+    totalRuns: number
+    successfulRuns: number
+    failedRuns: number
+    latestCapturedAt: string | null
+    latestSuccessfulCapturedAt: string | null
+  }
   history: PriceHistoryPoint[]
+  daily: PriceHistoryPoint[]
 }
 
 export type PricesIngestResponse = {
@@ -125,6 +146,9 @@ type RawPriceResult = Partial<LatestPriceCard> & {
 @Injectable()
 export class PricesService {
   private readonly logger = new Logger(PricesService.name)
+  private readonly scheduleTimezone = process.env.PRICES_SCHEDULE_TIMEZONE || 'Asia/Kolkata'
+  private readonly scheduleTimeLocal = process.env.PRICES_SCHEDULE_TIME_LOCAL || '09:00'
+  private readonly staleAfterHours = Number(process.env.PRICES_STALE_AFTER_HOURS || 30)
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -239,6 +263,49 @@ export class PricesService {
     this.logger.error(`${operation} failed with unknown error: ${String(error)}`)
   }
 
+  private localDayKey(date: Date): string {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: this.scheduleTimezone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(date)
+
+    const year = parts.find((part) => part.type === 'year')?.value ?? '0000'
+    const month = parts.find((part) => part.type === 'month')?.value ?? '00'
+    const day = parts.find((part) => part.type === 'day')?.value ?? '00'
+    return `${year}-${month}-${day}`
+  }
+
+  private computeRunHealth(latestRun: PriceIngestionRun | null, lastSuccessfulRun: PriceIngestionRun | null) {
+    const latestRunAt = latestRun?.runAt ?? null
+    const lastSuccessfulRunAt = lastSuccessfulRun?.runAt ?? null
+    const freshnessHours = lastSuccessfulRunAt
+      ? Number(((Date.now() - lastSuccessfulRunAt.getTime()) / (1000 * 60 * 60)).toFixed(1))
+      : null
+
+    let staleReason: string | null = null
+    if (!lastSuccessfulRunAt) {
+      staleReason = 'No successful price run has been stored yet.'
+    } else if (freshnessHours != null && freshnessHours > this.staleAfterHours) {
+      staleReason = `Last successful run is older than ${this.staleAfterHours} hours.`
+    } else if (latestRun?.status === PriceRunStatus.FAILED) {
+      staleReason = 'Latest scheduled run failed. Dashboard may be showing older observations.'
+    }
+
+    return {
+      stale: Boolean(staleReason),
+      staleReason,
+      freshnessHours,
+      maxFreshnessHours: this.staleAfterHours,
+      scheduleTimeLocal: this.scheduleTimeLocal,
+      scheduleTimezone: this.scheduleTimezone,
+      latestRunStatus: latestRun?.status ?? null,
+      latestRunAt: latestRunAt?.toISOString() ?? null,
+      lastSuccessfulRunAt: lastSuccessfulRunAt?.toISOString() ?? null,
+    }
+  }
+
   assertCronAuthorized(request: Request) {
     const secret = process.env.CRON_SECRET
     if (!secret) {
@@ -307,16 +374,25 @@ export class PricesService {
     let latestRun: Prisma.PriceIngestionRunGetPayload<{
       include: { observations: { include: { product: true } } }
     }> | null = null
+    let lastSuccessfulRun: PriceIngestionRun | null = null
 
     try {
-      latestRun = await this.prisma.priceIngestionRun.findFirst({
-        orderBy: [{ runAt: 'desc' }, { createdAt: 'desc' }],
-        include: {
-          observations: {
-            include: { product: true },
+      ;[latestRun, lastSuccessfulRun] = await Promise.all([
+        this.prisma.priceIngestionRun.findFirst({
+          orderBy: [{ runAt: 'desc' }, { createdAt: 'desc' }],
+          include: {
+            observations: {
+              include: { product: true },
+            },
           },
-        },
-      })
+        }),
+        this.prisma.priceIngestionRun.findFirst({
+          where: {
+            status: { in: [PriceRunStatus.SUCCESS, PriceRunStatus.PARTIAL] },
+          },
+          orderBy: [{ runAt: 'desc' }, { createdAt: 'desc' }],
+        }),
+      ])
     } catch (error) {
       this.logPrismaError('latest.findLatestRun', error)
       throw new InternalServerErrorException('Failed to load latest price run.')
@@ -326,6 +402,8 @@ export class PricesService {
       return {
         updatedAt: new Date().toISOString(),
         run: null,
+        lastSuccessfulRun: null,
+        runHealth: this.computeRunHealth(null, null),
         products: enabledProducts.map((product) => ({
           productKey: product.productKey,
           displayName: product.displayName,
@@ -385,6 +463,8 @@ export class PricesService {
     return {
       updatedAt: new Date().toISOString(),
       run: this.toRunResponse(latestRun),
+      lastSuccessfulRun: lastSuccessfulRun ? this.toRunResponse(lastSuccessfulRun) : null,
+      runHealth: this.computeRunHealth(latestRun, lastSuccessfulRun),
       products: cards,
     }
   }
@@ -424,6 +504,14 @@ export class PricesService {
       updatedAt: new Date().toISOString(),
       product: this.mapProduct(product),
       days: query.days,
+      summary: {
+        totalRuns: rows.length,
+        successfulRuns: rows.filter((row) => row.status === PriceObservationStatus.OK).length,
+        failedRuns: rows.filter((row) => row.status === PriceObservationStatus.FAILED).length,
+        latestCapturedAt: rows.at(-1)?.capturedAt.toISOString() ?? null,
+        latestSuccessfulCapturedAt:
+          [...rows].reverse().find((row) => row.status === PriceObservationStatus.OK)?.capturedAt.toISOString() ?? null,
+      },
       history: rows.map((row) => ({
         capturedAt: row.capturedAt.toISOString(),
         status: row.status,
@@ -436,7 +524,106 @@ export class PricesService {
         error: row.error,
         runId: row.runId,
         runAt: row.run.runAt.toISOString(),
+        runStatus: row.run.status,
       })),
+      daily: Array.from(
+        rows.reduce((acc, row) => {
+          acc.set(this.localDayKey(row.capturedAt), row)
+          return acc
+        }, new Map<string, Prisma.PriceObservationGetPayload<{ include: { run: true } }>>())
+      ).map(([, row]) => ({
+        capturedAt: row.capturedAt.toISOString(),
+        status: row.status,
+        value: row.value,
+        unit: row.unit,
+        source: row.source,
+        sourceUrl: row.sourceUrl,
+        confidence: row.confidence,
+        rawText: row.rawText,
+        error: row.error,
+        runId: row.runId,
+        runAt: row.run.runAt.toISOString(),
+        runStatus: row.run.status,
+      })),
+    }
+  }
+
+  async findRunByTriggerAndRunAt(trigger: string, runAt: Date) {
+    try {
+      return await this.prisma.priceIngestionRun.findUnique({
+        where: {
+          trigger_runAt: {
+            trigger,
+            runAt,
+          },
+        },
+      })
+    } catch (error) {
+      this.logPrismaError('findRunByTriggerAndRunAt', error)
+      throw new InternalServerErrorException('Failed to inspect existing price run.')
+    }
+  }
+
+  async recordExecutionFailure(params: {
+    runAt: Date
+    trigger: string
+    totalProducts: number
+    error: string
+    logs?: { stdout?: string; stderr?: string }
+    scraper?: Record<string, unknown>
+  }) {
+    try {
+      const run = await this.prisma.priceIngestionRun.upsert({
+        where: {
+          trigger_runAt: {
+            trigger: params.trigger,
+            runAt: params.runAt,
+          },
+        },
+        update: {
+          status: PriceRunStatus.FAILED,
+          totalProducts: params.totalProducts,
+          successfulCount: 0,
+          failedCount: params.totalProducts,
+          rawPayload: {
+            execution: {
+              error: params.error,
+              ...params.scraper,
+            },
+            logs: params.logs ?? {},
+            metadata: {
+              persistedAt: new Date().toISOString(),
+              scheduleTimezone: this.scheduleTimezone,
+              scheduleTimeLocal: this.scheduleTimeLocal,
+            },
+          } as Prisma.InputJsonValue,
+        },
+        create: {
+          runAt: params.runAt,
+          trigger: params.trigger,
+          status: PriceRunStatus.FAILED,
+          totalProducts: params.totalProducts,
+          successfulCount: 0,
+          failedCount: params.totalProducts,
+          rawPayload: {
+            execution: {
+              error: params.error,
+              ...params.scraper,
+            },
+            logs: params.logs ?? {},
+            metadata: {
+              persistedAt: new Date().toISOString(),
+              scheduleTimezone: this.scheduleTimezone,
+              scheduleTimeLocal: this.scheduleTimeLocal,
+            },
+          } as Prisma.InputJsonValue,
+        },
+      })
+
+      return this.toRunResponse(run)
+    } catch (error) {
+      this.logPrismaError('recordExecutionFailure', error)
+      throw new InternalServerErrorException('Failed to persist failed price run.')
     }
   }
 
@@ -464,10 +651,10 @@ export class PricesService {
           status: PriceObservationStatus.FAILED,
           value: null,
           unit: product.unit,
-          source: product.defaultSource,
+          source: ingestError.source || product.defaultSource,
           sourceUrl: ingestError.sourceUrl || product.sourceUrl,
           confidence: null,
-          rawText: null,
+          rawText: ingestError.rawText || null,
           error: ingestError.error,
         }
       }
@@ -512,55 +699,78 @@ export class PricesService {
         : PriceRunStatus.PARTIAL
 
     const run = await this.prisma.$transaction(async (tx) => {
-      const createdRun = await tx.priceIngestionRun.create({
-        data: {
+      const payloadJson = {
+        runAt: dto.runAt,
+        metadata: dto.metadata ?? {},
+        results: dto.results.map((result) => ({
+          productKey: result.productKey,
+          value: result.value,
+          unit: result.unit,
+          source: result.source,
+          sourceUrl: result.sourceUrl,
+          confidence: result.confidence,
+          rawText: result.rawText,
+          displayName: result.displayName,
+          currentPrice: result.currentPrice,
+          lastWeekPrice: result.lastWeekPrice,
+          lastWeekPriceMin: result.lastWeekPriceMin,
+          lastWeekPriceMax: result.lastWeekPriceMax,
+          todayPrice: result.todayPrice,
+          todayPriceMin: result.todayPriceMin,
+          todayPriceMax: result.todayPriceMax,
+          expectedNextPrice: result.expectedNextPrice,
+          expectedNextPriceMin: result.expectedNextPriceMin,
+          expectedNextPriceMax: result.expectedNextPriceMax,
+          shortDescription: result.shortDescription,
+          trend: result.trend,
+          analysisSummary: result.analysisSummary,
+          analysisBullets: result.analysisBullets,
+          historicalPoints: result.historicalPoints,
+          forecastPoints: result.forecastPoints,
+          metadata: result.metadata,
+          sources: result.sources,
+        })),
+        errors: (dto.errors ?? []).map((error) => ({
+          productKey: error.productKey,
+          error: error.error,
+          sourceUrl: error.sourceUrl,
+          rawText: error.rawText,
+          source: error.source,
+          capturedAt: error.capturedAt,
+        })),
+        unknownProducts: {
+          results: dto.results.filter((result) => !productMap.has(result.productKey)).map((result) => result.productKey),
+          errors: (dto.errors ?? []).filter((error) => !productMap.has(error.productKey)).map((error) => error.productKey),
+        },
+      } as Prisma.InputJsonValue
+
+      const createdRun = await tx.priceIngestionRun.upsert({
+        where: {
+          trigger_runAt: {
+            trigger,
+            runAt,
+          },
+        },
+        update: {
+          status,
+          totalProducts: rows.length,
+          successfulCount,
+          failedCount,
+          rawPayload: payloadJson,
+        },
+        create: {
           runAt,
           status,
           totalProducts: rows.length,
           successfulCount,
           failedCount,
           trigger,
-          rawPayload: {
-            runAt: dto.runAt,
-            results: dto.results.map((result) => ({
-              productKey: result.productKey,
-              value: result.value,
-              unit: result.unit,
-              source: result.source,
-              sourceUrl: result.sourceUrl,
-              confidence: result.confidence,
-              rawText: result.rawText,
-              displayName: result.displayName,
-              currentPrice: result.currentPrice,
-              lastWeekPrice: result.lastWeekPrice,
-              lastWeekPriceMin: result.lastWeekPriceMin,
-              lastWeekPriceMax: result.lastWeekPriceMax,
-              todayPrice: result.todayPrice,
-              todayPriceMin: result.todayPriceMin,
-              todayPriceMax: result.todayPriceMax,
-              expectedNextPrice: result.expectedNextPrice,
-              expectedNextPriceMin: result.expectedNextPriceMin,
-              expectedNextPriceMax: result.expectedNextPriceMax,
-              shortDescription: result.shortDescription,
-              trend: result.trend,
-              analysisSummary: result.analysisSummary,
-              analysisBullets: result.analysisBullets,
-              historicalPoints: result.historicalPoints,
-              forecastPoints: result.forecastPoints,
-              metadata: result.metadata,
-              sources: result.sources,
-            })),
-            errors: (dto.errors ?? []).map((error) => ({
-              productKey: error.productKey,
-              error: error.error,
-              sourceUrl: error.sourceUrl,
-            })),
-            unknownProducts: {
-              results: dto.results.filter((result) => !productMap.has(result.productKey)).map((result) => result.productKey),
-              errors: (dto.errors ?? []).filter((error) => !productMap.has(error.productKey)).map((error) => error.productKey),
-            },
-          } as Prisma.InputJsonValue,
+          rawPayload: payloadJson,
         },
+      })
+
+      await tx.priceObservation.deleteMany({
+        where: { runId: createdRun.id },
       })
 
       if (rows.length > 0) {

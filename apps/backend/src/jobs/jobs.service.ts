@@ -1,4 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common'
+import { Cron } from '@nestjs/schedule'
 import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
@@ -37,14 +38,42 @@ type JobsConfig = {
   enabled: boolean
 }
 
+type RunPriceScraperOptions = {
+  dryRun?: boolean
+  trigger?: string
+  runAtOverride?: Date
+  allowDuplicateRunAt?: boolean
+}
+
+const PRICES_SCHEDULE_TIMEZONE = process.env.PRICES_SCHEDULE_TIMEZONE || 'Asia/Kolkata'
+const PRICES_SCHEDULE_CRON = process.env.PRICES_SCHEDULE_CRON || '0 9 * * *'
+
 @Injectable()
 export class JobsService {
   private readonly logger = new Logger(JobsService.name)
+  private activeRun: Promise<unknown> | null = null
 
   constructor(
     private readonly pricesService: PricesService,
     private readonly pricesIngestService: PricesIngestService,
   ) {}
+
+  private scheduleRunAt(now = new Date()) {
+    const [hoursText, minutesText] = (process.env.PRICES_SCHEDULE_TIME_LOCAL || '09:00').split(':')
+    const hours = hoursText?.padStart(2, '0') || '09'
+    const minutes = minutesText?.padStart(2, '0') || '00'
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: PRICES_SCHEDULE_TIMEZONE,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(now)
+
+    const year = parts.find((part) => part.type === 'year')?.value ?? '0000'
+    const month = parts.find((part) => part.type === 'month')?.value ?? '00'
+    const day = parts.find((part) => part.type === 'day')?.value ?? '00'
+    return new Date(`${year}-${month}-${day}T${hours}:${minutes}:00+05:30`)
+  }
 
   private getConfig(): JobsConfig {
     const configuredPath = process.env.PRICES_SCRAPER_RUNNER
@@ -229,10 +258,43 @@ export class JobsService {
     })
   }
 
-  async runPriceScraper(dryRun = false) {
+  @Cron(PRICES_SCHEDULE_CRON, {
+    name: 'prices-daily-run',
+    timeZone: PRICES_SCHEDULE_TIMEZONE,
+  })
+  async handleDailyPriceRun() {
+    const scheduledRunAt = this.scheduleRunAt()
+    try {
+      await this.runPriceScraper({
+        trigger: 'daily-scheduler',
+        runAtOverride: scheduledRunAt,
+        allowDuplicateRunAt: false,
+      })
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error))
+      this.logger.error(`Scheduled daily price run crashed: ${err.message}`, err.stack)
+    }
+  }
+
+  async runPriceScraper(dryRunOrOptions: boolean | RunPriceScraperOptions = false) {
+    const options = typeof dryRunOrOptions === 'boolean'
+      ? { dryRun: dryRunOrOptions }
+      : dryRunOrOptions
+    const dryRun = Boolean(options.dryRun)
+    const trigger = options.trigger || 'python-playwright'
     const config = this.getConfig()
     const startedAt = new Date()
+    const effectiveRunAt = options.runAtOverride ?? startedAt
     const deadlineAt = startedAt.getTime() + config.maxTotalDurationMs
+
+    if (this.activeRun) {
+      return {
+        ok: false,
+        skipped: true,
+        reason: 'A prices scraper job is already running.',
+        startedAt: startedAt.toISOString(),
+      }
+    }
 
     if (!config.enabled) {
       return {
@@ -260,142 +322,222 @@ export class JobsService {
       }
     }
 
-    let lastError: ScriptRunFailure | null = null
-    let execution: ScriptRunResult | null = null
-
-    for (let attempt = 0; attempt <= config.retries; attempt += 1) {
-      const attemptNumber = attempt + 1
-      const remainingMs = deadlineAt - Date.now()
-      if (remainingMs <= 0) {
-        lastError = {
-          ok: false,
-          attempt: attemptNumber,
-          durationMs: Date.now() - startedAt.getTime(),
-          timedOut: true,
-          exitCode: null,
-          signal: null,
-          error: `Price scraper exceeded max total duration of ${config.maxTotalDurationMs}ms before attempt ${attemptNumber}.`,
-          stdoutTail: '',
-          stderrTail: '',
-        }
-        break
-      }
-
-      const attemptTimeoutMs = Math.min(config.timeoutMs, remainingMs)
-      try {
+    if (!dryRun && options.allowDuplicateRunAt === false) {
+      const existingRun = await this.pricesService.findRunByTriggerAndRunAt(trigger, effectiveRunAt)
+      if (existingRun && existingRun.status !== 'FAILED') {
         this.logger.log(
-          `Running python scraper (attempt ${attemptNumber}/${config.retries + 1}) using ${config.runnerPath} entry=${config.scraperEntry} timeout=${attemptTimeoutMs}ms maxTotal=${config.maxTotalDurationMs}ms`,
+          `Skipping prices scraper trigger=${trigger} runAt=${effectiveRunAt.toISOString()} because an existing ${existingRun.status} run is already stored.`,
         )
-        const result = await this.runPythonScript(config, attemptNumber, attemptTimeoutMs)
-        if (result.ok) {
-          execution = result
-          this.logger.log(
-            `Scraper attempt ${attemptNumber} succeeded in ${result.durationMs}ms with ${result.payload.items?.length ?? 0} items.`,
-          )
+        return {
+          ok: true,
+          skipped: true,
+          startedAt: startedAt.toISOString(),
+          finishedAt: new Date().toISOString(),
+          reason: `Run ${trigger}@${effectiveRunAt.toISOString()} already exists with status ${existingRun.status}.`,
+          run: this.pricesService.toRunResponse(existingRun),
+        }
+      }
+    }
+
+    const runPromise = (async () => {
+      let lastError: ScriptRunFailure | null = null
+      let execution: ScriptRunResult | null = null
+
+      for (let attempt = 0; attempt <= config.retries; attempt += 1) {
+        const attemptNumber = attempt + 1
+        const remainingMs = deadlineAt - Date.now()
+        if (remainingMs <= 0) {
+          lastError = {
+            ok: false,
+            attempt: attemptNumber,
+            durationMs: Date.now() - startedAt.getTime(),
+            timedOut: true,
+            exitCode: null,
+            signal: null,
+            error: `Price scraper exceeded max total duration of ${config.maxTotalDurationMs}ms before attempt ${attemptNumber}.`,
+            stdoutTail: '',
+            stderrTail: '',
+          }
           break
         }
 
-        lastError = result
-        this.logger.error(
-          `Scraper attempt ${attemptNumber} failed after ${result.durationMs}ms timeout=${result.timedOut} exitCode=${result.exitCode ?? 'null'} signal=${result.signal ?? 'null'} stderrTail=${JSON.stringify(result.stderrTail)}`,
-        )
-      } catch (error) {
-        const err = error as ScriptRunFailure
-        lastError = err
-        this.logger.error(
-          `Scraper attempt ${attemptNumber} failed before completion: ${err.error} stderrTail=${JSON.stringify(err.stderrTail)}`,
-        )
-      }
+        const attemptTimeoutMs = Math.min(config.timeoutMs, remainingMs)
+        try {
+          this.logger.log(
+            `Running python scraper trigger=${trigger} (attempt ${attemptNumber}/${config.retries + 1}) using ${config.runnerPath} entry=${config.scraperEntry} timeout=${attemptTimeoutMs}ms maxTotal=${config.maxTotalDurationMs}ms runAt=${effectiveRunAt.toISOString()}`,
+          )
+          const result = await this.runPythonScript(config, attemptNumber, attemptTimeoutMs)
+          if (result.ok) {
+            execution = result
+            this.logger.log(
+              `Scraper attempt ${attemptNumber} succeeded in ${result.durationMs}ms with ${result.payload.items?.length ?? 0} items.`,
+            )
+            break
+          }
 
-      if (attempt < config.retries) {
-        const delayMs = Math.min(1000 * (2 ** attempt), Math.max(deadlineAt - Date.now(), 0))
-        if (delayMs > 0) {
-          await sleep(delayMs)
+          lastError = result
+          this.logger.error(
+            `Scraper attempt ${attemptNumber} failed after ${result.durationMs}ms timeout=${result.timedOut} exitCode=${result.exitCode ?? 'null'} signal=${result.signal ?? 'null'} stderrTail=${JSON.stringify(result.stderrTail)}`,
+          )
+        } catch (error) {
+          const err = error as ScriptRunFailure
+          lastError = err
+          this.logger.error(
+            `Scraper attempt ${attemptNumber} failed before completion: ${err.error} stderrTail=${JSON.stringify(err.stderrTail)}`,
+          )
+        }
+
+        if (attempt < config.retries) {
+          const delayMs = Math.min(1000 * (2 ** attempt), Math.max(deadlineAt - Date.now(), 0))
+          if (delayMs > 0) {
+            await sleep(delayMs)
+          }
         }
       }
-    }
 
-    if (!execution) {
-      this.logger.error(
-        `Price scraper failed after ${config.retries + 1} attempt(s). finalError=${lastError?.error ?? 'Unknown scraper execution failure.'}`,
-      )
-      return {
-        ok: false,
-        startedAt: startedAt.toISOString(),
-        finishedAt: new Date().toISOString(),
-        error: lastError?.error || 'Unknown scraper execution failure.',
-        scraper: {
-          attempt: lastError?.attempt ?? config.retries + 1,
-          retries: config.retries,
-          timeoutMs: config.timeoutMs,
-          maxTotalDurationMs: config.maxTotalDurationMs,
-          timedOut: lastError?.timedOut ?? false,
-          exitCode: lastError?.exitCode ?? null,
-          signal: lastError?.signal ?? null,
-          durationMs: lastError?.durationMs ?? 0,
-        },
-        logs: {
-          stdout: lastError?.stdoutTail ?? '',
-          stderr: lastError?.stderrTail ?? '',
-        },
+      if (!execution) {
+        this.logger.error(
+          `Price scraper failed after ${config.retries + 1} attempt(s). finalError=${lastError?.error ?? 'Unknown scraper execution failure.'}`,
+        )
+
+        if (!dryRun) {
+          await this.pricesService.recordExecutionFailure({
+            runAt: effectiveRunAt,
+            trigger,
+            totalProducts: (await this.pricesService.getEnabledProducts()).length,
+            error: lastError?.error || 'Unknown scraper execution failure.',
+            scraper: {
+              attempt: lastError?.attempt ?? config.retries + 1,
+              retries: config.retries,
+              timeoutMs: config.timeoutMs,
+              maxTotalDurationMs: config.maxTotalDurationMs,
+              timedOut: lastError?.timedOut ?? false,
+              exitCode: lastError?.exitCode ?? null,
+              signal: lastError?.signal ?? null,
+              durationMs: lastError?.durationMs ?? 0,
+            },
+            logs: {
+              stdout: lastError?.stdoutTail ?? '',
+              stderr: lastError?.stderrTail ?? '',
+            },
+          })
+        }
+
+        return {
+          ok: false,
+          startedAt: startedAt.toISOString(),
+          finishedAt: new Date().toISOString(),
+          error: lastError?.error || 'Unknown scraper execution failure.',
+          scraper: {
+            attempt: lastError?.attempt ?? config.retries + 1,
+            retries: config.retries,
+            timeoutMs: config.timeoutMs,
+            maxTotalDurationMs: config.maxTotalDurationMs,
+            timedOut: lastError?.timedOut ?? false,
+            exitCode: lastError?.exitCode ?? null,
+            signal: lastError?.signal ?? null,
+            durationMs: lastError?.durationMs ?? 0,
+          },
+          logs: {
+            stdout: lastError?.stdoutTail ?? '',
+            stderr: lastError?.stderrTail ?? '',
+          },
+        }
       }
-    }
 
+      try {
+        const ingest = await this.pricesIngestService.ingestScraperOutput(
+          {
+            ...execution.payload,
+            fetchedAt: effectiveRunAt.toISOString(),
+          },
+          trigger,
+          dryRun,
+        )
+
+        this.logger.log(
+          `Price scraper job completed successfully in ${Date.now() - startedAt.getTime()}ms mode=${dryRun ? 'dry-run' : 'ingest'} trigger=${trigger}.`,
+        )
+
+        return {
+          ok: true,
+          mode: dryRun ? 'dry-run' : 'ingest',
+          startedAt: startedAt.toISOString(),
+          finishedAt: new Date().toISOString(),
+          scraper: {
+            attempt: execution.attempt,
+            retries: config.retries,
+            timeoutMs: config.timeoutMs,
+            maxTotalDurationMs: config.maxTotalDurationMs,
+            durationMs: execution.durationMs,
+            observations: execution.payload.items?.filter((item) => Number.isFinite(item.value)).length || 0,
+            errors: execution.payload.items?.filter((item) => !Number.isFinite(item.value)).length || 0,
+            runAt: effectiveRunAt.toISOString(),
+            payloadFetchedAt: execution.payload.fetchedAt,
+          },
+          ingest,
+          logs: {
+            stdout: this.tail(execution.stdout),
+            stderr: this.tail(execution.stderr),
+          },
+        }
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error))
+        this.logger.error(`Price scraper ingest failed after scraper success: ${err.message}`, err.stack)
+
+        if (!dryRun) {
+          await this.pricesService.recordExecutionFailure({
+            runAt: effectiveRunAt,
+            trigger,
+            totalProducts: (await this.pricesService.getEnabledProducts()).length,
+            error: `Scraper completed but ingest failed: ${err.message}`,
+            scraper: {
+              attempt: execution.attempt,
+              retries: config.retries,
+              timeoutMs: config.timeoutMs,
+              maxTotalDurationMs: config.maxTotalDurationMs,
+              durationMs: execution.durationMs,
+              observations: execution.payload.items?.filter((item) => Number.isFinite(item.value)).length || 0,
+              errors: execution.payload.items?.filter((item) => !Number.isFinite(item.value)).length || 0,
+              payloadFetchedAt: execution.payload.fetchedAt,
+            },
+            logs: {
+              stdout: this.tail(execution.stdout),
+              stderr: this.tail(execution.stderr),
+            },
+          })
+        }
+
+        return {
+          ok: false,
+          startedAt: startedAt.toISOString(),
+          finishedAt: new Date().toISOString(),
+          error: `Scraper completed but ingest failed: ${err.message}`,
+          scraper: {
+            attempt: execution.attempt,
+            retries: config.retries,
+            timeoutMs: config.timeoutMs,
+            maxTotalDurationMs: config.maxTotalDurationMs,
+            durationMs: execution.durationMs,
+            observations: execution.payload.items?.filter((item) => Number.isFinite(item.value)).length || 0,
+            errors: execution.payload.items?.filter((item) => !Number.isFinite(item.value)).length || 0,
+            runAt: effectiveRunAt.toISOString(),
+            payloadFetchedAt: execution.payload.fetchedAt,
+          },
+          logs: {
+            stdout: this.tail(execution.stdout),
+            stderr: this.tail(execution.stderr),
+          },
+        }
+      }
+    })()
+
+    this.activeRun = runPromise
     try {
-      const ingest = await this.pricesIngestService.ingestScraperOutput(
-        execution.payload,
-        'python-playwright',
-        dryRun,
-      )
-
-      this.logger.log(
-        `Price scraper job completed successfully in ${Date.now() - startedAt.getTime()}ms mode=${dryRun ? 'dry-run' : 'ingest'}.`,
-      )
-
-      return {
-        ok: true,
-        mode: dryRun ? 'dry-run' : 'ingest',
-        startedAt: startedAt.toISOString(),
-        finishedAt: new Date().toISOString(),
-        scraper: {
-          attempt: execution.attempt,
-          retries: config.retries,
-          timeoutMs: config.timeoutMs,
-          maxTotalDurationMs: config.maxTotalDurationMs,
-          durationMs: execution.durationMs,
-          observations: execution.payload.items?.filter((item) => Number.isFinite(item.value)).length || 0,
-          errors: execution.payload.items?.filter((item) => !Number.isFinite(item.value)).length || 0,
-          runAt: execution.payload.fetchedAt,
-        },
-        ingest,
-        logs: {
-          stdout: this.tail(execution.stdout),
-          stderr: this.tail(execution.stderr),
-        },
-      }
-    } catch (error) {
-      const err = error instanceof Error ? error : new Error(String(error))
-      this.logger.error(`Price scraper ingest failed after scraper success: ${err.message}`, err.stack)
-
-      return {
-        ok: false,
-        startedAt: startedAt.toISOString(),
-        finishedAt: new Date().toISOString(),
-        error: `Scraper completed but ingest failed: ${err.message}`,
-        scraper: {
-          attempt: execution.attempt,
-          retries: config.retries,
-          timeoutMs: config.timeoutMs,
-          maxTotalDurationMs: config.maxTotalDurationMs,
-          durationMs: execution.durationMs,
-          observations: execution.payload.items?.filter((item) => Number.isFinite(item.value)).length || 0,
-          errors: execution.payload.items?.filter((item) => !Number.isFinite(item.value)).length || 0,
-          runAt: execution.payload.fetchedAt,
-        },
-        logs: {
-          stdout: this.tail(execution.stdout),
-          stderr: this.tail(execution.stderr),
-        },
+      return await runPromise
+    } finally {
+      if (this.activeRun === runPromise) {
+        this.activeRun = null
       }
     }
   }

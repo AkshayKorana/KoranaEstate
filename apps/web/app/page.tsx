@@ -95,6 +95,27 @@ type PricesLatestResponse = {
     trigger: string
     createdAt: string
   } | null
+  lastSuccessfulRun: {
+    id: string
+    runAt: string
+    status: 'SUCCESS' | 'PARTIAL' | 'FAILED'
+    totalProducts: number
+    successfulCount: number
+    failedCount: number
+    trigger: string
+    createdAt: string
+  } | null
+  runHealth: {
+    stale: boolean
+    staleReason: string | null
+    freshnessHours: number | null
+    maxFreshnessHours: number
+    scheduleTimeLocal: string
+    scheduleTimezone: string
+    latestRunStatus: 'SUCCESS' | 'PARTIAL' | 'FAILED' | null
+    latestRunAt: string | null
+    lastSuccessfulRunAt: string | null
+  }
   products: PriceLatestCard[]
 }
 
@@ -110,13 +131,22 @@ type PriceHistoryPoint = {
   error: string | null
   runId: string
   runAt: string
+  runStatus: 'SUCCESS' | 'PARTIAL' | 'FAILED'
 }
 
 type PricesHistoryResponse = {
   updatedAt: string
   product: PriceProduct
   days: number
+  summary: {
+    totalRuns: number
+    successfulRuns: number
+    failedRuns: number
+    latestCapturedAt: string | null
+    latestSuccessfulCapturedAt: string | null
+  }
   history: PriceHistoryPoint[]
+  daily: PriceHistoryPoint[]
 }
 
 function formatPrice(value: number | null | undefined) {
@@ -350,8 +380,8 @@ export default function HomePage() {
     [latestByKey, selectedKey]
   )
 
-  const richChart = useMemo(() => {
-    const historicalPoints = (selectedLatest?.historicalPoints || []).filter((point) => point.value != null)
+  const dbHistoryChart = useMemo(() => {
+    const historicalPoints = (history?.daily || history?.history || []).filter((point) => point.value != null)
     const forecastPoints = (selectedLatest?.forecastPoints || []).filter((point) => point.value != null)
 
     if (historicalPoints.length === 0 && forecastPoints.length === 0) {
@@ -359,14 +389,16 @@ export default function HomePage() {
     }
 
     const labels = [
-      ...historicalPoints.map((point, index) => formatPointLabel(point, index)),
+      ...historicalPoints.map((point, index) =>
+        new Date(point.capturedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }) || formatPointLabel(point, index)
+      ),
       ...forecastPoints.map((point, index) => formatPointLabel(point, historicalPoints.length + index)),
     ]
 
     return {
       labels,
       historicalSeries: [
-        ...historicalPoints.map((point) => point.value ?? null),
+        ...historicalPoints.map((point) => point.value),
         ...forecastPoints.map(() => null),
       ],
       forecastSeries: [
@@ -374,7 +406,7 @@ export default function HomePage() {
         ...forecastPoints.map((point) => point.value ?? null),
       ],
     }
-  }, [selectedLatest])
+  }, [history, selectedLatest])
 
   const fallbackHistoryChart = useMemo(() => {
     const chartPoints = (history?.history || []).filter((point) => point.value != null)
@@ -390,7 +422,7 @@ export default function HomePage() {
     }
   }, [history])
 
-  const chartConfig = richChart || fallbackHistoryChart
+  const chartConfig = dbHistoryChart || fallbackHistoryChart
   const hasRichDetail = Boolean(
     selectedLatest?.analysisSummary ||
     selectedLatest?.shortDescription ||
@@ -419,6 +451,10 @@ export default function HomePage() {
   const trendDisplay = formatValueOrNotAvailable(selectedLatest?.trend)
   const confidenceDisplay =
     selectedLatest?.confidence != null ? `${Math.round(selectedLatest.confidence * 100)}%` : 'Not available'
+  const recentDailyHistory = useMemo(
+    () => [...(history?.daily || [])].reverse().slice(0, 7),
+    [history]
+  )
   const derivedHighlights = useMemo(() => {
     const normalized = new Set<string>()
     const items: string[] = []
@@ -459,7 +495,7 @@ export default function HomePage() {
 
       <div className="mx-auto w-full max-w-7xl px-6 md:px-8 lg:px-10 space-y-8">
         <section className="luxe-surface p-6 rounded-3xl shadow-lg space-y-6 section-reveal">
-          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <h2 className="font-luxe text-3xl font-bold text-[#f6e8d7]">
                 {t('Commodity Intelligence Dashboard', 'ವಸ್ತು ಬುದ್ಧಿವಂತಿಕೆ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್')}
@@ -475,6 +511,18 @@ export default function HomePage() {
               {t('Last updated', 'ಕೊನೆಯ ನವೀಕರಣ')}: {lastUpdated ? new Date(lastUpdated).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}
             </p>
           </div>
+
+          {latest?.runHealth?.stale && (
+            <div className="rounded-2xl border border-amber-300/40 bg-amber-950/25 px-4 py-3 text-sm text-amber-100">
+              <span className="font-semibold">Stale data:</span> {latest.runHealth.staleReason || 'Latest successful commodity run is not fresh.'}
+            </div>
+          )}
+
+          {latest?.run?.status === 'FAILED' && (
+            <div className="rounded-2xl border border-red-300/40 bg-red-950/25 px-4 py-3 text-sm text-red-100">
+              <span className="font-semibold">Latest run failed:</span> {lastUpdated ? `the most recent pipeline attempt was recorded on ${new Date(lastUpdated).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}.` : 'the latest prices run did not complete successfully.'}
+            </div>
+          )}
 
           {(loadingProducts || loadingLatest) && (
             <div className="lux-stat rounded-xl px-4 py-3 text-sm text-[#d8e8dc]">
@@ -496,6 +544,32 @@ export default function HomePage() {
 
           {!loadingProducts && !loadingLatest && !productsError && !latestError && products.length > 0 && (
             <>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
+                  <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Latest run status</p>
+                  <p className="mt-2 text-2xl font-bold text-[#f7e9d6]">{latest?.run?.status || 'Not available'}</p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    {latest?.run?.runAt ? new Date(latest.run.runAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'No run recorded yet'}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
+                  <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Last successful run</p>
+                  <p className="mt-2 text-2xl font-bold text-[#f7e9d6]">{latest?.lastSuccessfulRun?.status || 'Not available'}</p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    {latest?.lastSuccessfulRun?.runAt ? new Date(latest.lastSuccessfulRun.runAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'No successful run yet'}
+                  </p>
+                </div>
+                <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
+                  <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Daily schedule health</p>
+                  <p className="mt-2 text-2xl font-bold text-[#f7e9d6]">
+                    {latest?.runHealth?.freshnessHours != null ? `${latest.runHealth.freshnessHours}h old` : 'Not available'}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400">
+                    {latest?.runHealth ? `${latest.runHealth.scheduleTimeLocal} ${latest.runHealth.scheduleTimezone}` : 'No schedule metadata'}
+                  </p>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {products.map((product) => {
                   const card = latestByKey.get(product.productKey)
@@ -636,15 +710,15 @@ export default function HomePage() {
                         {t('Price Curve', 'ಬೆಲೆ ವಕ್ರ')}
                       </h4>
                       <p className="text-xs text-gray-400">
-                        {richChart ? t('Using collector intelligence points', 'ಕಲೆಕ್ಟರ್ ಪಾಯಿಂಟ್‌ಗಳನ್ನು ಬಳಸಿ') : t('Falling back to historical observations', 'ಇತಿಹಾಸ ಆಬ್ಸರ್ವೇಶನ್‌ಗಳಿಗೆ ಹಿಂತಿರುಗುತ್ತಿದೆ')}
+                        {dbHistoryChart ? 'Using stored historical observations with latest forecast overlay' : t('Falling back to historical observations', 'ಇತಿಹಾಸ ಆಬ್ಸರ್ವೇಶನ್‌ಗಳಿಗೆ ಹಿಂತಿರುಗುತ್ತಿದೆ')}
                       </p>
                     </div>
 
-                    {loadingHistory && !richChart && (
+                    {loadingHistory && !dbHistoryChart && (
                       <p className="text-sm text-[#d8e8dc]">{t('Loading history...', 'ಇತಿಹಾಸ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
                     )}
 
-                    {historyError && !richChart && (
+                    {historyError && !dbHistoryChart && (
                       <p className="text-sm text-red-300">{historyError}</p>
                     )}
 
@@ -658,18 +732,18 @@ export default function HomePage() {
                       <Line
                         data={{
                           labels: chartConfig.labels,
-                          datasets: richChart
+                          datasets: dbHistoryChart
                             ? [
                                 {
-                                  label: t('Historical', 'ಇತಿಹಾಸ'),
-                                  data: richChart.historicalSeries,
+                                  label: 'Historical DB observations',
+                                  data: dbHistoryChart.historicalSeries,
                                   borderColor: 'rgb(16,185,129)',
                                   backgroundColor: 'rgba(16,185,129,0.2)',
                                   tension: 0.25,
                                 },
                                 {
                                   label: t('Forecast', 'ಅಂದಾಜು'),
-                                  data: richChart.forecastSeries,
+                                  data: dbHistoryChart.forecastSeries,
                                   borderColor: 'rgb(245,158,11)',
                                   backgroundColor: 'rgba(245,158,11,0.2)',
                                   tension: 0.25,
@@ -745,6 +819,34 @@ export default function HomePage() {
                           <p className="text-sm text-gray-400">
                             {t('No source links captured for this commodity yet.', 'ಈ ವಸ್ತುವಿಗೆ ಇನ್ನೂ ಮೂಲ ಲಿಂಕ್‌ಗಳು ಲಭ್ಯವಿಲ್ಲ.')}
                           </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-emerald-200/25 bg-[#14110e] p-4">
+                      <h4 className="text-lg font-semibold text-[#efe4d4]">Recent Daily History</h4>
+                      <div className="mt-3 space-y-2">
+                        {recentDailyHistory.length > 0 ? (
+                          recentDailyHistory.map((point) => (
+                            <div key={`${point.runId}-${point.capturedAt}`} className="rounded-xl bg-[#100d0a] px-3 py-3 text-sm text-[#d6c8b9]">
+                              <div className="flex items-center justify-between gap-3">
+                                <span className="font-medium text-[#efe4d4]">
+                                  {new Date(point.capturedAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
+                                </span>
+                                <span className={`text-xs ${point.status === 'OK' ? 'text-emerald-300' : 'text-red-300'}`}>
+                                  {point.runStatus} / {point.status}
+                                </span>
+                              </div>
+                              <div className="mt-1 text-[#efe4d4]">
+                                {point.value != null ? `${formatPrice(point.value)} ${point.unit}` : 'No usable price captured'}
+                              </div>
+                              <div className="mt-1 text-xs text-gray-400">
+                                {point.error || point.source || 'Historical observation stored successfully.'}
+                              </div>
+                            </div>
+                          ))
+                        ) : (
+                          <p className="text-sm text-gray-400">No recent daily observations stored for this commodity yet.</p>
                         )}
                       </div>
                     </div>
