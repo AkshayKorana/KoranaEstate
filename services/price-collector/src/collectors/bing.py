@@ -47,6 +47,8 @@ SEARCH_BASE = "https://www.bing.com/search"
 NAV_TIMEOUT_MS = env_int("NAV_TIMEOUT_MS", 25000)
 RESULTS_TIMEOUT_MS = env_int("RESULTS_TIMEOUT_MS", 12000)
 PRODUCT_TIMEOUT_MS = env_int("PRODUCT_TIMEOUT_MS", 30000)
+FALLBACK_SOURCE_TIMEOUT_MS = min(NAV_TIMEOUT_MS, 12000)
+MAX_COFFEE_FALLBACK_SOURCES = 2
 
 DELAY_BETWEEN_PRODUCTS_MIN = env_float("DELAY_BETWEEN_PRODUCTS_MIN", 1.0)
 DELAY_BETWEEN_PRODUCTS_MAX = env_float("DELAY_BETWEEN_PRODUCTS_MAX", 2.0)
@@ -64,6 +66,13 @@ BLOCK_MARKERS = [
     "access denied",
     "unusual traffic",
 ]
+
+PREFERRED_COFFEE_SOURCE_HOSTS = (
+    "kodaguexpress.com",
+    "commoditymarketlive.com",
+    "kirehalli.com",
+    "commodityonline.com",
+)
 
 
 def log(message: str) -> None:
@@ -187,6 +196,26 @@ def _extract_result_text(page) -> str:
     return "\n\n".join(blocks).strip()
 
 
+def _extract_page_content(page) -> str:
+    parts: list[str] = []
+    try:
+        title = (page.title() or "").strip()
+        if title:
+            parts.append(title)
+    except Exception:
+        pass
+    try:
+        heading = (page.locator("h1").first.inner_text(timeout=1000) or "").strip()
+        if heading:
+            parts.append(heading)
+    except Exception:
+        pass
+    body = get_body_text(page)
+    if body:
+        parts.append(body)
+    return "\n\n".join(part for part in parts if part).strip()
+
+
 def _source_score(commodity, title: str, url: str) -> int:
     haystack = f"{title} {url}".lower()
     score = 0
@@ -250,6 +279,94 @@ def extract_sources(page, commodity) -> list[dict[str, str]]:
 
     sources.sort(key=lambda source: _source_score(commodity, source.get("title", ""), source.get("url", "")), reverse=True)
     return sources[:8]
+
+
+def _is_coffee_commodity(commodity) -> bool:
+    return any(token in commodity.product_key for token in ("arabica", "robusta"))
+
+
+def _is_weak_coffee_match(intelligence: dict, commodity) -> bool:
+    if not _is_coffee_commodity(commodity):
+        return False
+    metadata = intelligence.get("metadata") or {}
+    return intelligence.get("currentPrice") is None or bool(metadata.get("genericCoffeeFallback")) or (intelligence.get("confidence") or 0) < 0.75
+
+
+def _fallback_source_score(commodity, source: dict[str, str]) -> int:
+    title = source.get("title", "")
+    url = source.get("url", "")
+    host = source.get("host", "")
+    score = _source_score(commodity, title, url)
+    if any(preferred in host for preferred in PREFERRED_COFFEE_SOURCE_HOSTS):
+        score += 5
+    if any(keyword in f"{title} {url}".lower() for keyword in ("robusta", "arabica", "cherry", "parchment")):
+        score += 4
+    if "market price today" in title.lower() or "price update" in title.lower():
+        score += 2
+    return score
+
+
+def _dedupe_sources(sources: list[dict[str, str]]) -> list[dict[str, str]]:
+    seen: set[str] = set()
+    merged: list[dict[str, str]] = []
+    for source in sources:
+        url = source.get("url") or ""
+        if not url or url in seen:
+            continue
+        seen.add(url)
+        merged.append(source)
+    return merged
+
+
+def _intelligence_score(intelligence: dict) -> float:
+    metadata = intelligence.get("metadata") or {}
+    score = 0.0
+    if intelligence.get("currentPrice") is not None:
+        score += 100
+    score += float((intelligence.get("confidence") or 0) * 10)
+    score += float(metadata.get("todayPriceSpecificity") or 0) * 8
+    score += min(len(intelligence.get("sources") or []), 4)
+    if metadata.get("genericCoffeeFallback"):
+        score -= 25
+    return score
+
+
+def _collect_fallback_intelligence(page, commodity, sources: list[dict[str, str]]) -> tuple[str | None, dict | None, list[dict[str, str]], str | None]:
+    if not _is_coffee_commodity(commodity) or not sources:
+        return None, None, sources, None
+
+    ranked_sources = sorted(sources, key=lambda source: _fallback_source_score(commodity, source), reverse=True)
+
+    best_text: str | None = None
+    best_intelligence: dict | None = None
+    best_sources = sources
+    best_url: str | None = None
+
+    for candidate in ranked_sources[:MAX_COFFEE_FALLBACK_SOURCES]:
+        url = candidate.get("url")
+        if not url:
+            continue
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=FALLBACK_SOURCE_TIMEOUT_MS)
+            stabilize(page)
+            scroll_entire_page(page, rounds=3)
+            stabilize(page)
+            page_text = _extract_page_content(page)
+            if not page_text or looks_blocked(page_text):
+                continue
+
+            merged_sources = _dedupe_sources([candidate, *sources])
+            intelligence = parse_commodity_intelligence(commodity, page_text, merged_sources)
+
+            if best_intelligence is None or _intelligence_score(intelligence) > _intelligence_score(best_intelligence):
+                best_text = page_text
+                best_intelligence = intelligence
+                best_sources = merged_sources
+                best_url = url
+        except Exception:
+            continue
+
+    return best_text, best_intelligence, best_sources, best_url
 
 
 def search_and_extract(page, commodity) -> tuple[str | None, str, list[dict[str, str]], str]:
@@ -341,6 +458,14 @@ def scrape_product(page, commodity) -> dict:
             )
 
         intelligence = parse_commodity_intelligence(commodity, extracted_text, sources)
+        if _is_weak_coffee_match(intelligence, commodity):
+            fallback_text, fallback_intelligence, fallback_sources, fallback_url = _collect_fallback_intelligence(page, commodity, sources)
+            if fallback_intelligence and _intelligence_score(fallback_intelligence) > _intelligence_score(intelligence):
+                extracted_text = fallback_text or extracted_text
+                intelligence = fallback_intelligence
+                sources = fallback_sources
+                source_url = fallback_url or source_url
+
         value = intelligence.get("currentPrice")
         status = "OK" if value is not None else "FAILED"
         reason = "MATCHED" if value is not None else "NO_DATA"

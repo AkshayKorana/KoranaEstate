@@ -98,6 +98,7 @@ def _split_sentences(text: str) -> list[str]:
         line = re.sub(r"\s+", " ", raw_line).strip()
         if not line:
             continue
+        line = line.replace("Rs.", "Rs").replace("rs.", "rs")
         parts = [segment.strip() for segment in re.split(r"(?<=[.!?])\s+", line) if segment.strip()]
         if parts:
             chunks.extend(parts)
@@ -114,6 +115,29 @@ def _commodity_terms(commodity: CommodityConfig) -> list[str]:
     }
     terms.update({token for token in commodity.display_name.lower().split() if len(token) > 2})
     return [term for term in terms if term]
+
+
+def _sentence_specificity(sentence: str, commodity: CommodityConfig) -> int:
+    lowered = sentence.lower()
+    specificity = 0
+    if commodity.display_name.lower() in lowered:
+        specificity += 4
+    if commodity.product_key.replace("_", " ").lower() in lowered:
+        specificity += 4
+    for alias in commodity.aliases:
+        if alias.lower() in lowered:
+            specificity += 3
+    for token in commodity.display_name.lower().split():
+        if len(token) > 2 and token in lowered:
+            specificity += 1
+    return specificity
+
+
+def _looks_generic_coffee_sentence(sentence: str, commodity: CommodityConfig) -> bool:
+    lowered = sentence.lower()
+    if "coffee" not in lowered:
+        return False
+    return _sentence_specificity(sentence, commodity) == 0
 
 
 def _sentence_score(sentence: str, commodity_terms: list[str]) -> int:
@@ -175,13 +199,21 @@ def _pick_price(sentences: list[str], commodity: CommodityConfig, keywords: tupl
                 price = _extract_price_from_text(sentence)
                 if price:
                     score = _sentence_score(sentence, commodity_terms) + 3
-                    candidates.append((score, price))
+                    candidate = dict(price)
+                    candidate["sentence"] = sentence
+                    candidate["score"] = score
+                    candidate["specificity"] = _sentence_specificity(sentence, commodity)
+                    candidates.append((score, candidate))
 
     for sentence in relevant:
         price = _extract_price_from_text(sentence)
         if price:
             score = _sentence_score(sentence, commodity_terms)
-            candidates.append((score, price))
+            candidate = dict(price)
+            candidate["sentence"] = sentence
+            candidate["score"] = score
+            candidate["specificity"] = _sentence_specificity(sentence, commodity)
+            candidates.append((score, candidate))
 
     if not candidates:
         return None
@@ -251,6 +283,8 @@ def parse_commodity_intelligence(
     analysis_summary = " ".join(summary_sentences[:2])[:600] if summary_sentences else description
     bullets = summary_sentences[:4] if summary_sentences else sentences[:3]
     historical_points, forecast_points = _build_points(today_price, last_week_price, expected_next_price)
+    today_sentence = today.get("sentence") if today else None
+    generic_today_price = _looks_generic_coffee_sentence(today_sentence or "", commodity)
 
     source_url = sources[0]["url"] if sources else ""
     confidence = 0.25
@@ -259,6 +293,7 @@ def parse_commodity_intelligence(
     confidence += 0.15 if expected_next_price is not None else 0
     confidence += 0.1 if bool(summary_sentences) else 0
     confidence += 0.05 if bool(source_url) else 0
+    confidence -= 0.15 if generic_today_price else 0
     confidence = round(min(confidence, 0.9), 2) if confidence > 0 else None
 
     metadata = {
@@ -267,6 +302,9 @@ def parse_commodity_intelligence(
         "sourceCount": len(sources or []),
         "hasStructuredPrice": today_price is not None,
         "relevantSentenceCount": len(relevant_sentences),
+        "todayPriceSentence": today_sentence,
+        "todayPriceSpecificity": today.get("specificity") if today else 0,
+        "genericCoffeeFallback": generic_today_price,
     }
 
     return {
