@@ -18,13 +18,13 @@ async function main() {
   await run(npmCmd, ['install'])
 
   console.log('[setup] Installing web dependencies...')
-  await run(npmCmd, ['--prefix', 'korana-estate/web', 'install'])
+  await run(npmCmd, ['--prefix', 'apps/web', 'install'])
 
   console.log('[setup] Installing backend dependencies...')
-  await run(npmCmd, ['--prefix', 'korana-estate/backend', 'install'])
+  await run(npmCmd, ['--prefix', 'apps/backend', 'install'])
 
   console.log('[setup] Generating backend Prisma client...')
-  await run(npmCmd, ['--prefix', 'korana-estate/backend', 'run', 'prisma:generate'])
+  await run(npmCmd, ['--prefix', 'apps/backend', 'run', 'prisma:generate'])
 
   console.log('[setup] Complete. Run `npm run dev:web` and/or `npm run dev:backend`.')
 }

@@ -35,36 +35,36 @@ All prices endpoints return `Cache-Control: no-store`.
 ### Python Playwright Scraper
 
 Script path:
-- `korana-estate/backend/scripts/playwright_prices/scrape_prices.py`
+- `scripts/playwright_prices/scrape_prices.py`
 - Wrapper path:
-- `korana-estate/backend/scripts/playwright_prices/run.sh`
+- `scripts/playwright_prices/run.sh`
 
 Requirements file:
-- `korana-estate/backend/scripts/playwright_prices/requirements.txt`
+- `scripts/playwright_prices/requirements.txt`
 
 Setup scraper once (idempotent):
 
 ```bash
-cd korana-estate/backend/scripts/playwright_prices
+cd scripts/playwright_prices
 ./setup.sh
 ```
 
 Run scraper manually (prints JSON to stdout):
 
 ```bash
-cd korana-estate/backend/scripts/playwright_prices
+cd scripts/playwright_prices
 ./run.sh | jq
 ```
 
 The scraper writes debug text files to:
-- `korana-estate/backend/.artifacts/prices/`
+- `apps/backend/.artifacts/prices/`
 
 ### Required / Optional env vars
 
 ```bash
 CRON_SECRET=replace_with_long_random_secret
 PRICES_SCRAPER_ENABLED=true
-PRICES_SCRAPER_RUNNER=korana-estate/backend/scripts/playwright_prices/run.sh
+PRICES_SCRAPER_RUNNER=scripts/playwright_prices/run.sh
 PRICES_SCRAPER_ENTRY=scrape_prices.py
 PRICES_SCRAPER_TIMEOUT_MS=120000
 PRICES_SCRAPER_RETRIES=2
@@ -94,9 +94,9 @@ curl -sS -X POST http://localhost:4000/api/v1/jobs/prices/run \
 ### One Command Runbook
 
 ```bash
-cd korana-estate/backend/scripts/playwright_prices && ./setup.sh
-cd korana-estate/backend/scripts/playwright_prices && ./run.sh | jq
-npm --prefix korana-estate/backend run dev
+cd scripts/playwright_prices && ./setup.sh
+cd scripts/playwright_prices && ./run.sh | jq
+npm --prefix apps/backend run dev
 curl -sS http://localhost:4000/api/v1/prices/products | jq
 curl -sS http://localhost:4000/api/v1/prices/latest | jq
 curl -sS -X POST http://localhost:4000/api/v1/jobs/prices/run -H "Authorization: Bearer $CRON_SECRET" | jq

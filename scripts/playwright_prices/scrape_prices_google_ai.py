@@ -47,24 +47,23 @@ PRODUCTS = [
     ("arabica_parchment", "Arabica Parchment"),
     ("robusta_cherry", "Robusta Cherry"),
     ("robusta_parchment", "Robusta Parchment"),
-    ("black_pepper", "Black pepper"),
-    ("arecanut", "Arecanut"),
+    ("arabica_greenbean", "Arabica Green Bean"),
+    ("robusta_greenbean", "Robusta Green Bean"),
 ]
 
 QUERY_TEMPLATE = '{commodity} Latest Price Today In Madikeri And The Latest Price Analysis'
 
 GOOGLE_URL = "https://www.google.com/"
-DEFAULT_TIMEOUT_MS = int(os.getenv("SCRAPER_TIMEOUT_MS", "60000"))
-AI_WAIT_MS = int(os.getenv("SCRAPER_AI_WAIT_MS", "45000"))
-SCROLL_PAUSE_SEC = float(os.getenv("SCRAPER_SCROLL_PAUSE_SEC", "1.0"))
-MAX_SCROLL_ROUNDS = int(os.getenv("SCRAPER_MAX_SCROLL_ROUNDS", "18"))
+DEFAULT_TIMEOUT_MS = int(os.getenv("SCRAPER_TIMEOUT_MS", "12000"))
+AI_WAIT_MS = int(os.getenv("SCRAPER_AI_WAIT_MS", "7000"))
+SCROLL_PAUSE_SEC = float(os.getenv("SCRAPER_SCROLL_PAUSE_SEC", "0.2"))
+MAX_SCROLL_ROUNDS = int(os.getenv("SCRAPER_MAX_SCROLL_ROUNDS", "4"))
+DELAY_BETWEEN_PRODUCTS_SEC = float(os.getenv("SCRAPER_DELAY_BETWEEN_PRODUCTS_SEC", "0.2"))
 
 # If you want to force always headless or always headed:
 #   SCRAPER_HEADLESS=true/false
 # Default: true (daily cron)
-FORCE_HEADLESS = os.getenv("SCRAPER_HEADLESS")
-if FORCE_HEADLESS is None:
-    FORCE_HEADLESS = "true"
+FORCE_HEADLESS = os.getenv("SCRAPER_HEADLESS", "true")
 
 
 def log(msg: str):
@@ -75,6 +74,29 @@ def log(msg: str):
 
 def iso_now():
     return datetime.now(timezone.utc).isoformat()
+
+
+def build_failed_output(message: str):
+    return {
+        "source": "Google (Playwright) - AI Mode",
+        "fetchedAt": iso_now(),
+        "mode": {"attempts": [{"headless": True, "ok": False, "error": message}]},
+        "items": [
+            {
+                "productKey": product_key,
+                "commodity": commodity,
+                "query": QUERY_TEMPLATE.format(commodity=commodity),
+                "status": "FAILED",
+                "reason": "SCRAPER_ERROR",
+                "aiModeClicked": False,
+                "rawText": None,
+                "sources": [],
+                "capturedAt": iso_now(),
+                "error": message,
+            }
+            for product_key, commodity in PRODUCTS
+        ],
+    }
 
 
 def looks_like_captcha(text: str) -> bool:
@@ -148,7 +170,7 @@ def google_search(page, query: str):
     box = None
     for sel in box_selectors:
         try:
-            page.wait_for_selector(sel, timeout=8000)
+            page.wait_for_selector(sel, timeout=3000)
             box = page.locator(sel).first
             if box:
                 break
@@ -167,7 +189,7 @@ def google_search(page, query: str):
     page.wait_for_load_state("domcontentloaded", timeout=DEFAULT_TIMEOUT_MS)
     # Try to wait for results region
     try:
-        page.wait_for_selector("#search", timeout=20000)
+        page.wait_for_selector("#search", timeout=5000)
     except Exception:
         # sometimes different layout; still proceed
         pass
@@ -235,7 +257,7 @@ def wait_ai_content(page):
     stable_rounds = 0
 
     while (time.time() - start) * 1000 < AI_WAIT_MS:
-        page.wait_for_timeout(800)
+        page.wait_for_timeout(400)
         text = page.inner_text("body")
         if looks_like_captcha(text):
             raise RuntimeError("CAPTCHA/blocked page detected after AI click")
@@ -411,7 +433,7 @@ def run_attempt(headless: bool):
                 attempt_items.append(item)
 
                 # small delay between searches
-                time.sleep(2.0)
+                time.sleep(DELAY_BETWEEN_PRODUCTS_SEC)
 
         except Exception as e:
             err = str(e) or "Unknown attempt error"
@@ -442,7 +464,7 @@ def main():
     elif force in ("false", "0", "no"):
         attempts_plan = [False]
     else:
-        attempts_plan = [True, False]
+        attempts_plan = [True]
 
     attempts_meta = []
     final_items = None
@@ -475,4 +497,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        log(f"Fatal Google AI scraper error: {e}")
+        sys.stdout.write(json.dumps(build_failed_output(str(e)), ensure_ascii=False))
+        sys.stdout.flush()

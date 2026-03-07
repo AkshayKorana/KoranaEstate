@@ -5,7 +5,7 @@ This scraper runs headless Chromium and outputs structured JSON for backend inge
 ## 1) Create venv and install deps
 
 ```bash
-cd korana-estate/backend/python/prices_scraper
+cd apps/backend/python/prices_scraper
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt

@@ -20,4 +20,4 @@ if [ ! -f "$SCRAPER_PATH" ]; then
   exit 1
 fi
 
-python "$SCRAPER_PATH"
+"$VENV_DIR/bin/python" "$SCRAPER_PATH"

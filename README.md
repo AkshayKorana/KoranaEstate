@@ -2,8 +2,8 @@
 
 Active apps:
 
-- Web (Next.js): `korana-estate/web`
-- Backend (NestJS): `korana-estate/backend`
+- Web (Next.js): `apps/web`
+- Backend (NestJS): `apps/backend`
 
 The legacy root AI dashboard has been quarantined under `_legacy_ai_dashboard/` and is not part of active runtime.
 
@@ -17,8 +17,8 @@ npm run dev:web
 ## Build
 
 ```bash
-npm --prefix korana-estate/backend run build
-npm --prefix korana-estate/web run build
+npm --prefix apps/backend run build
+npm --prefix apps/web run build
 ```
 
 ## Prices pipeline checks

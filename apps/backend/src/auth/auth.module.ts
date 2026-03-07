@@ -18,7 +18,7 @@ import { JwtAuthGuard } from './jwt-auth.guard'
         const jwtSecret = configService.get<string>('ACCESS_JWT_SECRET') ?? configService.get<string>('JWT_SECRET')
         if (!jwtSecret) {
           throw new Error(
-            'Missing JWT secret. Set ACCESS_JWT_SECRET (preferred) or JWT_SECRET in korana-estate/backend/.env',
+            'Missing JWT secret. Set ACCESS_JWT_SECRET (preferred) or JWT_SECRET in apps/backend/.env',
           )
         }
         return {

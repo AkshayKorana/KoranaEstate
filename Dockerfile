@@ -2,7 +2,7 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-COPY korana-estate/backend ./backend
+COPY apps/backend ./backend
 WORKDIR /app/backend
 
 RUN npm install

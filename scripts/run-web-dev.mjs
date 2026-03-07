@@ -14,8 +14,8 @@ function run(cmd, args, options = {}) {
 }
 
 async function main() {
-  console.log('[web] Starting korana-estate/web Next.js dev server...')
-  await run(npmCmd, ['--prefix', 'korana-estate/web', 'run', 'dev'])
+  console.log('[web] Starting apps/web Next.js dev server...')
+  await run(npmCmd, ['--prefix', 'apps/web', 'run', 'dev'])
 }
 
 main().catch((error) => {

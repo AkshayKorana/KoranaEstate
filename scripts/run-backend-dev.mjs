@@ -15,10 +15,10 @@ function run(cmd, args, options = {}) {
 
 async function main() {
   console.log('[backend] Generating Prisma client from backend schema...')
-  await run(npmCmd, ['--prefix', 'korana-estate/backend', 'run', 'prisma:generate'])
+  await run(npmCmd, ['--prefix', 'apps/backend', 'run', 'prisma:generate'])
 
   console.log('[backend] Starting Nest dev server...')
-  await run(npmCmd, ['--prefix', 'korana-estate/backend', 'run', 'dev'])
+  await run(npmCmd, ['--prefix', 'apps/backend', 'run', 'dev'])
 }
 
 main().catch((error) => {

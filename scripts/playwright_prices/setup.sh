@@ -16,6 +16,6 @@ fi
 # shellcheck source=/dev/null
 source "$VENV_DIR/bin/activate"
 
-python -m pip install --upgrade pip
-python -m pip install -r "$SCRIPT_DIR/requirements.txt"
-python -m playwright install chromium
+"$VENV_DIR/bin/python" -m pip install --upgrade pip
+"$VENV_DIR/bin/python" -m pip install -r "$SCRIPT_DIR/requirements.txt"
+"$VENV_DIR/bin/python" -m playwright install chromium

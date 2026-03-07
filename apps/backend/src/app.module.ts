@@ -25,7 +25,13 @@ import { JobsModule } from './jobs/jobs.module'
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
-      envFilePath: [join(process.cwd(), '.env'), join(process.cwd(), 'korana-estate/backend/.env')],
+      envFilePath: [
+        join(process.cwd(), '.env'),
+        join(process.cwd(), 'apps/backend/.env'),
+        join(process.cwd(), 'backend/.env'),
+        join(process.cwd(), '..', '.env'),
+        join(process.cwd(), '..', '..', '.env'),
+      ],
     }),
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 120 }]),
     PrismaModule,
