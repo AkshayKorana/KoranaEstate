@@ -1,0 +1,1 @@
+"""Korana price collector service."""

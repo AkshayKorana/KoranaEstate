@@ -7,6 +7,14 @@ export type ScrapedObservation = {
   productKey: string
   value: number | null
   unit: string
+  status?: string
+  reason?: string | null
+  source?: string
+  sourceUrl?: string
+  rawText?: string | null
+  confidence?: number | null
+  capturedAt?: string
+  error?: string | null
   meta?: {
     query?: string
     debugFile?: string
@@ -67,18 +75,22 @@ export class PricesIngestService {
         productKey: item.productKey,
         value: Number(item.value),
         unit: item.unit || 'INR/kg',
-        source: payload.source || 'Python Playwright Scraper',
-        sourceUrl: item.meta?.sourceUrl || '',
-        confidence: Number.isFinite(item.meta?.confidence) ? Number(item.meta?.confidence) : 0.75,
-        rawText: item.meta?.query || `${item.productKey} ${item.value} ${item.unit || 'INR/kg'}`,
+        source: item.source || payload.source || 'Python Playwright Scraper',
+        sourceUrl: item.sourceUrl || item.meta?.sourceUrl || '',
+        confidence: Number.isFinite(item.confidence)
+          ? Number(item.confidence)
+          : Number.isFinite(item.meta?.confidence)
+            ? Number(item.meta?.confidence)
+            : 0.75,
+        rawText: item.rawText || item.meta?.query || `${item.productKey} ${item.value} ${item.unit || 'INR/kg'}`,
       }))
 
     const perItemErrors = (payload.items || [])
       .filter((item) => item?.productKey && !Number.isFinite(item.value))
       .map((item) => ({
         productKey: item.productKey,
-        error: item.meta?.reason || 'NO_DATA',
-        sourceUrl: item.meta?.sourceUrl || '',
+        error: item.error || item.reason || item.meta?.reason || 'NO_DATA',
+        sourceUrl: item.sourceUrl || item.meta?.sourceUrl || '',
       }))
 
     const errors = [...perItemErrors, ...(payload.errors || []).map((item) => ({

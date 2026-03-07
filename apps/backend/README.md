@@ -32,39 +32,49 @@
 
 All prices endpoints return `Cache-Control: no-store`.
 
-### Python Playwright Scraper
+### Price Collector Service
 
-Script path:
-- `scripts/playwright_prices/scrape_prices.py`
-- Wrapper path:
+Canonical service path:
+- `services/price-collector`
+
+Legacy compatibility wrapper path:
 - `scripts/playwright_prices/run.sh`
+- `scripts/playwright_prices/setup.sh`
 
-Requirements file:
-- `scripts/playwright_prices/requirements.txt`
+Canonical runtime entrypoint:
+- `services/price-collector/src/main.py`
+
+Legacy entry names still supported:
+- `scrape_prices.py`
+- `scrape_prices_google_ai.py`
 
 Setup scraper once (idempotent):
 
 ```bash
-cd scripts/playwright_prices
+cd services/price-collector
 ./setup.sh
 ```
 
 Run scraper manually (prints JSON to stdout):
 
 ```bash
-cd scripts/playwright_prices
+cd services/price-collector
 ./run.sh | jq
 ```
 
-The scraper writes debug text files to:
-- `apps/backend/.artifacts/prices/`
+Legacy wrapper still works:
+
+```bash
+cd scripts/playwright_prices
+./run.sh | jq
+```
 
 ### Required / Optional env vars
 
 ```bash
 CRON_SECRET=replace_with_long_random_secret
 PRICES_SCRAPER_ENABLED=true
-PRICES_SCRAPER_RUNNER=scripts/playwright_prices/run.sh
+PRICES_SCRAPER_RUNNER=services/price-collector/run.sh
 PRICES_SCRAPER_ENTRY=scrape_prices.py
 PRICES_SCRAPER_TIMEOUT_MS=120000
 PRICES_SCRAPER_RETRIES=2
@@ -94,13 +104,18 @@ curl -sS -X POST http://localhost:4000/api/v1/jobs/prices/run \
 ### One Command Runbook
 
 ```bash
-cd scripts/playwright_prices && ./setup.sh
-cd scripts/playwright_prices && ./run.sh | jq
+cd services/price-collector && ./setup.sh
+cd services/price-collector && ./run.sh | jq
 npm --prefix apps/backend run dev
 curl -sS http://localhost:4000/api/v1/prices/products | jq
 curl -sS http://localhost:4000/api/v1/prices/latest | jq
 curl -sS -X POST http://localhost:4000/api/v1/jobs/prices/run -H "Authorization: Bearer $CRON_SECRET" | jq
 ```
+
+Backend behavior:
+- the backend remains the ingest and read API owner
+- the jobs runner now prefers `services/price-collector/run.sh`
+- old `scripts/playwright_prices/run.sh` continues to work as a wrapper for compatibility
 
 ### Scheduling at 9:00 AM Asia/Kolkata
 
