@@ -11,7 +11,7 @@ import type { Request } from 'express'
 import { PrismaService } from '../prisma/prisma.service'
 import { HistoryQueryDto } from './dto/history-query.dto'
 import { IngestPricesDto } from './dto/ingest-prices.dto'
-import { normalizeDetectedPrice } from '../utils/normalizePrice'
+import { normalizeDetectedPrice, normalizePriceForIngest } from '../utils/normalizePrice'
 
 export type PriceProductResponseItem = {
   productKey: string
@@ -212,7 +212,7 @@ export class PricesService {
       return undefined
     }
 
-    if (metadata?.normalizedUnit === 'kg') {
+    if (metadata?.valuesAlreadyNormalized === true) {
       return Number(value)
     }
 
@@ -685,9 +685,15 @@ export class PricesService {
         return []
       }
 
-      const originalUnit = metadata?.normalizedUnit === 'kg'
-        ? String(metadata.originalUnit || 'kg')
-        : normalizeDetectedPrice(result.value, result.rawText, result.unit).originalUnit
+      const alreadyNormalized = metadata?.valuesAlreadyNormalized === true
+      const normalization = normalizePriceForIngest(result.value, {
+        rawText: result.rawText,
+        explicitUnit: result.unit,
+        valuesAlreadyNormalized: alreadyNormalized,
+      })
+      const originalUnit = metadata?.originalUnit
+        ? String(metadata.originalUnit)
+        : normalization.originalUnit
 
       return [{
         ...result,
@@ -709,6 +715,7 @@ export class PricesService {
           ...(metadata || {}),
           originalUnit,
           normalizedUnit: 'kg',
+          valuesAlreadyNormalized: true,
         },
       }]
     })

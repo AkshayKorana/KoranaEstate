@@ -51,3 +51,34 @@ export function normalizeDetectedPrice(value: number, rawText?: string | null, e
     sane: isNormalizedPriceSane(normalizedValue),
   }
 }
+
+export function normalizePriceForIngest(
+  value: number,
+  options: {
+    rawText?: string | null
+    explicitUnit?: string | null
+    valuesAlreadyNormalized?: boolean
+  },
+) {
+  const originalUnit = detectPriceUnit(options.rawText, options.explicitUnit)
+
+  if (options.valuesAlreadyNormalized) {
+    return {
+      originalUnit,
+      normalizedUnit: 'kg' as const,
+      normalizedValue: value,
+      sane: isNormalizedPriceSane(value),
+      valuesAlreadyNormalized: true,
+    }
+  }
+
+  const normalizedValue = normalizePriceToKg(value, originalUnit)
+
+  return {
+    originalUnit,
+    normalizedUnit: 'kg' as const,
+    normalizedValue,
+    sane: isNormalizedPriceSane(normalizedValue),
+    valuesAlreadyNormalized: false,
+  }
+}

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common'
 import { PriceObservationStatus } from '@prisma/client'
 import { IngestPricesDto } from './dto/ingest-prices.dto'
 import { type LatestPriceCard, type PricesIngestResponse, PricesService } from './prices.service'
-import { normalizeDetectedPrice } from '../utils/normalizePrice'
+import { normalizePriceForIngest } from '../utils/normalizePrice'
 
 export type ScrapedObservation = {
   productKey: string
@@ -88,7 +88,11 @@ export class PricesIngestService {
       return undefined
     }
 
-    const normalized = normalizeDetectedPrice(Number(value), rawText, explicitUnit)
+    const normalized = normalizePriceForIngest(Number(value), {
+      rawText,
+      explicitUnit,
+      valuesAlreadyNormalized: true,
+    })
     return normalized.sane ? normalized : null
   }
 
@@ -178,6 +182,7 @@ export class PricesIngestService {
           ...(normalizeMetadata(item) || {}),
           originalUnit: normalizedValue.originalUnit,
           normalizedUnit: normalizedValue.normalizedUnit,
+          valuesAlreadyNormalized: true,
         }
 
         return [{
