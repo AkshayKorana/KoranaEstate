@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import {
   Chart as ChartJS,
@@ -149,8 +149,141 @@ type PricesHistoryResponse = {
   daily: PriceHistoryPoint[]
 }
 
+type PipelineRunStatus = 'SUCCESS' | 'PARTIAL' | 'FAILED' | 'RUNNING' | null | undefined
+
 function formatPrice(value: number | null | undefined) {
   return value != null ? `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : '-'
+}
+
+function formatTimeAgo(value: string | null | undefined) {
+  if (!value) return 'Not available'
+
+  const date = new Date(value)
+  const diffMs = Date.now() - date.getTime()
+  if (Number.isNaN(date.getTime()) || diffMs < 0) return 'Just now'
+
+  const diffMinutes = Math.floor(diffMs / (1000 * 60))
+  if (diffMinutes <= 0) return 'Just now'
+  if (diffMinutes < 60) return `${diffMinutes}m ago`
+
+  const diffHours = Math.floor(diffMinutes / 60)
+  if (diffHours < 24) return `${diffHours}h ago`
+
+  const diffDays = Math.floor(diffHours / 24)
+  return `${diffDays}d ago`
+}
+
+function getStatusTone(status: PipelineRunStatus) {
+  switch (status) {
+    case 'SUCCESS':
+      return {
+        dot: 'bg-emerald-400',
+        text: 'text-emerald-200',
+        border: 'border-emerald-400/20 hover:border-emerald-400/35',
+        glow: 'shadow-[0_0_30px_rgba(16,185,129,0.08)]',
+      }
+    case 'PARTIAL':
+    case 'RUNNING':
+      return {
+        dot: 'bg-amber-400',
+        text: 'text-amber-200',
+        border: 'border-amber-400/20 hover:border-amber-400/35',
+        glow: 'shadow-[0_0_30px_rgba(245,158,11,0.08)]',
+      }
+    case 'FAILED':
+      return {
+        dot: 'bg-red-400',
+        text: 'text-red-200',
+        border: 'border-red-400/20 hover:border-red-400/35',
+        glow: 'shadow-[0_0_30px_rgba(248,113,113,0.08)]',
+      }
+    default:
+      return {
+        dot: 'bg-slate-400',
+        text: 'text-[#efe4d4]',
+        border: 'border-white/10 hover:border-white/20',
+        glow: 'shadow-[0_0_24px_rgba(255,255,255,0.04)]',
+      }
+  }
+}
+
+function ActivityIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <path d="M3 12h4l2.5-5 5 10 2.5-5H21" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function CheckCircleIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12 2.5 2.5 4.5-5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function ClockIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M12 7.5V12l3 2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+function StatusIndicator({ status }: { status: PipelineRunStatus }) {
+  const tone = getStatusTone(status)
+
+  return (
+    <div className={`inline-flex items-center gap-2 ${tone.text}`}>
+      <span className={`h-2.5 w-2.5 rounded-full ${tone.dot} animate-pulse`} />
+      <span className="text-2xl font-semibold tracking-tight text-[#f7e9d6]">{status || 'Not available'}</span>
+    </div>
+  )
+}
+
+function PipelineStatusCard({
+  title,
+  status,
+  timestamp,
+  subtitle,
+  icon,
+  freshnessWarning = false,
+}: {
+  title: string
+  status: string
+  timestamp: string | null | undefined
+  subtitle: string
+  icon: ReactNode
+  freshnessWarning?: boolean
+}) {
+  const tone = getStatusTone(status as PipelineRunStatus)
+  const timestampText = timestamp
+    ? new Date(timestamp).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })
+    : 'Not available'
+  const timeAgo = formatTimeAgo(timestamp)
+
+  return (
+    <div
+      className={`rounded-xl border ${tone.border} ${tone.glow} bg-black/40 backdrop-blur p-5 transition duration-300 hover:-translate-y-0.5`}
+    >
+      <div className="flex items-center gap-3 text-[#d5c4b2]">
+        <div className="rounded-lg border border-white/10 bg-white/5 p-2">{icon}</div>
+        <p className="text-xs uppercase tracking-[0.28em] text-[#9fb8a2]">{title}</p>
+      </div>
+
+      <div className="mt-5 space-y-2 transition duration-300 ease-out">
+        <StatusIndicator status={status as PipelineRunStatus} />
+        <p className="text-sm text-[#d5c4b2]">{timestampText}</p>
+        <p className={`text-xs ${freshnessWarning ? 'text-amber-300' : 'text-gray-400'}`}>
+          Updated {timeAgo}
+        </p>
+        <p className="pt-1 text-xs text-gray-500">{subtitle}</p>
+      </div>
+    </div>
+  )
 }
 
 function formatValueOrNotAvailable(value: string | null | undefined) {
@@ -508,6 +641,7 @@ export default function HomePage() {
   const trendDisplay = formatValueOrNotAvailable(selectedLatest?.trend)
   const confidenceDisplay =
     selectedLatest?.confidence != null ? `${Math.round(selectedLatest.confidence * 100)}%` : 'Not available'
+  const scheduleFreshnessWarning = (latest?.runHealth?.freshnessHours ?? 0) > 24
   const currentPer50KgDisplay = isCoffeeCommodity(selectedProduct)
     ? formatPer50KgEquivalent(selectedLatest?.currentPrice ?? selectedLatest?.value)
     : null
@@ -614,30 +748,39 @@ export default function HomePage() {
 
           {!loadingProducts && !loadingLatest && !productsError && !latestError && products.length > 0 && (
             <>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
-                  <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Latest run status</p>
-                  <p className="mt-2 text-2xl font-bold text-[#f7e9d6]">{latest?.run?.status || 'Not available'}</p>
-                  <p className="mt-1 text-xs text-gray-400">
-                    {latest?.run?.runAt ? new Date(latest.run.runAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'No run recorded yet'}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
-                  <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Last successful run</p>
-                  <p className="mt-2 text-2xl font-bold text-[#f7e9d6]">{latest?.lastSuccessfulRun?.status || 'Not available'}</p>
-                  <p className="mt-1 text-xs text-gray-400">
-                    {latest?.lastSuccessfulRun?.runAt ? new Date(latest.lastSuccessfulRun.runAt).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : 'No successful run yet'}
-                  </p>
-                </div>
-                <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
-                  <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Daily schedule health</p>
-                  <p className="mt-2 text-2xl font-bold text-[#f7e9d6]">
-                    {latest?.runHealth?.freshnessHours != null ? `${latest.runHealth.freshnessHours}h old` : 'Not available'}
-                  </p>
-                  <p className="mt-1 text-xs text-gray-400">
-                    {latest?.runHealth ? `${latest.runHealth.scheduleTimeLocal} ${latest.runHealth.scheduleTimezone}` : 'No schedule metadata'}
-                  </p>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                <PipelineStatusCard
+                  title="Latest Run Status"
+                  status={latest?.run?.status || 'Not available'}
+                  timestamp={latest?.run?.runAt}
+                  subtitle={latest?.run ? `${latest.run.successfulCount}/${latest.run.totalProducts} commodities captured` : 'No pipeline run recorded yet'}
+                  icon={<ActivityIcon />}
+                />
+                <PipelineStatusCard
+                  title="Last Successful Run"
+                  status={latest?.lastSuccessfulRun?.status || 'Not available'}
+                  timestamp={latest?.lastSuccessfulRun?.runAt}
+                  subtitle={latest?.lastSuccessfulRun ? `Trigger: ${latest.lastSuccessfulRun.trigger}` : 'No successful run has been recorded yet'}
+                  icon={<CheckCircleIcon />}
+                />
+                <PipelineStatusCard
+                  title="Daily Schedule Health"
+                  status={
+                    latest?.runHealth?.freshnessHours == null
+                      ? 'Not available'
+                      : scheduleFreshnessWarning
+                        ? 'FAILED'
+                        : latest?.runHealth?.latestRunStatus || 'SUCCESS'
+                  }
+                  timestamp={latest?.runHealth?.lastSuccessfulRunAt || latest?.runHealth?.latestRunAt}
+                  subtitle={
+                    latest?.runHealth
+                      ? `${latest.runHealth.scheduleTimeLocal} ${latest.runHealth.scheduleTimezone} • freshness window ${latest.runHealth.maxFreshnessHours}h`
+                      : 'No schedule metadata'
+                  }
+                  icon={<ClockIcon />}
+                  freshnessWarning={scheduleFreshnessWarning}
+                />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
