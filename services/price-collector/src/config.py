@@ -3,10 +3,21 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
-QUERY_TEMPLATE = (
-    "{commodity_name} latest price today in Madikeri, Kodagu and show me the latest "
-    "prices analysis from last week to today to next week"
-)
+COFFEE_PRODUCT_KEYS = {
+    "arabica_parchment",
+    "arabica_cherry",
+    "robusta_parchment",
+    "robusta_cherry",
+}
+SPICE_NUT_PRODUCT_KEYS = {"black_pepper", "arecanut"}
+
+
+def build_market_query(product_key: str, commodity_name: str) -> str:
+    if product_key in COFFEE_PRODUCT_KEYS:
+        return f"{commodity_name} price Madikeri Kodagu today trend outlook"
+    if product_key in SPICE_NUT_PRODUCT_KEYS:
+        return f"{commodity_name} market price Madikeri Kodagu today trend forecast"
+    return f"{commodity_name} price Madikeri Kodagu today market trend"
 
 
 @dataclass(frozen=True)
@@ -20,7 +31,7 @@ class CommodityConfig:
 
     @property
     def query(self) -> str:
-        return self.search_text_override or QUERY_TEMPLATE.format(commodity_name=self.display_name)
+        return self.search_text_override or build_market_query(self.product_key, self.display_name)
 
 
 COMMODITIES = [

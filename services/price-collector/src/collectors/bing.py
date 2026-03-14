@@ -349,9 +349,9 @@ def scrape_product(page, commodity) -> dict:
                 confidence=None,
                 error=error,
                 extras={
-                    "shortDescription": (debug_text or "")[:280] or None,
-                    "analysisSummary": (debug_text or "")[:600] or None,
-                    "analysisBullets": [debug_text[:240]] if debug_text else [],
+                    "shortDescription": "No reliable structured market summary available.",
+                    "analysisSummary": "No reliable structured market summary available.",
+                    "analysisBullets": [],
                     "historicalPoints": [],
                     "forecastPoints": [],
                     "metadata": {"query": commodity.query, "aliases": list(commodity.aliases)},

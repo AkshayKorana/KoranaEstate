@@ -78,6 +78,11 @@ type PriceLatestCard = {
   sources?: InsightSource[]
 }
 
+type RangeParts = {
+  large: string
+  small: string
+}
+
 type PricesProductsResponse = {
   updatedAt: string
   products: PriceProduct[]
@@ -296,7 +301,7 @@ function formatRangeOrValue(
   max: number | null | undefined
 ) {
   if (min != null && max != null) {
-    return `${formatPrice(min)} - ${formatPrice(max)}`
+    return `${formatPrice(min)}–${formatPrice(max)}`
   }
   if (value != null) {
     return formatPrice(value)
@@ -308,7 +313,7 @@ function formatRangeOrValueParts(
   value: number | null | undefined,
   min: number | null | undefined,
   max: number | null | undefined
-) {
+): RangeParts {
   const large = formatRangeOrValue(value, min, max)
 
   if (min != null && max != null && min !== max) {
@@ -339,6 +344,34 @@ function isCoffeeCommodity(product: Pick<PriceProduct, 'productKey' | 'displayNa
 function formatPer50KgEquivalent(value: number | null | undefined) {
   if (value == null) return 'Not available'
   return `≈ ${formatPrice(value * 50)} per 50 kg`
+}
+
+function formatPrimaryCoffeePrice(value: number | null | undefined) {
+  if (value == null) return 'Not available'
+  return `${formatPrice(value * 50)} per 50 kg`
+}
+
+function getMetadataString(metadata: Record<string, unknown> | null | undefined, key: string) {
+  const value = metadata?.[key]
+  return typeof value === 'string' && value.trim() ? value : null
+}
+
+function formatSignalParts(
+  numeric: RangeParts,
+  signal: string | null | undefined,
+  kind: 'last_week' | 'next_week'
+): RangeParts {
+  if (numeric.large !== 'Not available') return numeric
+  if (signal) {
+    return {
+      large: signal,
+      small: kind === 'last_week' ? 'Derived market comparison' : 'Derived market outlook',
+    }
+  }
+  return {
+    large: 'No reliable signal',
+    small: kind === 'last_week' ? 'No last-week signal available' : 'No next-week signal available',
+  }
 }
 
 function buildMarketHorizonChart(
@@ -395,16 +428,60 @@ function escapeRegExp(value: string) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
+const INSIGHT_NOISE_PATTERNS = [
+  /latest price today in madikeri/i,
+  /show me the latest prices analysis/i,
+  /skip to content/i,
+  /read more/i,
+  /about\s+\d+\s+results?/i,
+  /\bprivacy\b/i,
+  /\bterms\b/i,
+  /all search images videos maps news copilot/i,
+  /\bview all\b/i,
+]
+
 function cleanHighlightLine(line: string) {
   return line.replace(/\s+/g, ' ').trim()
 }
 
+function canonicalizeInsightLine(line: string) {
+  return cleanHighlightLine(line)
+    .toLowerCase()
+    .replace(/https?:\/\/\S+/g, '')
+    .replace(/[^a-z0-9₹ ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function sanitizeInsightText(value: string | null | undefined) {
+  const cleaned = cleanHighlightLine(value || '')
+  if (!cleaned) return ''
+  if (INSIGHT_NOISE_PATTERNS.some((pattern) => pattern.test(cleaned))) return ''
+  if (/^https?:\/\//i.test(cleaned)) return ''
+  if (/^(?:www\.)?[a-z0-9.-]+\.[a-z]{2,}(?:\/\S*)?$/i.test(cleaned)) return ''
+  if (/^[A-Z0-9\s|:.-]{18,}$/.test(cleaned)) return ''
+
+  const sentences = cleaned
+    .split(/(?<=[.!?])\s+/)
+    .map((sentence) => sentence.trim())
+    .filter(Boolean)
+
+  const deduped: string[] = []
+  const seen = new Set<string>()
+  for (const sentence of sentences) {
+    if (INSIGHT_NOISE_PATTERNS.some((pattern) => pattern.test(sentence))) continue
+    const key = canonicalizeInsightLine(sentence)
+    if (!key || seen.has(key)) continue
+    seen.add(key)
+    deduped.push(sentence)
+  }
+
+  return deduped.join(' ').trim()
+}
+
 function isUsefulHighlightLine(line: string) {
-  const cleaned = cleanHighlightLine(line)
+  const cleaned = sanitizeInsightText(line)
   if (!cleaned || cleaned.length < 24 || cleaned.length > 220) return false
-  if (/^(privacy|terms|skip to content|images|videos|maps|news|shopping|allsearchimages)/i.test(cleaned)) return false
-  if (/^https?:\/\//i.test(cleaned)) return false
-  if (/^[A-Z0-9\s|:.-]{18,}$/.test(cleaned)) return false
   if (!/[a-z]/i.test(cleaned)) return false
   return true
 }
@@ -423,7 +500,7 @@ function pickHighlightSentences(rawText: string | null | undefined, displayName:
 
   const lines = rawText
     .split(/\n+/)
-    .map(cleanHighlightLine)
+    .map(sanitizeInsightText)
     .filter(isUsefulHighlightLine)
 
   const selected: string[] = []
@@ -625,7 +702,7 @@ export default function HomePage() {
     selectedLatest?.todayPriceMin,
     selectedLatest?.todayPriceMax
   )
-  const currentEquivalentDisplay = selectedLatest?.currentPrice != null || selectedLatest?.value != null
+  const currentKgDisplay = selectedLatest?.currentPrice != null || selectedLatest?.value != null
     ? `${formatPrice(selectedLatest?.currentPrice ?? selectedLatest?.value)} ${selectedLatest?.unit || selectedProduct?.unit || 'INR/kg'}`
     : 'Not available'
   const lastWeekDisplay = formatRangeOrValue(
@@ -645,6 +722,12 @@ export default function HomePage() {
   const currentPer50KgDisplay = isCoffeeCommodity(selectedProduct)
     ? formatPer50KgEquivalent(selectedLatest?.currentPrice ?? selectedLatest?.value)
     : null
+  const currentPrimaryDisplay = isCoffeeCommodity(selectedProduct)
+    ? formatPrimaryCoffeePrice(selectedLatest?.currentPrice ?? selectedLatest?.value)
+    : formatPrice(selectedLatest?.currentPrice ?? selectedLatest?.value)
+  const currentSecondaryDisplay = isCoffeeCommodity(selectedProduct)
+    ? `(${currentKgDisplay.replace(/^/, '≈ ')})`
+    : (selectedLatest?.unit || selectedProduct?.unit || 'INR/kg')
   const lastWeekParts = formatRangeOrValueParts(
     selectedLatest?.lastWeekPrice,
     selectedLatest?.lastWeekPriceMin,
@@ -655,40 +738,63 @@ export default function HomePage() {
     selectedLatest?.expectedNextPriceMin,
     selectedLatest?.expectedNextPriceMax
   )
+  const lastWeekSignal = getMetadataString(selectedLatest?.metadata, 'last_week_display_signal')
+  const nextWeekSignal = getMetadataString(selectedLatest?.metadata, 'next_week_display_signal')
+  const sentimentDisplay = getMetadataString(selectedLatest?.metadata, 'marketSentiment') || 'Stable'
+  const lastWeekDisplayParts = formatSignalParts(lastWeekParts, lastWeekSignal, 'last_week')
+  const nextWeekDisplayParts = formatSignalParts(nextWeekParts, nextWeekSignal, 'next_week')
   const recentDailyHistory = useMemo(
     () => [...(history?.daily || [])].reverse().slice(0, 7),
     [history]
   )
+  const contextualSummary = useMemo(() => {
+    return (
+      sanitizeInsightText(selectedLatest?.shortDescription) ||
+      sanitizeInsightText(selectedLatest?.analysisSummary) ||
+      'No reliable structured market summary available.'
+    )
+  }, [selectedLatest])
+  const analysisText = useMemo(() => {
+    return (
+      sanitizeInsightText(selectedLatest?.analysisSummary) ||
+      sanitizeInsightText(selectedLatest?.shortDescription) ||
+      'No reliable structured market summary available.'
+    )
+  }, [selectedLatest])
   const derivedHighlights = useMemo(() => {
     const normalized = new Set<string>()
     const items: string[] = []
 
     for (const bullet of selectedLatest?.analysisBullets || []) {
-      const cleaned = cleanHighlightLine(bullet)
+      const cleaned = sanitizeInsightText(bullet)
       if (!isUsefulHighlightLine(cleaned)) continue
-      const key = cleaned.toLowerCase()
+      const key = canonicalizeInsightLine(cleaned)
       if (normalized.has(key)) continue
       normalized.add(key)
       items.push(cleaned)
     }
 
-    const summary = cleanHighlightLine(selectedLatest?.analysisSummary || selectedLatest?.shortDescription || '')
+    const summary = sanitizeInsightText(selectedLatest?.shortDescription || selectedLatest?.analysisSummary || '')
     if (isUsefulHighlightLine(summary)) {
-      const key = summary.toLowerCase()
+      const key = canonicalizeInsightLine(summary)
       if (!normalized.has(key)) {
         normalized.add(key)
         items.push(summary)
       }
     }
 
-    for (const line of pickHighlightSentences(selectedLatest?.rawText, selectedProduct?.displayName)) {
-      const key = line.toLowerCase()
-      if (normalized.has(key)) continue
-      normalized.add(key)
-      items.push(line)
+    if (items.length === 0) {
+      for (const line of pickHighlightSentences(selectedLatest?.rawText, selectedProduct?.displayName)) {
+        const cleaned = sanitizeInsightText(line)
+        if (!isUsefulHighlightLine(cleaned)) continue
+        const key = canonicalizeInsightLine(cleaned)
+        if (normalized.has(key)) continue
+        normalized.add(key)
+        items.push(cleaned)
+      }
     }
 
-    return items.slice(0, 6)
+    return items.slice(0, 4)
   }, [selectedLatest, selectedProduct])
 
   return (
@@ -810,9 +916,11 @@ export default function HomePage() {
                         </span>
                       </div>
                       <p className="mt-2 text-2xl font-bold text-[#f4ead9]">
-                        {formatPrice(card?.currentPrice ?? card?.value)}
+                        {isCoffeeCommodity(product) ? formatPrimaryCoffeePrice(card?.currentPrice ?? card?.value) : formatPrice(card?.currentPrice ?? card?.value)}
                       </p>
-                      <p className="text-xs text-gray-400">{product.unit}</p>
+                      <p className="text-xs text-gray-400">
+                        {isCoffeeCommodity(product) ? `(${card?.currentPrice != null || card?.value != null ? `≈ ${formatPrice((card?.currentPrice ?? card?.value ?? 0))}/kg` : 'Not available'})` : product.unit}
+                      </p>
                       {card?.trend && <p className="mt-1 text-xs text-emerald-300">{card.trend}</p>}
                       {card?.error && <p className="mt-1 text-xs text-red-300">{card.error}</p>}
                     </button>
@@ -827,7 +935,7 @@ export default function HomePage() {
                       {selectedProduct?.displayName || t('Commodity Detail', 'ವಸ್ತು ವಿವರ')}
                     </h3>
                     <p className="mt-1 text-sm text-[#cbbcae]">
-                      {selectedLatest?.analysisSummary || selectedLatest?.shortDescription || t('Structured intelligence updates appear here when available.', 'ಲಭ್ಯವಿರುವಾಗ ರಚಿತ ಮಾರುಕಟ್ಟೆ ಮಾಹಿತಿ ಇಲ್ಲಿ ಕಾಣುತ್ತದೆ.')}
+                      {contextualSummary || t('Structured intelligence updates appear here when available.', 'ಲಭ್ಯವಿರುವಾಗ ರಚಿತ ಮಾರುಕಟ್ಟೆ ಮಾಹಿತಿ ಇಲ್ಲಿ ಕಾಣುತ್ತದೆ.')}
                     </p>
                   </div>
                   <div className="max-w-sm min-w-[240px]">
@@ -849,21 +957,20 @@ export default function HomePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                   <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Current', 'ಪ್ರಸ್ತುತ')}</p>
-                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{formatPrice(selectedLatest?.currentPrice ?? selectedLatest?.value)}</p>
+                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{currentPrimaryDisplay}</p>
                     <p className="mt-1 text-xs text-gray-400">
-                      {selectedLatest?.unit || selectedProduct?.unit || 'INR/kg'}
-                      {currentPer50KgDisplay ? ` • ${currentPer50KgDisplay}` : ''}
+                      {currentSecondaryDisplay}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Last Week', 'ಕಳೆದ ವಾರ')}</p>
-                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{lastWeekParts.large}</p>
-                    <p className="mt-1 text-xs text-gray-400">{lastWeekParts.small}</p>
+                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{lastWeekDisplayParts.large}</p>
+                    <p className="mt-1 text-xs text-gray-400">{lastWeekDisplayParts.small}</p>
                   </div>
                   <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Next Week', 'ಮುಂದಿನ ವಾರ')}</p>
-                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{nextWeekParts.large}</p>
-                    <p className="mt-1 text-xs text-gray-400">{nextWeekParts.small}</p>
+                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{nextWeekDisplayParts.large}</p>
+                    <p className="mt-1 text-xs text-gray-400">{nextWeekDisplayParts.small}</p>
                   </div>
                   <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Trend', 'ಪ್ರವೃತ್ತಿ')}</p>
@@ -881,26 +988,31 @@ export default function HomePage() {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[#d6c8b9]">
                         <div className="rounded-xl bg-[#171411] px-4 py-3">
                           <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Latest Price</p>
-                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{latestPriceDisplay}</p>
+                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{isCoffeeCommodity(selectedProduct) ? currentPrimaryDisplay : latestPriceDisplay}</p>
                         </div>
                         <div className="rounded-xl bg-[#171411] px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Current INR/kg equivalent</p>
-                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{currentEquivalentDisplay}</p>
-                          {currentPer50KgDisplay && (
-                            <p className="mt-1 text-xs text-gray-400">{currentPer50KgDisplay}</p>
-                          )}
+                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">{isCoffeeCommodity(selectedProduct) ? 'Normalized INR/kg' : 'Current INR/kg equivalent'}</p>
+                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{currentKgDisplay}</p>
+                          {currentPer50KgDisplay && <p className="mt-1 text-xs text-gray-400">{currentPer50KgDisplay}</p>}
                         </div>
                         <div className="rounded-xl bg-[#171411] px-4 py-3">
                           <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Last Week range/value</p>
-                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{lastWeekDisplay}</p>
+                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{lastWeekDisplayParts.large}</p>
+                          <p className="mt-1 text-xs text-gray-400">{lastWeekDisplayParts.small}</p>
                         </div>
                         <div className="rounded-xl bg-[#171411] px-4 py-3">
                           <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Next Week outlook/range</p>
-                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{nextWeekDisplay}</p>
+                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{nextWeekDisplayParts.large}</p>
+                          <p className="mt-1 text-xs text-gray-400">{nextWeekDisplayParts.small}</p>
                         </div>
                         <div className="rounded-xl bg-[#171411] px-4 py-3">
                           <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Trend</p>
                           <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{trendDisplay}</p>
+                        </div>
+                        <div className="rounded-xl bg-[#171411] px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Market Sentiment</p>
+                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{sentimentDisplay}</p>
+                          <p className="mt-1 text-xs text-gray-400">{confidenceDisplay} confidence</p>
                         </div>
                         <div className="rounded-xl bg-[#171411] px-4 py-3">
                           <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Confidence</p>
@@ -912,7 +1024,7 @@ export default function HomePage() {
                     <div className="rounded-2xl border border-emerald-200/20 bg-[#100d0a] p-4">
                       <h4 className="text-xl font-semibold text-[#efe4d4]">Contextual Summary</h4>
                       <p className="mt-3 text-sm leading-7 text-[#d6c8b9]">
-                        {selectedLatest?.analysisSummary || selectedLatest?.shortDescription || 'Not available'}
+                        {contextualSummary || 'No reliable structured market summary available.'}
                       </p>
                     </div>
 
@@ -980,7 +1092,7 @@ export default function HomePage() {
                     <div className="rounded-2xl border border-emerald-200/25 bg-[#14110e] p-4">
                       <h4 className="text-lg font-semibold text-[#efe4d4]">{t('Analysis', 'ವಿಶ್ಲೇಷಣೆ')}</h4>
                       <p className="mt-3 text-sm leading-6 text-[#d6c8b9]">
-                        {selectedLatest?.analysisSummary || selectedLatest?.shortDescription || t('No analysis summary is available yet. The dashboard will keep rendering partial results safely.', 'ವಿಶ್ಲೇಷಣೆಯ ಸಾರಾಂಶ ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ. ಭಾಗಶಃ ಫಲಿತಾಂಶಗಳೂ ಸುರಕ್ಷಿತವಾಗಿ ತೋರಿಸಲಾಗುತ್ತವೆ.')}
+                        {analysisText || t('No analysis summary is available yet. The dashboard will keep rendering partial results safely.', 'ವಿಶ್ಲೇಷಣೆಯ ಸಾರಾಂಶ ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ. ಭಾಗಶಃ ಫಲಿತಾಂಶಗಳೂ ಸುರಕ್ಷಿತವಾಗಿ ತೋರಿಸಲಾಗುತ್ತವೆ.')}
                       </p>
                     </div>
 
