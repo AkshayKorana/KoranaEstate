@@ -51,6 +51,7 @@ NAV_TIMEOUT_MS = env_int("NAV_TIMEOUT_MS", 9000 if SCRAPER_FAST_MODE else 25000)
 RESULTS_TIMEOUT_MS = env_int("RESULTS_TIMEOUT_MS", 5000 if SCRAPER_FAST_MODE else 12000)
 PRODUCT_TIMEOUT_MS = env_int("PRODUCT_TIMEOUT_MS", 9000 if SCRAPER_FAST_MODE else 30000)
 SCRAPER_HEADLESS = env_bool("SCRAPER_HEADLESS", True)
+SCRAPER_BROWSER_CHANNEL = os.getenv("SCRAPER_BROWSER_CHANNEL")
 
 DELAY_BETWEEN_PRODUCTS_MIN = env_float("DELAY_BETWEEN_PRODUCTS_MIN", 0.1 if SCRAPER_FAST_MODE else 1.0)
 DELAY_BETWEEN_PRODUCTS_MAX = env_float("DELAY_BETWEEN_PRODUCTS_MAX", 0.3 if SCRAPER_FAST_MODE else 2.0)
@@ -423,18 +424,23 @@ def run() -> dict:
         profile_dir.mkdir(parents=True, exist_ok=True)
         log(f"[BING] using persistent profile: {profile_dir}")
 
-        context = playwright.chromium.launch_persistent_context(
-            user_data_dir=str(profile_dir),
-            channel="msedge",
-            headless=SCRAPER_HEADLESS,
-            viewport={"width": 1440, "height": 900},
-            locale="en-IN",
-            timezone_id="Asia/Kolkata",
-            user_agent=random.choice(USER_AGENTS),
-            args=[
+        launch_options = {
+            "user_data_dir": str(profile_dir),
+            "headless": SCRAPER_HEADLESS,
+            "viewport": {"width": 1440, "height": 900},
+            "locale": "en-IN",
+            "timezone_id": "Asia/Kolkata",
+            "user_agent": random.choice(USER_AGENTS),
+            "args": [
                 "--start-maximized",
                 "--disable-blink-features=AutomationControlled",
             ],
+        }
+        if SCRAPER_BROWSER_CHANNEL:
+            launch_options["channel"] = SCRAPER_BROWSER_CHANNEL
+
+        context = playwright.chromium.launch_persistent_context(
+            **launch_options,
         )
         context.add_init_script(
             """
