@@ -428,24 +428,19 @@ def run() -> dict:
     commodities = get_active_commodities()
 
     with sync_playwright() as playwright:
-        profile_dir = Path(SCRAPER_PROFILE_DIR).expanduser().resolve()
-        profile_dir.mkdir(parents=True, exist_ok=True)
-        log(f"[BING] using persistent profile: {profile_dir}")
-
         launch_options = {
-            "user_data_dir": str(profile_dir),
             "headless": SCRAPER_HEADLESS,
-            "viewport": {"width": 1440, "height": 900},
-            "locale": "en-IN",
-            "timezone_id": "Asia/Kolkata",
-            "user_agent": random.choice(USER_AGENTS),
             "args": CHROMIUM_LAUNCH_ARGS,
         }
         if SCRAPER_BROWSER_CHANNEL:
             launch_options["channel"] = SCRAPER_BROWSER_CHANNEL
 
-        context = playwright.chromium.launch_persistent_context(
-            **launch_options,
+        browser = playwright.chromium.launch(**launch_options)
+        context = browser.new_context(
+            viewport={"width": 1440, "height": 900},
+            locale="en-IN",
+            timezone_id="Asia/Kolkata",
+            user_agent=random.choice(USER_AGENTS),
         )
         context.add_init_script(
             """
@@ -454,7 +449,7 @@ def run() -> dict:
             });
             """
         )
-        page = context.pages[0] if context.pages else context.new_page()
+        page = context.new_page()
 
         try:
             for index, commodity in enumerate(commodities):
@@ -475,6 +470,10 @@ def run() -> dict:
         finally:
             try:
                 context.close()
+            except Exception:
+                pass
+            try:
+                browser.close()
             except Exception:
                 pass
 
