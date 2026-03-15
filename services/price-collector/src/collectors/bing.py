@@ -52,6 +52,14 @@ RESULTS_TIMEOUT_MS = env_int("RESULTS_TIMEOUT_MS", 5000 if SCRAPER_FAST_MODE els
 PRODUCT_TIMEOUT_MS = env_int("PRODUCT_TIMEOUT_MS", 9000 if SCRAPER_FAST_MODE else 30000)
 SCRAPER_HEADLESS = env_bool("SCRAPER_HEADLESS", True)
 SCRAPER_BROWSER_CHANNEL = os.getenv("SCRAPER_BROWSER_CHANNEL")
+CHROMIUM_LAUNCH_ARGS = [
+    "--start-maximized",
+    "--disable-blink-features=AutomationControlled",
+    "--no-sandbox",
+    "--disable-setuid-sandbox",
+    "--disable-dev-shm-usage",
+    "--disable-gpu",
+]
 
 DELAY_BETWEEN_PRODUCTS_MIN = env_float("DELAY_BETWEEN_PRODUCTS_MIN", 0.1 if SCRAPER_FAST_MODE else 1.0)
 DELAY_BETWEEN_PRODUCTS_MAX = env_float("DELAY_BETWEEN_PRODUCTS_MAX", 0.3 if SCRAPER_FAST_MODE else 2.0)
@@ -431,10 +439,7 @@ def run() -> dict:
             "locale": "en-IN",
             "timezone_id": "Asia/Kolkata",
             "user_agent": random.choice(USER_AGENTS),
-            "args": [
-                "--start-maximized",
-                "--disable-blink-features=AutomationControlled",
-            ],
+            "args": CHROMIUM_LAUNCH_ARGS,
         }
         if SCRAPER_BROWSER_CHANNEL:
             launch_options["channel"] = SCRAPER_BROWSER_CHANNEL
