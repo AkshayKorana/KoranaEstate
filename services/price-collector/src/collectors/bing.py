@@ -59,6 +59,8 @@ CHROMIUM_LAUNCH_ARGS = [
     "--disable-setuid-sandbox",
     "--disable-dev-shm-usage",
     "--disable-gpu",
+    "--no-zygote",
+    "--single-process",
 ]
 
 DELAY_BETWEEN_PRODUCTS_MIN = env_float("DELAY_BETWEEN_PRODUCTS_MIN", 0.1 if SCRAPER_FAST_MODE else 1.0)
