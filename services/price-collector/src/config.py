@@ -20,6 +20,46 @@ def build_market_query(product_key: str, commodity_name: str) -> str:
     return f"{commodity_name} price Madikeri Kodagu today market trend"
 
 
+def build_market_query_variants(product_key: str, commodity_name: str, aliases: tuple[str, ...]) -> tuple[str, ...]:
+    queries: list[str] = [build_market_query(product_key, commodity_name)]
+
+    if product_key in COFFEE_PRODUCT_KEYS:
+        queries.extend(
+            [
+                f"{commodity_name} price Kodagu",
+                f"{commodity_name} market Kodagu",
+            ]
+        )
+    elif product_key == "black_pepper":
+        queries.extend(
+            [
+                "Black Pepper price Kodagu",
+                "Pepper price Kodagu",
+            ]
+        )
+    elif product_key == "arecanut":
+        queries.extend(
+            [
+                "Arecanut price Kodagu",
+                "Supari price Kodagu",
+            ]
+        )
+
+    for alias in aliases:
+        queries.append(f"{alias} price Kodagu")
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for query in queries:
+        normalized = query.strip()
+        if not normalized or normalized in seen:
+            continue
+        seen.add(normalized)
+        deduped.append(normalized)
+
+    return tuple(deduped)
+
+
 @dataclass(frozen=True)
 class CommodityConfig:
     product_key: str
@@ -32,6 +72,12 @@ class CommodityConfig:
     @property
     def query(self) -> str:
         return self.search_text_override or build_market_query(self.product_key, self.display_name)
+
+    @property
+    def queries(self) -> tuple[str, ...]:
+        if self.search_text_override:
+            return (self.search_text_override,)
+        return build_market_query_variants(self.product_key, self.display_name, self.aliases)
 
 
 COMMODITIES = [
