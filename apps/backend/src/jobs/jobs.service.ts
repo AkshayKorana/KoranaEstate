@@ -81,6 +81,7 @@ export class JobsService {
     const candidatePaths = [
       configuredPath,
       join(process.cwd(), 'services', 'price-collector', 'run.sh'),
+      join(process.cwd(), '..', 'services', 'price-collector', 'run.sh'),
       join(process.cwd(), 'scripts', 'playwright_prices', 'run.sh'),
       join(process.cwd(), 'apps', 'backend', 'scripts', 'playwright_prices', 'run.sh'),
       join(process.cwd(), 'backend', 'scripts', 'playwright_prices', 'run.sh'),

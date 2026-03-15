@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LEGACY_DIR="$(cd "$SCRIPT_DIR/../../scripts/playwright_prices" && pwd)"
+LEGACY_DIR="$SCRIPT_DIR/../../scripts/playwright_prices"
 
 find_venv_dir() {
   for candidate in "$SCRIPT_DIR/.venv" "$LEGACY_DIR/.venv"; do
