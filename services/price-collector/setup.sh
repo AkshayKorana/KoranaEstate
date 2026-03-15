@@ -20,5 +20,8 @@ fi
 
 "$PYTHON_BIN" -m pip install --upgrade pip
 "$PYTHON_BIN" -m pip install -r "$SCRIPT_DIR/requirements.txt"
-PLAYWRIGHT_INSTALL_ARGS="${PLAYWRIGHT_INSTALL_ARGS:-chromium}"
+PLAYWRIGHT_BROWSER="${SCRAPER_BROWSER:-firefox}"
+if [ -z "${PLAYWRIGHT_INSTALL_ARGS:-}" ]; then
+  PLAYWRIGHT_INSTALL_ARGS="--with-deps $PLAYWRIGHT_BROWSER"
+fi
 "$PYTHON_BIN" -m playwright install $PLAYWRIGHT_INSTALL_ARGS

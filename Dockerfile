@@ -2,6 +2,8 @@ FROM node:20-bookworm-slim
 
 WORKDIR /app
 
+ENV SCRAPER_BROWSER=firefox
+
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     bash \
@@ -37,7 +39,7 @@ RUN npm install
 RUN npx prisma generate
 RUN npm run build
 
-RUN PLAYWRIGHT_INSTALL_ARGS="chromium" /app/services/price-collector/setup.sh
+RUN /app/services/price-collector/setup.sh
 EXPOSE 4000
 
 CMD ["node", "dist/src/main.js"]
