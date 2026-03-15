@@ -9,6 +9,9 @@
     "lint": "eslint \"src/**/*.ts\"",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate deploy",
+    "prices:migrate:sql": "prisma db execute --schema prisma/schema.prisma --file prisma/migrations/20260305123000_prices_pipeline/migration.sql",
+    "prices:migrate:idempotency:sql": "prisma db execute --schema prisma/schema.prisma --file prisma/migrations/20260307120000_price_run_idempotency/migration.sql",
+    "prices:seed": "node scripts/seed-price-products.js",
     "test:unit": "node --test test/unit/**/*.test.cjs",
     "test:e2e": "jest --config ./jest.e2e.config.cjs --runInBand"
   },
