@@ -123,9 +123,46 @@ def get_body_text(page) -> str:
 
 
 def submit_search(page, query: str) -> None:
-    search_url = f"{SEARCH_BASE}?q={quote_plus(query)}&setlang=en-IN&cc=in"
-    page.goto(search_url, wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
+    page.goto("https://www.bing.com", wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
     stabilize(page)
+
+    search_box_selectors = [
+        'textarea[name="q"]',
+        'input[name="q"]',
+        '#sb_form_q',
+    ]
+
+    for selector in search_box_selectors:
+        try:
+            locator = page.locator(selector).first
+            if locator.is_visible(timeout=1000):
+                locator.fill(query, timeout=2000)
+                break
+        except Exception:
+            continue
+
+    selectors = [
+        '#search_icon',
+        '#sb_form_go',
+        'button:has-text("Search")',
+        'input[type="submit"]',
+    ]
+
+    for selector in selectors:
+        try:
+            locator = page.locator(selector).first
+            if locator.is_visible(timeout=1000):
+                locator.click(timeout=2000)
+                stabilize(page)
+                return
+        except Exception:
+            continue
+
+    try:
+        page.locator('textarea[name="q"], input[name="q"], #sb_form_q').first.press("Enter", timeout=2000)
+        stabilize(page)
+    except Exception:
+        pass
 
 
 def scroll_entire_page(page, rounds: int = 8) -> None:
@@ -255,7 +292,8 @@ def extract_sources(page, commodity) -> list[dict[str, str]]:
     sources.sort(key=lambda source: _source_score(commodity, source.get("title", ""), source.get("url", "")), reverse=True)
     return sources[:SOURCE_RETURN_LIMIT]
 
-def search_and_extract(page, commodity, query: str) -> tuple[str | None, str, list[dict[str, str]], str]:
+def search_and_extract(page, commodity) -> tuple[str | None, str, list[dict[str, str]], str]:
+    query = commodity.query
     search_url = SEARCH_BASE
 
     # 1) Open search page
@@ -286,10 +324,9 @@ def search_and_extract(page, commodity, query: str) -> tuple[str | None, str, li
 
 def scrape_product(page, commodity) -> dict:
     started_at = time.monotonic()
-    query_variants = commodity.queries
     log(
         f"[BING][headless={SCRAPER_HEADLESS}][fast={SCRAPER_FAST_MODE}] "
-        f"{commodity.product_key} -> {query_variants[0]}"
+        f"{commodity.product_key} -> {commodity.query}"
     )
 
     try:
@@ -307,21 +344,7 @@ def scrape_product(page, commodity) -> dict:
                 error=f"Per-product timeout exceeded ({PRODUCT_TIMEOUT_MS}ms).",
             )
 
-        extracted_text = None
-        debug_text = ""
-        sources: list[dict[str, str]] = []
-        source_url = SEARCH_BASE
-        active_query = query_variants[0]
-
-        for query_index, query in enumerate(query_variants):
-            active_query = query
-            extracted_text, debug_text, sources, source_url = search_and_extract(page, commodity, query)
-            if extracted_text is not None:
-                break
-            if looks_blocked(debug_text) and query_index < len(query_variants) - 1:
-                next_query = query_variants[query_index + 1]
-                log(f"[BING] blocked for {commodity.product_key}; retrying with lighter query: {next_query}")
-                time.sleep(random.uniform(0.8, 1.6))
+        extracted_text, debug_text, sources, source_url = search_and_extract(page, commodity)
 
         if extracted_text is None:
             reason = "BLOCKED" if looks_blocked(debug_text) else "NO_DATA"
@@ -343,11 +366,7 @@ def scrape_product(page, commodity) -> dict:
                     "analysisBullets": [],
                     "historicalPoints": [],
                     "forecastPoints": [],
-                    "metadata": {
-                        "query": active_query,
-                        "queryVariants": list(query_variants),
-                        "aliases": list(commodity.aliases),
-                    },
+                    "metadata": {"query": commodity.query, "aliases": list(commodity.aliases)},
                     "sources": sources,
                 },
             )
