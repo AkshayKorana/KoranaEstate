@@ -459,11 +459,16 @@ def run() -> dict:
             });
             """
         )
-        page = context.new_page()
-
         try:
             for index, commodity in enumerate(commodities):
-                item = scrape_product(page, commodity)
+                page = context.new_page()
+                try:
+                    item = scrape_product(page, commodity)
+                finally:
+                    try:
+                        page.close()
+                    except Exception:
+                        pass
                 output["items"].append(item)
 
                 if item.get("status") != "OK":
