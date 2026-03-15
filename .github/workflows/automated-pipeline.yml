@@ -2,33 +2,34 @@ name: Automated Market Pipeline
 
 on:
   schedule:
-    - cron: '0 */6 * * *'
+    - cron: '30 3 * * *'
   workflow_dispatch:
 
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
     steps:
-      - name: Health check before pipeline
+      - name: Validate required secrets
         env:
-          APP_URL: ${{ secrets.APP_URL }}
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          if [ -z "$APP_URL" ]; then
-            echo "Missing APP_URL secret"
+          if [ -z "$BACKEND_URL" ]; then
+            echo "Missing required secret: BACKEND_URL"
             exit 1
           fi
-          curl --fail --show-error --silent "$APP_URL/api/health" | tee /tmp/health.json
+          if [ -z "$CRON_SECRET" ]; then
+            echo "Missing required secret: CRON_SECRET"
+            exit 1
+          fi
 
       - name: Trigger production pipeline API
         env:
-          APP_URL: ${{ secrets.APP_URL }}
+          BACKEND_URL: ${{ secrets.BACKEND_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          if [ -z "$APP_URL" ] || [ -z "$CRON_SECRET" ]; then
-            echo "Missing APP_URL or CRON_SECRET secret"
-            exit 1
-          fi
+          BACKEND_BASE="${BACKEND_URL%/}"
           curl --fail --show-error --silent \
-            -X POST "$APP_URL/api/jobs/pipeline" \
+            -X POST "$BACKEND_BASE/api/v1/jobs/prices/run" \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" | tee /tmp/pipeline.json
