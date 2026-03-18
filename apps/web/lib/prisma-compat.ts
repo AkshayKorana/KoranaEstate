@@ -1,12 +1,11 @@
-import { Prisma } from '@prisma/client'
-
 export function isPrismaSchemaCompatibilityError(error: unknown): boolean {
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+  const e = error as any
+  if (e?.code) {
     return (
-      error.code === 'P2021' || // table missing
-      error.code === 'P2022' || // column missing
-      error.code === 'P2011' || // null constraint due schema mismatch
-      error.code === 'P2032' // incompatible null/non-null field conversion
+      e.code === 'P2021' ||
+      e.code === 'P2022' ||
+      e.code === 'P2011' ||
+      e.code === 'P2032'
     )
   }
 
