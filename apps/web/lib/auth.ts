@@ -2,7 +2,7 @@ import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:4000/api/v1'
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
 
 type BackendAuthResponse = {
   user?: {
@@ -28,7 +28,7 @@ export const authOptions: NextAuthOptions = {
         const email = credentials?.email?.trim().toLowerCase()
         const password = credentials?.password
 
-        if (!email || !password) return null
+        if (!API_BASE || !email || !password) return null
 
         const response = await fetch(`${API_BASE}/auth/login`, {
           method: 'POST',

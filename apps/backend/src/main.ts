@@ -9,7 +9,11 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule)
 
   app.enableCors({
-    origin: [process.env.WEB_ORIGIN ?? 'http://localhost:3000', process.env.MOBILE_ORIGIN ?? 'exp://localhost:8081'],
+    origin: [
+      'https://korana-estate.vercel.app',
+      process.env.WEB_ORIGIN ?? 'http://localhost:3000',
+      process.env.MOBILE_ORIGIN ?? 'exp://localhost:8081',
+    ],
     credentials: true,
   })
 

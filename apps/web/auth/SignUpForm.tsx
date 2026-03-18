@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useLanguage } from '@/app/language-context'
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:4000/api/v1'
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
 
 export default function SignUpForm() {
   const { t } = useLanguage()
@@ -29,7 +29,15 @@ export default function SignUpForm() {
     const fullName = name.trim()
 
     try {
-      const registerRes = await fetch(`${API_BASE}/auth/register`, {
+      if (!API_BASE) {
+        setError(t('Signup is unavailable right now. Please try again later.', 'ಸೈನ್ ಅಪ್ ಈಗ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.'))
+        setIsLoading(false)
+        return
+      }
+
+      console.log('Signup API:', `${API_BASE}/auth/signup`)
+
+      const registerRes = await fetch(`${API_BASE}/auth/signup`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

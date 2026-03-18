@@ -23,6 +23,16 @@ export class AuthController {
     return this.authService.register(dto)
   }
 
+  @Post('signup')
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @ApiOperation({ summary: 'Signup alias for register' })
+  @ApiBody({ type: RegisterDto })
+  @ApiOkResponse({ type: AuthResponseDto })
+  @ApiTooManyRequestsResponse({ description: 'Rate limit exceeded' })
+  signup(@Body() dto: RegisterDto) {
+    return this.authService.register(dto)
+  }
+
   @Post('login')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 12, ttl: 60000 } })

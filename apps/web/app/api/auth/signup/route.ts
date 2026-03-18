@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:4000/api/v1'
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
 
 export async function POST(request: NextRequest) {
   try {
+    if (!API_BASE) {
+      return NextResponse.json({ error: 'NEXT_PUBLIC_API_URL is not configured.' }, { status: 500 })
+    }
+
     const body = await request.json()
     const fullName = typeof body?.name === 'string' ? body.name.trim() : ''
     const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
     const password = typeof body?.password === 'string' ? body.password : ''
 
-    const upstream = await fetch(`${API_BASE}/auth/register`, {
+    console.log('Signup API:', `${API_BASE}/auth/signup`)
+
+    const upstream = await fetch(`${API_BASE}/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
