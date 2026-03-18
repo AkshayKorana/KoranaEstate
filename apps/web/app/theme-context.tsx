@@ -16,7 +16,7 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
 const STORAGE_KEY = 'korana-ui-theme'
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<ThemeMode>('light')
+  const [theme, setThemeState] = useState<ThemeMode>('dark')
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
@@ -66,7 +66,7 @@ export function useTheme() {
 
 export function useEffectiveTheme() {
   const { theme, mounted } = useTheme()
-  const effectiveTheme: ThemeMode = mounted ? theme : 'light'
+  const effectiveTheme: ThemeMode = mounted ? theme : 'dark'
   return {
     mounted,
     effectiveTheme,
