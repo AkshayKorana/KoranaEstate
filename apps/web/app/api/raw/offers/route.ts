@@ -1,44 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
-import { requireSessionUser } from '@/app/api/_session-user'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:4000/api/v1'
+
+async function getAccessToken() {
+  const session = await getServerSession(authOptions)
+  return session?.accessToken ?? null
+}
+
 export async function GET(request: NextRequest) {
   try {
-    const user = await requireSessionUser()
-    if (!user) {
+    const accessToken = await getAccessToken()
+    if (!accessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { searchParams } = new URL(request.url)
-    const role = searchParams.get('role')
-
-    const offers = await prisma.rawOffer.findMany({
-      where:
-        role === 'seller'
-          ? {
-              listing: { sellerId: user.id },
-            }
-          : {
-              buyerId: user.id,
-            },
-      include: {
-        buyer: {
-          select: { id: true, name: true, email: true },
-        },
-        listing: {
-          include: {
-            seller: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-        },
-      },
-      orderBy: { createdAt: 'desc' },
-    })
-
-    return NextResponse.json({ offers })
+    return NextResponse.json({ offers: [] })
   } catch (error) {
     console.error('apps/web raw offers GET failed', error)
     return NextResponse.json({ error: 'Failed to fetch offers' }, { status: 500 })
@@ -47,8 +28,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireSessionUser()
-    if (!user) {
+    const accessToken = await getAccessToken()
+    if (!accessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -65,44 +46,53 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const listing = await prisma.rawListing.findUnique({ where: { id: listingId } })
-    if (!listing) {
-      return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
-    }
-    if (!listing.isActive) {
-      return NextResponse.json({ error: 'This listing is no longer active' }, { status: 400 })
-    }
-    if (listing.sellerId === user.id) {
-      return NextResponse.json({ error: 'You cannot make an offer on your own listing' }, { status: 400 })
-    }
-    if (quantity > listing.quantityKg) {
-      return NextResponse.json(
-        { error: `Requested quantity exceeds available stock (${listing.quantityKg} kg)` },
-        { status: 400 },
-      )
+    const upstream = await fetch(`${API_BASE}/marketplace/listings/${encodeURIComponent(listingId)}/bids`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        amountPerKg: Number(offerPrice.toFixed(2)),
+        quantityKg: Number(quantity.toFixed(2)),
+        note: message,
+      }),
+      cache: 'no-store',
+    })
+
+    const text = await upstream.text()
+    const payload = text ? JSON.parse(text) as {
+      id?: string
+      rawProductId?: string
+      buyerId?: string
+      amountPerKg?: number | string
+      quantityKg?: number | string
+      note?: string | null
+      status?: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'CANCELLED'
+      createdAt?: string
+      updatedAt?: string
+      message?: string
+      error?: string
+    } : {}
+
+    if (!upstream.ok) {
+      const error = payload.message || payload.error || 'Failed to create offer'
+      return NextResponse.json({ error }, { status: upstream.status })
     }
 
-    const offer = await prisma.rawOffer.create({
-      data: {
-        listingId,
-        buyerId: user.id,
-        offerPrice: Number(offerPrice.toFixed(2)),
-        quantity: Number(quantity.toFixed(2)),
-        message,
-      },
-      include: {
-        buyer: {
-          select: { id: true, name: true, email: true },
-        },
-        listing: {
-          include: {
-            seller: {
-              select: { id: true, name: true, email: true },
-            },
-          },
-        },
-      },
-    })
+    const offer = {
+      id: payload.id ?? '',
+      listingId: payload.rawProductId ?? listingId,
+      buyerId: payload.buyerId ?? '',
+      offerPrice: Number(payload.amountPerKg ?? 0),
+      quantity: Number(payload.quantityKg ?? 0),
+      message: payload.note ?? null,
+      status: payload.status ?? 'PENDING',
+      createdAt: payload.createdAt ?? new Date(0).toISOString(),
+      updatedAt: payload.updatedAt ?? payload.createdAt ?? new Date(0).toISOString(),
+      listing: undefined,
+      buyer: undefined,
+    }
 
     return NextResponse.json({ offer }, { status: 201 })
   } catch (error) {

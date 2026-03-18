@@ -1,15 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { randomUUID } from 'crypto'
-import { prisma } from '@/lib/prisma'
-import { isPrismaSchemaCompatibilityError } from '@/lib/prisma-compat'
-import { requireSessionUser } from '@/app/api/_session-user'
+import { getServerSession } from 'next-auth'
+import { authOptions } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
+const API_BASE =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:4000/api/v1'
+
+type BackendStoreProduct = {
+  id: string
+  sellerId?: string | null
+  title?: string | null
+  category?: string | null
+  price?: number | string | null
+  stock?: number | null
+  description?: string | null
+  isActive?: boolean | null
+  createdAt?: string | null
+  updatedAt?: string | null
+}
+
+type BackendOrder = {
+  id?: string
+  buyerId?: string
+  status?: string
+  totalAmount?: number | string
+  shippingAddress?: string | null
+  createdAt?: string
+  updatedAt?: string
+  items?: Array<{
+    retailProductId?: string
+    quantity?: number
+    unitPrice?: number | string
+  }>
+  message?: string
+  error?: string
+}
+
+async function getSession() {
+  return getServerSession(authOptions)
+}
+
 export async function POST(request: NextRequest) {
   try {
-    const user = await requireSessionUser()
-    if (!user) {
+    const session = await getSession()
+    const accessToken = session?.accessToken
+    if (!accessToken || !session.user?.id || !session.user?.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -23,226 +59,87 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields: productId, quantity' }, { status: 400 })
     }
 
-    let webProduct: { id: string; sellerId: string; price: number; stock: number; isActive: boolean } | null = null
-    let useFallback = false
+    const productsUpstream = await fetch(`${API_BASE}/store/products`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: 'no-store',
+    })
+    const productsText = await productsUpstream.text()
+    const productsPayload = productsText ? (JSON.parse(productsText) as BackendStoreProduct[] | { message?: string; error?: string }) : []
 
-    try {
-      webProduct = await prisma.product.findUnique({
-        where: { id: productId },
-        select: { id: true, sellerId: true, price: true, stock: true, isActive: true },
-      })
-      if (!webProduct) useFallback = true
-    } catch (error) {
-      if (!isPrismaSchemaCompatibilityError(error)) throw error
-      useFallback = true
+    if (!productsUpstream.ok) {
+      const error = Array.isArray(productsPayload) ? 'Failed to fetch products' : (productsPayload.message || productsPayload.error || 'Failed to fetch products')
+      return NextResponse.json({ error }, { status: productsUpstream.status })
     }
 
-    if (!useFallback && webProduct) {
-      if (!webProduct.isActive) {
-        return NextResponse.json({ error: 'This product is no longer available' }, { status: 400 })
-      }
-      if (quantity > webProduct.stock) {
-        return NextResponse.json({ error: `Insufficient stock. Available: ${webProduct.stock}` }, { status: 400 })
-      }
+    const product = (productsPayload as BackendStoreProduct[]).find((item) => item.id === productId)
 
-      try {
-        const order = await prisma.$transaction(async (tx: any) => {
-          const updated = await tx.product.update({
-            where: { id: productId },
-            data: { stock: webProduct!.stock - quantity },
-          })
-
-          return tx.order.create({
-            data: {
-              buyerId: user.id,
-              productId,
-              quantity,
-              totalPrice: Number((webProduct!.price * quantity).toFixed(2)),
-              shippingAddress,
-              phone,
-            },
-            include: {
-              buyer: {
-                select: { id: true, name: true, email: true },
-              },
-              product: {
-                include: {
-                  seller: {
-                    select: { id: true, name: true, email: true },
-                  },
-                },
-              },
-            },
-          }).then((created: any) => ({
-            ...created,
-            product: {
-              ...created.product,
-              stock: updated.stock,
-            },
-          }))
-        })
-
-        return NextResponse.json({ order }, { status: 201 })
-      } catch (error) {
-        if (!isPrismaSchemaCompatibilityError(error)) throw error
-      }
-    }
-
-    const products: any[] = await (prisma.$queryRawUnsafe as any)(
-      `SELECT
-        rp."id",
-        rp."sellerId",
-        rp."title",
-        rp."price"::double precision AS "price",
-        rp."stock",
-        rp."isActive",
-        rp."deletedAt"
-       FROM "RetailProduct" rp
-       WHERE rp."id" = $1
-       LIMIT 1`,
-      productId,
-    )
-
-    let product = products[0]
     if (!product) {
-      const webRows: any[] = await (prisma.$queryRawUnsafe as any)(
-        `SELECT
-          p."id",
-          p."sellerId",
-          p."name",
-          p."price"::double precision AS "price",
-          p."stock",
-          p."isActive"
-         FROM "Product" p
-         WHERE p."id" = $1
-         LIMIT 1`,
-        productId,
-      )
-
-      const wp = webRows[0]
-      if (!wp) {
-        return NextResponse.json({ error: 'Product not found' }, { status: 404 })
-      }
-
-      await prisma.$executeRawUnsafe(
-        `INSERT INTO "RetailProduct"
-          ("id","sellerId","title","category","price","stock","description","isActive","createdAt","updatedAt")
-         VALUES
-          ($1,$2,$3,$4,$5::numeric,$6,NULL,$7,NOW(),NOW())
-         ON CONFLICT ("id") DO NOTHING`,
-        wp.id,
-        wp.sellerId,
-        wp.name,
-        'Coffee Powder',
-        wp.price,
-        wp.stock,
-        wp.isActive,
-      )
-
-      product = {
-        id: wp.id,
-        sellerId: wp.sellerId,
-        title: wp.name,
-        price: wp.price,
-        stock: wp.stock,
-        isActive: wp.isActive,
-        deletedAt: null,
-      }
+      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
-
-    if (!product.isActive || product.deletedAt) {
+    if (product.isActive === false) {
       return NextResponse.json({ error: 'This product is no longer available' }, { status: 400 })
     }
-    if (quantity > product.stock) {
-      return NextResponse.json({ error: `Insufficient stock. Available: ${product.stock}` }, { status: 400 })
+    if (quantity > Number(product.stock ?? 0)) {
+      return NextResponse.json({ error: `Insufficient stock. Available: ${Number(product.stock ?? 0)}` }, { status: 400 })
     }
 
-    const unitPrice = Number(product.price)
-    const lineTotal = Number((unitPrice * quantity).toFixed(2))
-    const commissionRate = 0.05
-    const platformFee = Number((lineTotal * commissionRate).toFixed(2))
-    const sellerPayout = Number((lineTotal - platformFee).toFixed(2))
-    const orderId = randomUUID()
-
-    const order = await prisma.$transaction(async (tx: any) => {
-      const stockUpdate: any[] = await (tx.$queryRawUnsafe as any)(
-        `UPDATE "RetailProduct"
-         SET "stock" = "stock" - $1,
-             "updatedAt" = NOW()
-         WHERE "id" = $2
-           AND "stock" >= $1
-         RETURNING "id"`,
-        quantity,
-        productId,
-      )
-
-      if (stockUpdate.length === 0) {
-        throw new Error('Insufficient stock. Please refresh and try again.')
-      }
-
-      const createdOrder: any[] = await (tx.$queryRawUnsafe as any)(
-        `INSERT INTO "Order"
-          ("id","buyerId","status","totalAmount","commissionRate","platformFee","sellerPayout","shippingAddress","createdAt","updatedAt")
-         VALUES
-          ($1,$2,'PENDING',$3::numeric,$4::numeric,$5::numeric,$6::numeric,$7,NOW(),NOW())
-         RETURNING "id","status","createdAt","updatedAt","shippingAddress"`,
-        orderId,
-        user.id,
-        lineTotal,
-        commissionRate,
-        platformFee,
-        sellerPayout,
+    const unitPrice = Number(product.price ?? 0)
+    const upstream = await fetch(`${API_BASE}/orders`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        items: [{ retailProductId: productId, quantity, unitPrice }],
         shippingAddress,
-      )
-
-      const orderRow = createdOrder[0]
-
-      await tx.$executeRawUnsafe(
-        `INSERT INTO "OrderItem"
-          ("id","orderId","retailProductId","quantity","unitPrice","lineTotal","createdAt","updatedAt")
-         VALUES
-          ($1,$2,$3,$4,$5::numeric,$6::numeric,NOW(),NOW())`,
-        randomUUID(),
-        orderRow.id,
-        productId,
-        quantity,
-        unitPrice,
-        lineTotal,
-      )
-
-      const sellerRows: any[] = await (tx.$queryRawUnsafe as any)(
-        `SELECT "id", COALESCE("name","fullName") AS "name", "email"
-         FROM "User" WHERE "id" = $1 LIMIT 1`,
-        product.sellerId,
-      )
-
-      return {
-        id: orderRow.id,
-        buyerId: user.id,
-        productId: product.id,
-        quantity,
-        totalPrice: lineTotal,
-        status: orderRow.status,
-        shippingAddress: orderRow.shippingAddress,
-        phone,
-        createdAt: orderRow.createdAt,
-        updatedAt: orderRow.updatedAt,
-        buyer: { id: user.id, name: user.name, email: user.email },
-        product: {
-          id: product.id,
-          name: product.title,
-          category: '',
-          price: unitPrice,
-          stock: Math.max(0, product.stock - quantity),
-          description: null,
-          imageUrl: null,
-          isActive: true,
-          createdAt: orderRow.createdAt,
-          updatedAt: orderRow.updatedAt,
-          seller: sellerRows[0] ?? null,
-        },
-      }
+      }),
+      cache: 'no-store',
     })
+
+    const text = await upstream.text()
+    const payload = text ? (JSON.parse(text) as BackendOrder) : {}
+
+    if (!upstream.ok) {
+      const error = payload.message || payload.error || 'Failed to create order'
+      return NextResponse.json({ error }, { status: upstream.status })
+    }
+
+    const createdAt = payload.createdAt ?? new Date().toISOString()
+    const updatedAt = payload.updatedAt ?? createdAt
+    const order = {
+      id: payload.id ?? '',
+      buyerId: payload.buyerId ?? session.user.id,
+      productId,
+      quantity,
+      totalPrice: Number(payload.totalAmount ?? unitPrice * quantity),
+      status: payload.status ?? 'PENDING',
+      shippingAddress: payload.shippingAddress ?? shippingAddress,
+      phone,
+      createdAt,
+      updatedAt,
+      buyer: {
+        id: session.user.id,
+        name: session.user.name ?? null,
+        email: session.user.email,
+      },
+      product: {
+        id: product.id,
+        sellerId: product.sellerId ?? '',
+        name: product.title ?? '',
+        category: product.category ?? '',
+        price: unitPrice,
+        stock: Math.max(0, Number(product.stock ?? 0) - quantity),
+        description: product.description ?? null,
+        imageUrl: null,
+        isActive: product.isActive ?? true,
+        createdAt: product.createdAt ?? createdAt,
+        updatedAt: product.updatedAt ?? updatedAt,
+      },
+    }
 
     return NextResponse.json({ order }, { status: 201 })
   } catch (error) {
