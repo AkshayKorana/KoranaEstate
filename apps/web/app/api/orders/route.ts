@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
       }
 
       try {
-        const order = await prisma.$transaction(async (tx) => {
+        const order = await prisma.$transaction(async (tx: any) => {
           const updated = await tx.product.update({
             where: { id: productId },
             data: { stock: webProduct!.stock - quantity },
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
                 },
               },
             },
-          }).then((created) => ({
+          }).then((created: any) => ({
             ...created,
             product: {
               ...created.product,
