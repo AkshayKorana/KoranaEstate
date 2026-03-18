@@ -32,6 +32,8 @@ const navItems = [
   { href: '/messages', label: { en: 'Messages', kn: 'ಸಂದೇಶಗಳು' }, icon: '💬' },
 ]
 
+const HOME_STAYS_ENABLED = false
+
 export default function Navbar() {
   const pathname = usePathname()
   const { data: session, status } = useSession()
@@ -41,6 +43,7 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const visibleNavItems = HOME_STAYS_ENABLED ? navItems : navItems.filter((item) => item.href !== '/home-stays')
 
   const isActivePath = (path: string) => (path.startsWith('/#') ? pathname === '/' : pathname === path)
 
@@ -109,7 +112,7 @@ export default function Navbar() {
 
           {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-1 rounded-2xl px-1 py-1 border" style={{ borderColor: 'var(--lux-navbar-border)', background: 'color-mix(in oklab, var(--lux-navbar-bg) 74%, transparent)' }}>
-            {navItems.map(item => {
+            {visibleNavItems.map(item => {
               const isActive = isActivePath(item.href)
               const isMessages = item.href === '/messages'
               return (
@@ -217,7 +220,7 @@ export default function Navbar() {
       {isMobileMenuOpen && (
         <div className="lg:hidden border-t border-emerald-200/15 bg-[rgba(13,10,8,0.92)]">
           <div className="mx-auto max-w-7xl px-6 md:px-8 lg:px-10 pt-4 pb-6 space-y-3 slide-in-up">
-            {navItems.map(item => {
+            {visibleNavItems.map(item => {
               const isActive = isActivePath(item.href)
               const isMessages = item.href === '/messages'
               return (
