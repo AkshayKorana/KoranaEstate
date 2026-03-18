@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
     const sellerPayout = Number((lineTotal - platformFee).toFixed(2))
     const orderId = randomUUID()
 
-    const order = await prisma.$transaction(async (tx) => {
+    const order = await prisma.$transaction(async (tx: any) => {
       const stockUpdate = await tx.$queryRawUnsafe<Array<{ id: string }>>(
         `UPDATE "RetailProduct"
          SET "stock" = "stock" - $1,
