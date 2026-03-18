@@ -88,15 +88,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const products = await prisma.$queryRawUnsafe<Array<{
-      id: string
-      sellerId: string
-      title: string
-      price: number
-      stock: number
-      isActive: boolean
-      deletedAt: Date | null
-    }>>(
+    const products: any[] = await (prisma.$queryRawUnsafe as any)(
       `SELECT
         rp."id",
         rp."sellerId",
@@ -113,14 +105,7 @@ export async function POST(request: NextRequest) {
 
     let product = products[0]
     if (!product) {
-      const webRows = await prisma.$queryRawUnsafe<Array<{
-        id: string
-        sellerId: string
-        name: string
-        price: number
-        stock: number
-        isActive: boolean
-      }>>(
+      const webRows: any[] = await (prisma.$queryRawUnsafe as any)(
         `SELECT
           p."id",
           p."sellerId",
@@ -180,7 +165,7 @@ export async function POST(request: NextRequest) {
     const orderId = randomUUID()
 
     const order = await prisma.$transaction(async (tx: any) => {
-      const stockUpdate = await tx.$queryRawUnsafe<Array<{ id: string }>>(
+      const stockUpdate: any[] = await (tx.$queryRawUnsafe as any)(
         `UPDATE "RetailProduct"
          SET "stock" = "stock" - $1,
              "updatedAt" = NOW()
@@ -195,13 +180,7 @@ export async function POST(request: NextRequest) {
         throw new Error('Insufficient stock. Please refresh and try again.')
       }
 
-      const createdOrder = await tx.$queryRawUnsafe<Array<{
-        id: string
-        status: string
-        createdAt: Date
-        updatedAt: Date
-        shippingAddress: string | null
-      }>>(
+      const createdOrder: any[] = await (tx.$queryRawUnsafe as any)(
         `INSERT INTO "Order"
           ("id","buyerId","status","totalAmount","commissionRate","platformFee","sellerPayout","shippingAddress","createdAt","updatedAt")
          VALUES
@@ -231,7 +210,7 @@ export async function POST(request: NextRequest) {
         lineTotal,
       )
 
-      const sellerRows = await tx.$queryRawUnsafe<Array<{ id: string; name: string | null; email: string }>>(
+      const sellerRows: any[] = await (tx.$queryRawUnsafe as any)(
         `SELECT "id", COALESCE("name","fullName") AS "name", "email"
          FROM "User" WHERE "id" = $1 LIMIT 1`,
         product.sellerId,
