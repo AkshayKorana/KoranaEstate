@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import tempfile
@@ -12,7 +13,7 @@ from playwright.sync_api import sync_playwright
 
 from config import COFFEE_PRODUCT_KEYS, CommodityConfig, get_active_commodities
 from models import build_error, build_item, now_iso
-from .bing import CHROMIUM_LAUNCH_ARGS, build_failed_output as build_bing_failed_output, run as run_bing
+from .bing import CHROMIUM_LAUNCH_ARGS, build_failed_output as build_bing_failed_output, log, run as run_bing
 
 REPORT_PAGE_URL = "https://coffeeboard.gov.in/Market_Info.aspx"
 REPORT_LINK_TEXT = "Click here to view Daily report"
@@ -55,6 +56,15 @@ def normalize_space(text: str | None) -> str:
 def extract_text_from_pdf(file_path: str) -> str:
     reader = PdfReader(file_path)
     return "\n".join(page.extract_text() or "" for page in reader.pages)
+
+
+def build_report_fingerprint(report_date: str | None, file_name: str | None, pdf_text: str) -> str:
+    hash_input = "||".join([
+        normalize_space(report_date),
+        normalize_space(file_name),
+        normalize_space(pdf_text),
+    ])
+    return hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
 
 
 def extract_report_date(*text_values: str) -> tuple[str | None, str | None]:
@@ -224,6 +234,7 @@ def fetch_latest_report() -> dict[str, Any]:
         browser = playwright.chromium.launch(headless=True, args=CHROMIUM_LAUNCH_ARGS)
         page = browser.new_page(locale="en-IN", timezone_id="Asia/Kolkata")
         try:
+            log(f"[COFFEE_BOARD] opening market info page {REPORT_PAGE_URL}")
             page.goto(REPORT_PAGE_URL, wait_until="domcontentloaded", timeout=20000)
             page.get_by_role("button", name=REPORT_LINK_TEXT).wait_for(state="visible", timeout=8000)
             page_text = page.locator("body").inner_text(timeout=4000)
@@ -248,6 +259,11 @@ def fetch_latest_report() -> dict[str, Any]:
     futures = extract_futures_rows(pdf_text)
     analysis_text = extract_analysis(pdf_text)
     domestic_prices = extract_domestic_prices(pdf_text)
+    report_fingerprint = build_report_fingerprint(report_date_text, download.suggested_filename, pdf_text)
+    log(
+        f"[COFFEE_BOARD] fetched report date={report_date_text or 'unknown'} "
+        f"file={download.suggested_filename} prices_found={sorted(domestic_prices.keys())}"
+    )
 
     return {
         "title": COFFEE_BOARD_PAGE_TITLE,
@@ -255,6 +271,7 @@ def fetch_latest_report() -> dict[str, Any]:
         "reportDateIso": report_date_iso,
         "sourceUrl": REPORT_PAGE_URL,
         "suggestedFileName": download.suggested_filename,
+        "reportFingerprint": report_fingerprint,
         "pageText": page_text,
         "pdfText": pdf_text,
         "analysisText": analysis_text,
@@ -296,7 +313,12 @@ def build_coffee_item(commodity: CommodityConfig, report: dict[str, Any]) -> dic
                     "reportDate": report_date,
                     "reportDateIso": report.get("reportDateIso"),
                     "reportFileName": report.get("suggestedFileName"),
+                    "reportFingerprint": report.get("reportFingerprint"),
                     "reportSourceLabel": PAYLOAD_SOURCE,
+                    "reportStatus": "NEW_REPORT",
+                    "lastCheckedAt": report.get("fetchedAt"),
+                    "latestSuccessfulReportDate": report_date,
+                    "carryingForwardPreviousReport": False,
                     "marketAnalysis": analysis_text,
                     "futures": futures,
                     "domesticPrices": report.get("domesticPrices"),
@@ -344,8 +366,13 @@ def build_coffee_item(commodity: CommodityConfig, report: dict[str, Any]) -> dic
                 "reportDate": report_date,
                 "reportDateIso": report.get("reportDateIso"),
                 "reportFileName": report.get("suggestedFileName"),
+                "reportFingerprint": report.get("reportFingerprint"),
                 "reportSourceLabel": PAYLOAD_SOURCE,
                 "reportSourceUrl": source_url,
+                "reportStatus": "NEW_REPORT",
+                "lastCheckedAt": report.get("fetchedAt"),
+                "latestSuccessfulReportDate": report_date,
+                "carryingForwardPreviousReport": False,
                 "originalUnit": "50kg",
                 "currentRangeOriginal": domestic_price["display"],
                 "currentRangeInrPerKg": f"Rs. {domestic_price['minKg']:.2f}–{domestic_price['maxKg']:.2f} per kg",
@@ -409,12 +436,34 @@ def run() -> dict:
         "fetchedAt": now_iso(),
         "items": [],
         "errors": [],
+        "metadata": {
+            "coffeeBoard": {
+                "reportStatus": "FETCH_FAILED",
+                "reportFound": False,
+                "newReportDetected": False,
+                "usedPreviousSnapshot": False,
+                "checkedAt": now_iso(),
+                "reportSourceLabel": PAYLOAD_SOURCE,
+                "reportSourceUrl": REPORT_PAGE_URL,
+            },
+        },
     }
 
     try:
         report = fetch_latest_report()
     except Exception as error:
         message = str(error)
+        log(f"[COFFEE_BOARD] decision=FETCH_FAILED error={message}")
+        payload["metadata"]["coffeeBoard"] = {
+            "reportStatus": "FETCH_FAILED",
+            "reportFound": False,
+            "newReportDetected": False,
+            "usedPreviousSnapshot": False,
+            "checkedAt": now_iso(),
+            "reportSourceLabel": PAYLOAD_SOURCE,
+            "reportSourceUrl": REPORT_PAGE_URL,
+            "reason": message,
+        }
         for commodity in coffee_commodities:
             item = build_item(
                 product_key=commodity.product_key,
@@ -432,6 +481,19 @@ def run() -> dict:
             payload["errors"].append(build_error(commodity.product_key, message, item["sourceUrl"]))
     else:
         payload["fetchedAt"] = report.get("reportDateIso") or report["fetchedAt"]
+        payload["metadata"]["coffeeBoard"] = {
+            "reportStatus": "NEW_REPORT",
+            "reportFound": True,
+            "newReportDetected": True,
+            "usedPreviousSnapshot": False,
+            "checkedAt": report["fetchedAt"],
+            "reportDate": report.get("reportDate"),
+            "reportDateIso": report.get("reportDateIso"),
+            "reportFileName": report.get("suggestedFileName"),
+            "reportFingerprint": report.get("reportFingerprint"),
+            "reportSourceLabel": PAYLOAD_SOURCE,
+            "reportSourceUrl": report.get("sourceUrl") or REPORT_PAGE_URL,
+        }
         coffee_items = [build_coffee_item(commodity, report) for commodity in coffee_commodities]
         coffee_errors = [
             build_error(item["productKey"], item.get("error") or item.get("reason") or "Unknown error", item["sourceUrl"])

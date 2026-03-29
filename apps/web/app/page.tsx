@@ -178,6 +178,16 @@ function formatTimeAgo(value: string | null | undefined) {
   return `${diffDays}d ago`
 }
 
+function formatDateTime(value: string | null | undefined) {
+  if (!value) return 'Not available'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat('en-IN', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
 function getStatusTone(status: PipelineRunStatus) {
   switch (status) {
     case 'SUCCESS':
@@ -354,6 +364,10 @@ function formatPrimaryCoffeePrice(value: number | null | undefined) {
 function getMetadataString(metadata: Record<string, unknown> | null | undefined, key: string) {
   const value = metadata?.[key]
   return typeof value === 'string' && value.trim() ? value : null
+}
+
+function getMetadataBoolean(metadata: Record<string, unknown> | null | undefined, key: string) {
+  return typeof metadata?.[key] === 'boolean' ? metadata[key] as boolean : null
 }
 
 function formatSignalParts(
@@ -818,6 +832,15 @@ export default function HomePage() {
   const reportRangeOriginal = getMetadataString(selectedLatest?.metadata, 'currentRangeOriginal')
   const reportRangeNormalized = getMetadataString(selectedLatest?.metadata, 'currentRangeInrPerKg')
   const reportAnalysis = getMetadataString(selectedLatest?.metadata, 'marketAnalysis')
+  const reportStatus = getMetadataString(selectedLatest?.metadata, 'reportStatus')
+  const lastCheckedAt = getMetadataString(selectedLatest?.metadata, 'lastCheckedAt')
+  const latestSuccessfulReportDate = getMetadataString(selectedLatest?.metadata, 'latestSuccessfulReportDate') || reportDate
+  const carryingForwardPreviousReport = getMetadataBoolean(selectedLatest?.metadata, 'carryingForwardPreviousReport')
+  const reportStatusMessage = reportStatus === 'NO_NEW_REPORT'
+    ? `No new Coffee Board report published yet today. Showing latest available report from ${latestSuccessfulReportDate || 'the previous successful update'}.`
+    : reportStatus === 'FETCH_FAILED' && carryingForwardPreviousReport
+      ? `Coffee Board could not be refreshed right now. Showing the latest successful report from ${latestSuccessfulReportDate || 'the previous successful update'}.`
+      : null
 
   return (
     <div id="top" className="space-y-14">
@@ -1009,6 +1032,14 @@ export default function HomePage() {
                     <p className="mt-3 text-xl font-semibold text-[#f7e9d6]">{reportTitle}</p>
                     <p className="mt-2 text-sm text-[#d5c4b2]">{reportDate || 'Report date not available'}</p>
                     {reportFileName && <p className="mt-1 text-xs text-gray-400">{reportFileName}</p>}
+                    {reportStatusMessage && (
+                      <p className="mt-3 rounded-xl border border-amber-300/25 bg-amber-950/20 px-3 py-2 text-sm text-amber-200">
+                        {reportStatusMessage}
+                      </p>
+                    )}
+                    {lastCheckedAt && (
+                      <p className="mt-2 text-xs text-gray-500">Last checked: {formatDateTime(lastCheckedAt)}</p>
+                    )}
                     {reportSourceUrl && (
                       <a
                         href={reportSourceUrl}

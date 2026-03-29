@@ -144,12 +144,22 @@ type RawPriceResult = Partial<LatestPriceCard> & {
   productKey?: string
 }
 
+type ObservationWithRunAndProduct = Prisma.PriceObservationGetPayload<{
+  include: { run: true; product: true }
+}>
+
 @Injectable()
 export class PricesService {
   private readonly logger = new Logger(PricesService.name)
   private readonly scheduleTimezone = process.env.PRICES_SCHEDULE_TIMEZONE || 'Asia/Kolkata'
   private readonly scheduleTimeLocal = process.env.PRICES_SCHEDULE_TIME_LOCAL || '09:00'
   private readonly staleAfterHours = Number(process.env.PRICES_STALE_AFTER_HOURS || 30)
+  private readonly coffeeProductKeys = new Set([
+    'arabica_parchment',
+    'arabica_cherry',
+    'robusta_parchment',
+    'robusta_cherry',
+  ])
 
   constructor(private readonly prisma: PrismaService) {}
 
@@ -169,6 +179,10 @@ export class PricesService {
 
   private asStringArray(value: unknown): string[] | undefined {
     return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : undefined
+  }
+
+  private isCoffeeProductKey(productKey: string) {
+    return this.coffeeProductKeys.has(productKey)
   }
 
   private asPointArray(value: unknown) {
@@ -386,6 +400,38 @@ export class PricesService {
     }
   }
 
+  async getLatestSuccessfulObservations(productKeys: string[], beforeCapturedAt?: Date) {
+    if (productKeys.length === 0) {
+      return new Map<string, ObservationWithRunAndProduct>()
+    }
+
+    let rows: ObservationWithRunAndProduct[] = []
+    try {
+      rows = await this.prisma.priceObservation.findMany({
+        where: {
+          productKey: { in: productKeys },
+          status: PriceObservationStatus.OK,
+          ...(beforeCapturedAt ? { capturedAt: { lt: beforeCapturedAt } } : {}),
+        },
+        orderBy: [{ capturedAt: 'desc' }, { createdAt: 'desc' }],
+        include: {
+          run: true,
+          product: true,
+        },
+      })
+    } catch (error) {
+      this.logPrismaError('getLatestSuccessfulObservations', error)
+      throw new InternalServerErrorException('Failed to load previous successful observations.')
+    }
+
+    return rows.reduce((acc, row) => {
+      if (!acc.has(row.productKey)) {
+        acc.set(row.productKey, row)
+      }
+      return acc
+    }, new Map<string, ObservationWithRunAndProduct>())
+  }
+
   toRunResponse(run: PriceIngestionRun): LatestRunResponse {
     return {
       id: run.id,
@@ -459,12 +505,62 @@ export class PricesService {
       }
     }
 
+    const runPayload = this.asRecord(latestRun.rawPayload)
+    const runMetadata = this.asRecord(runPayload?.metadata)
+    const carryForwardProductKeys = new Set(this.asStringArray(runMetadata?.carryForwardProductKeys) || [])
+    const coffeeBoardMetadata = this.asRecord(runMetadata?.coffeeBoard)
     const rawResults = this.extractRawResults(latestRun.rawPayload)
     const observationByKey = new Map(latestRun.observations.map((row) => [row.productKey, row]))
+    const fallbackObservationByKey = carryForwardProductKeys.size > 0 || latestRun.status === PriceRunStatus.FAILED
+      ? await this.getLatestSuccessfulObservations(
+        enabledProducts
+          .map((product) => product.productKey)
+          .filter((productKey) => carryForwardProductKeys.has(productKey) || this.isCoffeeProductKey(productKey)),
+        latestRun.runAt,
+      )
+      : new Map<string, ObservationWithRunAndProduct>()
     const cards = enabledProducts.map((product) => {
       const row = observationByKey.get(product.productKey)
       const richFields = this.pickRichFields(rawResults.get(product.productKey))
+      const shouldCarryForward = carryForwardProductKeys.has(product.productKey)
+        || (latestRun.status === PriceRunStatus.FAILED && this.isCoffeeProductKey(product.productKey))
+      const fallbackRow = shouldCarryForward ? fallbackObservationByKey.get(product.productKey) : undefined
       if (!row) {
+        if (fallbackRow) {
+          const fallbackRichFields = this.pickRichFields(this.extractRawResults(fallbackRow.run.rawPayload).get(product.productKey))
+          const fallbackMetadata = {
+            ...(fallbackRichFields.metadata || {}),
+            reportStatus: this.asString(coffeeBoardMetadata?.reportStatus) || 'FETCH_FAILED',
+            lastCheckedAt: latestRun.runAt.toISOString(),
+            latestSuccessfulReportDate:
+              this.asString(coffeeBoardMetadata?.latestSuccessfulReportDate)
+              || this.asString((fallbackRichFields.metadata || {}).reportDate)
+              || fallbackRow.capturedAt.toISOString(),
+            carryingForwardPreviousReport: true,
+            reportSourceLabel:
+              this.asString(coffeeBoardMetadata?.reportSourceLabel)
+              || this.asString((fallbackRichFields.metadata || {}).reportSourceLabel)
+              || 'Coffee Board India',
+          }
+
+          return {
+            productKey: fallbackRow.productKey,
+            displayName: fallbackRow.product.displayName,
+            unit: fallbackRow.unit,
+            status: fallbackRow.status,
+            value: fallbackRow.value,
+            reason: null,
+            source: fallbackRow.source,
+            sourceUrl: fallbackRow.sourceUrl,
+            confidence: fallbackRow.confidence,
+            rawText: fallbackRow.rawText,
+            error: fallbackRow.error,
+            capturedAt: fallbackRow.capturedAt.toISOString(),
+            ...fallbackRichFields,
+            metadata: fallbackMetadata,
+          }
+        }
+
         return {
           productKey: product.productKey,
           displayName: product.displayName,
@@ -671,6 +767,8 @@ export class PricesService {
       throw new BadRequestException('runAt must be a valid ISO date-time string.')
     }
 
+    const ingestMetadata = this.asRecord(dto.metadata)
+    const carryForwardProductKeys = new Set(this.asStringArray(ingestMetadata?.carryForwardProductKeys) || [])
     const products = await this.getEnabledProducts()
     const productMap = new Map(products.map((product) => [product.productKey, product]))
 
@@ -723,12 +821,16 @@ export class PricesService {
     const resultsByKey = new Map(normalizedResults.map((result) => [result.productKey, result]))
     const errorsByKey = new Map((dto.errors ?? []).map((error) => [error.productKey, error]))
 
-    const rows: IngestRow[] = products.map((product) => {
+    const rows: IngestRow[] = products.reduce<IngestRow[]>((acc, product) => {
+      if (carryForwardProductKeys.has(product.productKey)) {
+        return acc
+      }
+
       const result = resultsByKey.get(product.productKey)
       const ingestError = errorsByKey.get(product.productKey)
 
       if (ingestError) {
-        return {
+        acc.push({
           productId: product.id,
           productKey: product.productKey,
           capturedAt: runAt,
@@ -740,11 +842,12 @@ export class PricesService {
           confidence: null,
           rawText: ingestError.rawText || null,
           error: ingestError.error,
-        }
+        })
+        return acc
       }
 
       if (!result || !Number.isFinite(result.value)) {
-        return {
+        acc.push({
           productId: product.id,
           productKey: product.productKey,
           capturedAt: runAt,
@@ -756,10 +859,11 @@ export class PricesService {
           confidence: null,
           rawText: null,
           error: 'No valid result in ingest payload.',
-        }
+        })
+        return acc
       }
 
-      return {
+      acc.push({
         productId: product.id,
         productKey: product.productKey,
         capturedAt: runAt,
@@ -771,11 +875,12 @@ export class PricesService {
         confidence: Number.isFinite(result.confidence) ? Number(result.confidence) : null,
         rawText: result.rawText || null,
         error: null,
-      }
-    })
+      })
+      return acc
+    }, [])
 
-    const successfulCount = rows.filter((row) => row.status === PriceObservationStatus.OK).length
-    const failedCount = rows.length - successfulCount
+    const successfulCount = rows.filter((row) => row.status === PriceObservationStatus.OK).length + carryForwardProductKeys.size
+    const failedCount = products.length - successfulCount
     const status = failedCount === 0
       ? PriceRunStatus.SUCCESS
       : successfulCount === 0
@@ -837,7 +942,7 @@ export class PricesService {
         },
         update: {
           status,
-          totalProducts: rows.length,
+          totalProducts: products.length,
           successfulCount,
           failedCount,
           rawPayload: payloadJson,
@@ -845,7 +950,7 @@ export class PricesService {
         create: {
           runAt,
           status,
-          totalProducts: rows.length,
+          totalProducts: products.length,
           successfulCount,
           failedCount,
           trigger,
