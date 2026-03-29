@@ -10,14 +10,22 @@ COFFEE_PRODUCT_KEYS = {
     "robusta_cherry",
 }
 SPICE_NUT_PRODUCT_KEYS = {"black_pepper", "arecanut"}
+COFFEE_QUERY_TEMPLATE = (
+    "{commodity_name} coffee price latest in Madikeri Kodagu today and the latest trend in prices "
+    "from last week to this week and analysis of the price trend"
+)
+SPICE_QUERY_TEMPLATE = (
+    "{commodity_name} latest price in the city Madikeri Kodagu today and the latest trend in prices "
+    "from last week to this week and analysis of the price trend"
+)
 
 
 def build_market_query(product_key: str, commodity_name: str) -> str:
     if product_key in COFFEE_PRODUCT_KEYS:
-        return f"{commodity_name} coffee price latest in Madikeri Kodagu today and the latest trend in prices from last week to this week and analysis of the price trend"
+        return COFFEE_QUERY_TEMPLATE.format(commodity_name=commodity_name)
     if product_key in SPICE_NUT_PRODUCT_KEYS:
-        return f"{commodity_name} latest price in the city Madikeri Kodagu today and the latest trend in prices from last week to this week and analysis of the price trend"
-    return f"{commodity_name} coffee price latest in Madikeri Kodagu today and the latest trend in prices from last week to this week and analysis of the price trend"
+        return SPICE_QUERY_TEMPLATE.format(commodity_name=commodity_name)
+    return SPICE_QUERY_TEMPLATE.format(commodity_name=commodity_name)
 
 
 @dataclass(frozen=True)
