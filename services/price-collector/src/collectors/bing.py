@@ -50,7 +50,6 @@ NAV_TIMEOUT_MS = env_int("NAV_TIMEOUT_MS", 9000 if SCRAPER_FAST_MODE else 25000)
 RESULTS_TIMEOUT_MS = env_int("RESULTS_TIMEOUT_MS", 5000 if SCRAPER_FAST_MODE else 12000)
 PRODUCT_TIMEOUT_MS = env_int("PRODUCT_TIMEOUT_MS", 9000 if SCRAPER_FAST_MODE else 30000)
 SCRAPER_HEADLESS = env_bool("SCRAPER_HEADLESS", True)
-SCRAPER_BROWSER = (os.getenv("SCRAPER_BROWSER") or "firefox").strip().lower()
 SCRAPER_BROWSER_CHANNEL = os.getenv("SCRAPER_BROWSER_CHANNEL")
 CHROMIUM_LAUNCH_ARGS = [
     "--start-maximized",
@@ -61,10 +60,6 @@ CHROMIUM_LAUNCH_ARGS = [
     "--disable-gpu",
     "--no-zygote",
     "--single-process",
-]
-FIREFOX_USER_AGENTS = [
-    "Mozilla/5.0 (X11; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:136.0) Gecko/20100101 Firefox/136.0",
 ]
 
 DELAY_BETWEEN_PRODUCTS_MIN = env_float("DELAY_BETWEEN_PRODUCTS_MIN", 0.1 if SCRAPER_FAST_MODE else 1.0)
@@ -431,21 +426,16 @@ def run() -> dict:
     commodities = get_active_commodities()
 
     with sync_playwright() as playwright:
-        browser_name = "firefox" if SCRAPER_BROWSER == "firefox" else "chromium"
         launch_options = {
             "headless": SCRAPER_HEADLESS,
+            "args": CHROMIUM_LAUNCH_ARGS,
         }
-        if browser_name == "chromium":
-            launch_options["args"] = CHROMIUM_LAUNCH_ARGS
-            if SCRAPER_BROWSER_CHANNEL:
-                launch_options["channel"] = SCRAPER_BROWSER_CHANNEL
-            browser = playwright.chromium.launch(**launch_options)
-            user_agent = random.choice(USER_AGENTS)
-        else:
-            browser = playwright.firefox.launch(**launch_options)
-            user_agent = random.choice(FIREFOX_USER_AGENTS)
+        if SCRAPER_BROWSER_CHANNEL:
+            launch_options["channel"] = SCRAPER_BROWSER_CHANNEL
+        browser = playwright.chromium.launch(**launch_options)
+        user_agent = random.choice(USER_AGENTS)
 
-        log(f"[BING] browser={browser_name} headless={SCRAPER_HEADLESS} fast={SCRAPER_FAST_MODE}")
+        log(f"[BING] browser=chromium headless={SCRAPER_HEADLESS} fast={SCRAPER_FAST_MODE}")
         context = browser.new_context(
             viewport={"width": 1440, "height": 900},
             locale="en-IN",

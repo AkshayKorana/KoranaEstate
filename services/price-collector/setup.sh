@@ -26,15 +26,18 @@ echo ">>> Using Python: $(pwd)/.venv/bin/python"
 
 . .venv/bin/activate
 
+echo ">>> Upgrading pip, setuptools, and wheel"
 python -m pip install --upgrade pip setuptools wheel
 
-if [ -f requirements.txt ]; then
-  pip install -r requirements.txt
+if [ ! -f "requirements.txt" ]; then
+  echo "ERROR: requirements.txt not found in $SCRIPT_DIR"
+  exit 1
 fi
 
-# Optional: Playwright install if used by scraper
-if grep -qi "playwright" requirements.txt 2>/dev/null; then
-  python -m playwright install chromium || true
-fi
+echo ">>> Installing Python dependencies from requirements.txt"
+pip install -r requirements.txt
+
+echo ">>> Installing Playwright Chromium browser"
+python -m playwright install chromium
 
 echo ">>> Python setup completed successfully"
