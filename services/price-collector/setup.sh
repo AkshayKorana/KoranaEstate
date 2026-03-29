@@ -2,26 +2,39 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-VENV_DIR="$SCRIPT_DIR/.venv"
-PYTHON_BIN="$VENV_DIR/bin/python"
+cd "$SCRIPT_DIR"
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "python3 is required but was not found in PATH" >&2
+echo ">>> Python setup starting in: $SCRIPT_DIR"
+
+# Ensure Python exists
+python3 --version
+
+# Recreate venv if missing or broken
+if [ ! -x ".venv/bin/python" ]; then
+  echo ">>> Creating fresh virtual environment"
+  rm -rf .venv
+  python3 -m venv .venv
+fi
+
+# Validate venv interpreter
+if [ ! -x ".venv/bin/python" ]; then
+  echo "ERROR: virtual environment creation failed"
   exit 1
 fi
 
-if [ -d "$VENV_DIR" ] && [ ! -x "$PYTHON_BIN" ]; then
-  rm -rf "$VENV_DIR"
+echo ">>> Using Python: $(pwd)/.venv/bin/python"
+
+. .venv/bin/activate
+
+python -m pip install --upgrade pip setuptools wheel
+
+if [ -f requirements.txt ]; then
+  pip install -r requirements.txt
 fi
 
-if [ ! -x "$PYTHON_BIN" ]; then
-  python3 -m venv "$VENV_DIR"
+# Optional: Playwright install if used by scraper
+if grep -qi "playwright" requirements.txt 2>/dev/null; then
+  python -m playwright install chromium || true
 fi
 
-"$PYTHON_BIN" -m pip install --upgrade pip
-"$PYTHON_BIN" -m pip install -r "$SCRIPT_DIR/requirements.txt"
-PLAYWRIGHT_BROWSER="${SCRAPER_BROWSER:-firefox}"
-if [ -z "${PLAYWRIGHT_INSTALL_ARGS:-}" ]; then
-  PLAYWRIGHT_INSTALL_ARGS="--with-deps $PLAYWRIGHT_BROWSER"
-fi
-"$PYTHON_BIN" -m playwright install $PLAYWRIGHT_INSTALL_ARGS
+echo ">>> Python setup completed successfully"
