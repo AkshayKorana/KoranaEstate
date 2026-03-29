@@ -587,8 +587,9 @@ export default function HomePage() {
 
         setProducts(productsPayload.products)
 
-        if (productsPayload.products.length > 0) {
-          setSelectedKey((current) => current || productsPayload.products[0].productKey)
+        const visibleProducts = productsPayload.products.filter((product) => isCoffeeCommodity(product))
+        if (visibleProducts.length > 0) {
+          setSelectedKey((current) => current || visibleProducts[0].productKey)
         }
 
         await loadLatestData()
@@ -615,8 +616,27 @@ export default function HomePage() {
     }
   }, [])
 
+  const visibleProducts = useMemo(
+    () => products.filter((product) => isCoffeeCommodity(product)),
+    [products]
+  )
+
   useEffect(() => {
-    if (!selectedKey) {
+    if (visibleProducts.length === 0) return
+    if (!visibleProducts.some((product) => product.productKey === selectedKey)) {
+      setSelectedKey(visibleProducts[0].productKey)
+    }
+  }, [visibleProducts, selectedKey])
+
+  const selectedProduct = useMemo(
+    () => visibleProducts.find((product) => product.productKey === selectedKey) || visibleProducts[0] || null,
+    [visibleProducts, selectedKey]
+  )
+
+  const activeSelectedKey = selectedProduct?.productKey || ''
+
+  useEffect(() => {
+    if (!activeSelectedKey) {
       setHistory(null)
       return
     }
@@ -626,7 +646,7 @@ export default function HomePage() {
       setLoadingHistory(true)
       setHistoryError(null)
       try {
-        const res = await fetch(`/api/prices/history?days=30&productKey=${encodeURIComponent(selectedKey)}`, {
+        const res = await fetch(`/api/prices/history?days=30&productKey=${encodeURIComponent(activeSelectedKey)}`, {
           cache: 'no-store',
         })
         if (!res.ok) {
@@ -650,7 +670,7 @@ export default function HomePage() {
     return () => {
       mounted = false
     }
-  }, [selectedKey])
+  }, [activeSelectedKey])
 
   const latestByKey = useMemo(() => {
     const map = new Map<string, PriceLatestCard>()
@@ -660,14 +680,9 @@ export default function HomePage() {
     return map
   }, [latest])
 
-  const selectedProduct = useMemo(
-    () => products.find((product) => product.productKey === selectedKey) || null,
-    [products, selectedKey]
-  )
-
   const selectedLatest = useMemo(
-    () => latestByKey.get(selectedKey) || null,
-    [latestByKey, selectedKey]
+    () => latestByKey.get(activeSelectedKey) || null,
+    [latestByKey, activeSelectedKey]
   )
 
   const dbHistoryChart = useMemo(
@@ -796,6 +811,13 @@ export default function HomePage() {
 
     return items.slice(0, 4)
   }, [selectedLatest, selectedProduct])
+  const reportTitle = getMetadataString(selectedLatest?.metadata, 'reportTitle') || selectedLatest?.source || 'Coffee Board India'
+  const reportDate = getMetadataString(selectedLatest?.metadata, 'reportDate')
+  const reportSourceUrl = getMetadataString(selectedLatest?.metadata, 'reportSourceUrl') || selectedLatest?.sourceUrl
+  const reportFileName = getMetadataString(selectedLatest?.metadata, 'reportFileName')
+  const reportRangeOriginal = getMetadataString(selectedLatest?.metadata, 'currentRangeOriginal')
+  const reportRangeNormalized = getMetadataString(selectedLatest?.metadata, 'currentRangeInrPerKg')
+  const reportAnalysis = getMetadataString(selectedLatest?.metadata, 'marketAnalysis')
 
   return (
     <div id="top" className="space-y-14">
@@ -846,13 +868,13 @@ export default function HomePage() {
             </div>
           )}
 
-          {!loadingProducts && !loadingLatest && !productsError && !latestError && products.length === 0 && (
+          {!loadingProducts && !loadingLatest && !productsError && !latestError && visibleProducts.length === 0 && (
             <div className="rounded-xl border border-amber-300/35 bg-amber-950/25 px-4 py-3 text-sm text-amber-200">
-              {t('No enabled commodities found. Seed products in backend first.', 'ಸಕ್ರಿಯ ವಸ್ತುಗಳು ಸಿಗಲಿಲ್ಲ. ಮೊದಲು ಬ್ಯಾಕೆಂಡ್‌ನಲ್ಲಿ ಸೀಡ್ ಮಾಡಿ.')}
+              {t('No enabled coffee commodities found. Seed products in backend first.', 'ಸಕ್ರಿಯ ಕಾಫಿ ವಸ್ತುಗಳು ಸಿಗಲಿಲ್ಲ. ಮೊದಲು ಬ್ಯಾಕೆಂಡ್‌ನಲ್ಲಿ ಸೀಡ್ ಮಾಡಿ.')}
             </div>
           )}
 
-          {!loadingProducts && !loadingLatest && !productsError && !latestError && products.length > 0 && (
+          {!loadingProducts && !loadingLatest && !productsError && !latestError && visibleProducts.length > 0 && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <PipelineStatusCard
@@ -890,7 +912,7 @@ export default function HomePage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {products.map((product) => {
+                {visibleProducts.map((product) => {
                   const card = latestByKey.get(product.productKey)
                   const status = card?.status || 'FAILED'
 
@@ -942,10 +964,10 @@ export default function HomePage() {
                     <select
                       aria-label="Select commodity"
                       className="lux-input w-full p-2.5 rounded-xl font-medium"
-                      value={selectedKey}
+                      value={activeSelectedKey}
                       onChange={(event) => setSelectedKey(event.target.value)}
                     >
-                      {products.map((product) => (
+                      {visibleProducts.map((product) => (
                         <option key={product.productKey} value={product.productKey}>
                           {product.displayName}
                         </option>
@@ -978,6 +1000,31 @@ export default function HomePage() {
                     <p className="mt-1 text-xs text-gray-400">
                       {selectedLatest?.confidence != null ? `${Math.round(selectedLatest.confidence * 100)}% confidence` : t('Partial data is handled safely.', 'ಅಪೂರ್ಣ ಮಾಹಿತಿಯೂ ಸುರಕ್ಷಿತವಾಗಿ ತೋರಿಸಲಾಗುತ್ತದೆ.')}
                     </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                  <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
+                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Daily Coffee Report</p>
+                    <p className="mt-3 text-xl font-semibold text-[#f7e9d6]">{reportTitle}</p>
+                    <p className="mt-2 text-sm text-[#d5c4b2]">{reportDate || 'Report date not available'}</p>
+                    {reportFileName && <p className="mt-1 text-xs text-gray-400">{reportFileName}</p>}
+                    {reportSourceUrl && (
+                      <a
+                        href={reportSourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-3 inline-flex text-sm text-emerald-300 hover:text-emerald-200"
+                      >
+                        Open source report
+                      </a>
+                    )}
+                  </div>
+                  <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
+                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Normalized Coffee Range</p>
+                    <p className="mt-3 text-2xl font-bold text-[#f7e9d6]">{reportRangeOriginal || 'Not available'}</p>
+                    <p className="mt-2 text-sm text-gray-400">{reportRangeNormalized || 'Normalized INR/kg not available'}</p>
+                    <p className="mt-3 text-sm text-[#d5c4b2]">{reportAnalysis || analysisText}</p>
                   </div>
                 </div>
 

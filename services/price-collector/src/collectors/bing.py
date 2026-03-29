@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import os
 import random
+import re
 import sys
 import time
 from urllib.parse import parse_qs, quote_plus, unquote, urlparse
@@ -10,15 +11,15 @@ from urllib.parse import parse_qs, quote_plus, unquote, urlparse
 from playwright.sync_api import TimeoutError as PWTimeout
 from playwright.sync_api import sync_playwright
 
-from config import env_bool, env_float, env_int, get_active_commodities
+from config import CommodityConfig, env_bool, env_float, env_int, get_active_commodities
 from models import build_error, build_item, now_iso
 from parsers import parse_commodity_intelligence
 
-def build_failed_output(message: str) -> dict:
+def build_failed_output(message: str, commodities: list[CommodityConfig] | None = None) -> dict:
     items = []
     errors = []
 
-    for commodity in get_active_commodities():
+    for commodity in (commodities or get_active_commodities()):
         item = build_item(
             product_key=commodity.product_key,
             display_name=commodity.display_name,
@@ -48,16 +49,12 @@ SEARCH_BASE = "https://www.bing.com/search"
 IS_RENDER = bool(os.getenv("RENDER") or os.getenv("RENDER_EXTERNAL_URL"))
 
 SCRAPER_FAST_MODE = env_bool("SCRAPER_FAST_MODE", True)
-
-# On Render, use tighter timeouts to avoid SIGTERM
 NAV_TIMEOUT_MS = env_int("NAV_TIMEOUT_MS", 12000 if IS_RENDER else (9000 if SCRAPER_FAST_MODE else 25000))
 RESULTS_TIMEOUT_MS = env_int("RESULTS_TIMEOUT_MS", 6000 if IS_RENDER else (5000 if SCRAPER_FAST_MODE else 12000))
-PRODUCT_TIMEOUT_MS = env_int("PRODUCT_TIMEOUT_MS", 25000 if IS_RENDER else (9000 if SCRAPER_FAST_MODE else 30000))
-
+PRODUCT_TIMEOUT_MS = env_int("PRODUCT_TIMEOUT_MS", 25000 if IS_RENDER else (12000 if SCRAPER_FAST_MODE else 30000))
 SCRAPER_HEADLESS = env_bool("SCRAPER_HEADLESS", True)
-SCRAPER_BROWSER = (os.getenv("SCRAPER_BROWSER") or "chromium").strip().lower()
+SCRAPER_BROWSER = (os.getenv("SCRAPER_BROWSER") or ("chromium" if IS_RENDER else "firefox")).strip().lower()
 SCRAPER_BROWSER_CHANNEL = os.getenv("SCRAPER_BROWSER_CHANNEL")
-
 CHROMIUM_LAUNCH_ARGS = [
     "--no-sandbox",
     "--disable-setuid-sandbox",
@@ -65,41 +62,93 @@ CHROMIUM_LAUNCH_ARGS = [
     "--disable-gpu",
     "--no-zygote",
     "--single-process",
-    "--disable-extensions",
-    "--disable-background-networking",
-    "--disable-default-apps",
-    "--disable-sync",
-    "--disable-translate",
-    "--hide-scrollbars",
-    "--metrics-recording-only",
-    "--mute-audio",
-    "--no-first-run",
-    "--safebrowsing-disable-auto-update",
-    "--js-flags=--max-old-space-size=256",  # limit JS heap to 256MB
 ]
-
 FIREFOX_USER_AGENTS = [
     "Mozilla/5.0 (X11; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:136.0) Gecko/20100101 Firefox/136.0",
 ]
-
-# On Render: no delays between products — we need to finish fast
 DELAY_BETWEEN_PRODUCTS_MIN = env_float("DELAY_BETWEEN_PRODUCTS_MIN", 0.0 if IS_RENDER else (0.1 if SCRAPER_FAST_MODE else 1.0))
 DELAY_BETWEEN_PRODUCTS_MAX = env_float("DELAY_BETWEEN_PRODUCTS_MAX", 0.1 if IS_RENDER else (0.3 if SCRAPER_FAST_MODE else 2.0))
-
-# Render: skip networkidle entirely — it hangs on slow connections
 NETWORK_IDLE_TIMEOUT_MS = 0 if IS_RENDER else (1200 if SCRAPER_FAST_MODE else 3000)
 STABILIZE_WAIT_MS = 200 if IS_RENDER else (350 if SCRAPER_FAST_MODE else 1500)
-BODY_TEXT_TIMEOUT_MS = 3000 if IS_RENDER else (1500 if SCRAPER_FAST_MODE else 3000)
-RESULT_BLOCK_LIMIT = 4 if SCRAPER_FAST_MODE else 8
-CONTEXT_BLOCK_LIMIT = 1 if SCRAPER_FAST_MODE else 2
-SOURCE_SCAN_LIMIT = 8 if SCRAPER_FAST_MODE else 20
-SOURCE_RETURN_LIMIT = 5 if SCRAPER_FAST_MODE else 8
-
-# On Render: skip scrolling — wastes time and memory
-SEARCH_SCROLL_ROUNDS = 0 if IS_RENDER else (3 if SCRAPER_FAST_MODE else 10)
-SCROLL_WAIT_MS = 350 if SCRAPER_FAST_MODE else 1000
-
+BODY_TEXT_TIMEOUT_MS = 2500 if IS_RENDER else (1500 if SCRAPER_FAST_MODE else 3000)
+RESULT_BLOCK_LIMIT = env_int("RESULT_BLOCK_LIMIT", 10 if SCRAPER_FAST_MODE else 14)
+SEARCH_SCROLL_ROUNDS = env_int("SEARCH_SCROLL_ROUNDS", 2 if IS_RENDER else (3 if SCRAPER_FAST_MODE else 6))
+SCROLL_WAIT_MS = env_int("SCROLL_WAIT_MS", 500 if IS_RENDER else (350 if SCRAPER_FAST_MODE else 1000))
+RESULT_CARD_SELECTOR = "#b_results li.b_algo"
+RESULT_SNIPPET_SELECTORS = (
+    ".b_caption p",
+    ".b_lineclamp4",
+    ".b_paractl",
+    "p",
+)
+LOCALITY_TERMS = ("madikeri", "kodagu", "coorg")
+MARKET_TERMS = ("price", "prices", "rate", "rates", "market", "mandi", "trend", "₹", "kg", "quintal", "50 kg")
+DENYLIST_HOST_FRAGMENTS = (
+    "github.com",
+    "reddit.com",
+    "youtube.com",
+    "youtu.be",
+    "support.google.com",
+    "naver.com",
+    "4399.com",
+    "zhihu.com",
+    "chatgpt.com",
+    "openai.com",
+    "playblackdesert.com",
+    "bigfooty.com",
+    "lowyat.net",
+    "facebook.com",
+    "instagram.com",
+    "x.com",
+    "twitter.com",
+    "linkedin.com",
+    "discord.com",
+    "tiktok.com",
+    "quora.com",
+    "stackoverflow.com",
+    "stackexchange.com",
+    "mail.google.com",
+    "outlook.live.com",
+)
+TRUSTED_HOST_FRAGMENTS = (
+    "commodityonline",
+    "commoditymarketlive",
+    "kisandeals",
+    "agriwatch",
+    "napanta",
+    "kirehalli",
+    "kodaguexpress",
+    "indianspices",
+    "agriplus",
+    "mandibhav",
+    "commoditypriceapi",
+    "coffeeboard",
+    "coffeeboard",
+    "indiacoffee",
+    "spicesboard",
+    "spicesboardindia",
+    "gov.in",
+    "nic.in",
+    "apmc",
+    "mandi",
+)
+NEGATIVE_TEXT_TERMS = (
+    "login",
+    "sign in",
+    "watch",
+    "video",
+    "forum",
+    "discussion",
+    "issue",
+    "github",
+    "reddit",
+    "chatgpt",
+    "youtube",
+    "support",
+    "game",
+    "mail",
+)
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
@@ -134,7 +183,6 @@ def stabilize(page) -> None:
         page.wait_for_load_state("domcontentloaded", timeout=NAV_TIMEOUT_MS)
     except Exception:
         pass
-    # Skip networkidle on Render — it hangs on slow/blocked responses
     if NETWORK_IDLE_TIMEOUT_MS > 0:
         try:
             page.wait_for_load_state("networkidle", timeout=NETWORK_IDLE_TIMEOUT_MS)
@@ -150,39 +198,34 @@ def get_body_text(page) -> str:
         return ""
 
 
-def submit_search(page, query: str) -> None:
-    # KEY FIX: go directly to search URL instead of homepage + interact
-    # This cuts 1 full page load per commodity
+def build_query(commodity: CommodityConfig) -> str:
+    return commodity.query
+
+
+def open_search_results(page, query: str) -> str:
     search_url = f"{SEARCH_BASE}?q={quote_plus(query)}&setlang=en-IN"
+    page.goto(search_url, wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
+    stabilize(page)
+    return search_url
+
+
+def wait_for_result_blocks(page) -> bool:
+    locator = page.locator(RESULT_CARD_SELECTOR).first
     try:
-        page.goto(search_url, wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
-        safe_wait(page, STABILIZE_WAIT_MS)
+        locator.wait_for(state="visible", timeout=RESULTS_TIMEOUT_MS)
+        return True
     except Exception:
-        pass
+        try:
+            return page.locator(RESULT_CARD_SELECTOR).count() > 0
+        except Exception:
+            return False
 
 
 def scroll_entire_page(page, rounds: int = 3) -> None:
-    if rounds == 0:
-        return
-    last_height = 0
-    stable_rounds = 0
-
     for _ in range(rounds):
         try:
-            current_height = page.evaluate("() => document.body.scrollHeight")
-            page.mouse.wheel(0, 2500)
+            page.mouse.wheel(0, 1800)
             safe_wait(page, SCROLL_WAIT_MS)
-            new_height = page.evaluate("() => document.body.scrollHeight")
-
-            if new_height == last_height or new_height == current_height:
-                stable_rounds += 1
-            else:
-                stable_rounds = 0
-
-            last_height = new_height
-
-            if stable_rounds >= 2:
-                break
         except Exception:
             break
 
@@ -212,21 +255,12 @@ def _decode_bing_redirect_url(href: str) -> str:
     return href
 
 
-def capture_full_search_page_text(page) -> str:
-    try:
-        page.wait_for_load_state("domcontentloaded", timeout=NAV_TIMEOUT_MS)
-    except Exception:
-        pass
-    safe_wait(page, STABILIZE_WAIT_MS)
-    # Only scroll if not on Render
-    if SEARCH_SCROLL_ROUNDS > 0:
-        scroll_entire_page(page, rounds=SEARCH_SCROLL_ROUNDS)
-        safe_wait(page, STABILIZE_WAIT_MS)
-    return get_body_text(page)
+def _clean_text(text: str) -> str:
+    return re.sub(r"\s+", " ", text or "").strip()
 
 
-def _source_score(commodity, title: str, url: str) -> int:
-    haystack = f"{title} {url}".lower()
+def _result_score(commodity: CommodityConfig, title: str, snippet: str, url: str) -> int:
+    haystack = f"{title} {snippet} {url}".lower()
     score = 0
     if commodity.display_name.lower() in haystack:
         score += 8
@@ -236,76 +270,184 @@ def _source_score(commodity, title: str, url: str) -> int:
     for token in commodity.display_name.lower().split():
         if token in haystack:
             score += 2
-    if any(keyword in haystack for keyword in ("price", "market", "rate", "analysis", "forecast", "commodity")):
-        score += 2
+    if "madikeri" in haystack or "kodagu" in haystack:
+        score += 5
+    if any(keyword in haystack for keyword in ("price", "latest", "today", "rate", "trend", "last week", "analysis")):
+        score += 3
+    host = urlparse(url).netloc.lower()
+    if any(fragment in host for fragment in TRUSTED_HOST_FRAGMENTS):
+        score += 20
+    if any(term in haystack for term in NEGATIVE_TEXT_TERMS):
+        score -= 25
     if "bing.com" in haystack:
         score -= 20
     return score
 
 
-def extract_sources(page, commodity) -> list[dict[str, str]]:
-    sources: list[dict[str, str]] = []
-    seen: set[tuple[str, str]] = set()
-    selectors = [
-        "#b_results li.b_algo h2 a",
-        "#b_context a[href]",
-        "#b_ans a[href]",
-        "#b_results li.b_algo a[href]",
-    ]
+def _commodity_terms(commodity: CommodityConfig) -> tuple[str, ...]:
+    terms = {
+        commodity.display_name.lower(),
+        *[alias.lower() for alias in commodity.aliases],
+    }
+    for token in commodity.display_name.lower().split():
+        if len(token) > 2:
+            terms.add(token)
+    return tuple(sorted(term for term in terms if term))
 
-    for selector in selectors:
+
+def _is_denied_host(host: str) -> bool:
+    lowered = host.lower()
+    return any(fragment in lowered for fragment in DENYLIST_HOST_FRAGMENTS)
+
+
+def _passes_relevance_gate(commodity: CommodityConfig, title: str, snippet: str, url: str) -> bool:
+    haystack = f"{title} {snippet} {url}".lower()
+    commodity_match = any(term in haystack for term in _commodity_terms(commodity))
+    locality_match = any(term in haystack for term in LOCALITY_TERMS)
+    market_match = any(term in haystack for term in MARKET_TERMS)
+    return commodity_match and locality_match and market_match
+
+
+def extract_result_blocks(page, commodity: CommodityConfig) -> tuple[list[dict[str, str]], int]:
+    accepted_results: list[dict[str, str]] = []
+    locator = page.locator(RESULT_CARD_SELECTOR)
+    count = min(locator.count(), RESULT_BLOCK_LIMIT)
+    total_found = count
+
+    for index in range(count):
         try:
-            locator = page.locator(selector)
-            count = min(locator.count(), SOURCE_SCAN_LIMIT)
-            for index in range(count):
-                link = locator.nth(index)
-                href = (link.get_attribute("href") or "").strip()
-                if not href.startswith("http"):
-                    continue
+            card = locator.nth(index)
+            link = card.locator("h2 a").first
+            href = _clean_text(link.get_attribute("href") or "")
+            if not href.startswith("http"):
+                continue
 
-                normalized_url = _decode_bing_redirect_url(href)
-                parsed = urlparse(normalized_url)
-                if not parsed.netloc:
-                    continue
-                if "bing.com" in parsed.netloc:
-                    continue
+            resolved_url = _decode_bing_redirect_url(href)
+            parsed = urlparse(resolved_url)
+            if not parsed.netloc or "bing.com" in parsed.netloc:
+                continue
+            if _is_denied_host(parsed.netloc):
+                continue
 
-                title = (link.inner_text(timeout=700) or link.get_attribute("aria-label") or "").strip()
-                dedupe_key = (normalized_url, title)
-                if dedupe_key in seen:
-                    continue
-                seen.add(dedupe_key)
+            title = _clean_text(link.inner_text(timeout=700) or link.get_attribute("aria-label") or "")
+            snippet = ""
+            for selector in RESULT_SNIPPET_SELECTORS:
+                snippet = _clean_text(card.locator(selector).first.inner_text(timeout=700) or "")
+                if snippet:
+                    break
 
-                sources.append(
-                    {
-                        "title": title[:180] or parsed.netloc,
-                        "url": normalized_url,
-                        "host": parsed.netloc,
-                    }
-                )
+            if not title and not snippet:
+                continue
+            if not _passes_relevance_gate(commodity, title, snippet, resolved_url):
+                continue
+
+            score = _result_score(commodity, title, snippet, resolved_url)
+
+            accepted_results.append(
+                {
+                    "title": title[:240] or parsed.netloc,
+                    "snippet": snippet[:800],
+                    "url": resolved_url,
+                    "host": parsed.netloc,
+                    "score": score,
+                }
+            )
         except Exception:
             continue
 
-    sources.sort(key=lambda source: _source_score(commodity, source.get("title", ""), source.get("url", "")), reverse=True)
-    return sources[:SOURCE_RETURN_LIMIT]
+    accepted_results.sort(
+        key=lambda result: _result_score(
+            commodity,
+            result.get("title", ""),
+            result.get("snippet", ""),
+            result.get("url", ""),
+        ),
+        reverse=True,
+    )
+    return accepted_results, total_found
+
+
+def _result_signature(result: dict[str, str]) -> str:
+    title = _clean_text(result.get("title", "")).lower()
+    snippet = _clean_text(result.get("snippet", "")).lower()
+    url = _clean_text(result.get("url", "")).lower()
+    return f"{url}|{title}|{snippet}"
+
+
+def scroll_and_collect_results(page, commodity: CommodityConfig) -> list[dict[str, str]]:
+    collected: list[dict[str, str]] = []
+    seen: set[str] = set()
+    stagnant_rounds = 0
+    total_found = 0
+
+    for round_index in range(SEARCH_SCROLL_ROUNDS + 1):
+        current_results, found_this_round = extract_result_blocks(page, commodity)
+        total_found = max(total_found, found_this_round)
+        added = 0
+        for result in current_results:
+            signature = _result_signature(result)
+            if signature in seen:
+                continue
+            seen.add(signature)
+            collected.append(result)
+            added += 1
+
+        if round_index >= SEARCH_SCROLL_ROUNDS:
+            break
+
+        if added == 0:
+            stagnant_rounds += 1
+            if stagnant_rounds >= 2:
+                break
+        else:
+            stagnant_rounds = 0
+
+        scroll_entire_page(page, 1)
+        safe_wait(page, SCROLL_WAIT_MS)
+
+    collected.sort(key=lambda result: int(result.get("score", 0)), reverse=True)
+    return collected, total_found
+
+
+def merge_results_for_parser(results: list[dict[str, str]]) -> str:
+    blocks: list[str] = []
+    for result in results:
+        lines = [
+            f"Title: {result['title']}",
+            f"Snippet: {result['snippet']}" if result.get("snippet") else "Snippet:",
+            f"URL: {result['url']}",
+        ]
+        blocks.append("\n".join(lines))
+    return "\n\n".join(blocks)
 
 
 def search_and_extract(page, commodity) -> tuple[str | None, str, list[dict[str, str]], str]:
-    search_url = SEARCH_BASE
-
-    submit_search(page, commodity.query)
-
-    body_before = get_body_text(page)
-    if looks_blocked(body_before):
-        return None, body_before, [], page.url or search_url
-
-    body_text = capture_full_search_page_text(page)
-    sources = extract_sources(page, commodity)
-
+    query = build_query(commodity)
+    search_url = open_search_results(page, query)
+    body_text = get_body_text(page)
     if looks_blocked(body_text):
-        return None, body_text, sources, page.url or search_url
+        return None, body_text, [], page.url or search_url
 
-    return (body_text if body_text.strip() else None), body_text, sources, page.url or search_url
+    if not wait_for_result_blocks(page):
+        debug_text = get_body_text(page)
+        return None, debug_text, [], page.url or search_url
+
+    results, total_found = scroll_and_collect_results(page, commodity)
+    top_hosts = [result["host"] for result in results[:3]]
+    log(
+        f"[BING][{commodity.product_key}] total_result_cards={total_found} "
+        f"accepted_results={len(results)} top_hosts={top_hosts}"
+    )
+    if not results:
+        debug_text = get_body_text(page)
+        log(f"[BING][{commodity.product_key}] parser_skipped_no_relevant_results=true")
+        return None, debug_text, [], page.url or search_url
+
+    merged_text = merge_results_for_parser(results)
+    if looks_blocked(merged_text or body_text):
+        return None, merged_text or body_text, results, page.url or search_url
+
+    return (merged_text if merged_text.strip() else None), merged_text or body_text, results, page.url or search_url
 
 
 def scrape_product(page, commodity) -> dict:
@@ -333,8 +475,15 @@ def scrape_product(page, commodity) -> dict:
         extracted_text, debug_text, sources, source_url = search_and_extract(page, commodity)
 
         if extracted_text is None:
-            reason = "BLOCKED" if looks_blocked(debug_text) else "NO_DATA"
-            error = "Search engine blocked the request." if reason == "BLOCKED" else "No result text detected."
+            if looks_blocked(debug_text):
+                reason = "BLOCKED"
+                error = "Search engine blocked the request."
+            elif not sources:
+                reason = "NO_RELEVANT_RESULTS"
+                error = "No relevant Bing organic result blocks passed filtering."
+            else:
+                reason = "NO_DATA"
+                error = "No result text detected."
             return build_item(
                 product_key=commodity.product_key,
                 display_name=commodity.display_name,
@@ -352,7 +501,7 @@ def scrape_product(page, commodity) -> dict:
                     "analysisBullets": [],
                     "historicalPoints": [],
                     "forecastPoints": [],
-                    "metadata": {"query": commodity.query, "aliases": list(commodity.aliases)},
+                    "metadata": {"query": build_query(commodity), "aliases": list(commodity.aliases)},
                     "sources": sources,
                 },
             )
@@ -406,7 +555,7 @@ def scrape_product(page, commodity) -> dict:
         )
 
 
-def run() -> dict:
+def run(commodities: list[CommodityConfig] | None = None) -> dict:
     output = {
         "source": PAYLOAD_SOURCE,
         "fetchedAt": now_iso(),
@@ -414,24 +563,27 @@ def run() -> dict:
         "errors": [],
     }
 
-    commodities = get_active_commodities()
+    commodities = commodities or get_active_commodities()
 
     with sync_playwright() as playwright:
-        browser_name = "chromium"  # always chromium on Render
-        launch_options: dict = {
+        browser_name = "firefox" if SCRAPER_BROWSER == "firefox" else "chromium"
+        launch_options: dict[str, object] = {
             "headless": SCRAPER_HEADLESS,
-            "args": CHROMIUM_LAUNCH_ARGS,
         }
-        if SCRAPER_BROWSER_CHANNEL:
-            launch_options["channel"] = SCRAPER_BROWSER_CHANNEL
-
-        browser = playwright.chromium.launch(**launch_options)
-        user_agent = random.choice(USER_AGENTS)
+        if browser_name == "chromium":
+            launch_options["args"] = CHROMIUM_LAUNCH_ARGS
+            if SCRAPER_BROWSER_CHANNEL:
+                launch_options["channel"] = SCRAPER_BROWSER_CHANNEL
+            browser = playwright.chromium.launch(**launch_options)
+            user_agent = random.choice(USER_AGENTS)
+        else:
+            browser = playwright.firefox.launch(**launch_options)
+            user_agent = random.choice(FIREFOX_USER_AGENTS)
 
         log(f"[BING] browser={browser_name} headless={SCRAPER_HEADLESS} fast={SCRAPER_FAST_MODE} render={IS_RENDER}")
 
         context = browser.new_context(
-            viewport={"width": 1280, "height": 800},  # smaller viewport = less memory
+            viewport={"width": 1280, "height": 800},
             locale="en-IN",
             timezone_id="Asia/Kolkata",
             user_agent=user_agent,
