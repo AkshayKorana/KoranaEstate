@@ -27,7 +27,7 @@ DATE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 RANGE_PATTERN = re.compile(
-    r"(?:₹|Rs\.?\s*)?\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?)\s*(?:-|–|—|to)\s*(?:₹|Rs\.?\s*)?\s*(\d{1,3}(?:,\d{3})*(?:\.\d+)?)",
+    r"(?:₹|Rs\.?\s*)?\s*(\d+(?:,\d{3})*(?:\.\d+)?)\s*(?:-|–|—|to)\s*(?:₹|Rs\.?\s*)?\s*(\d+(?:,\d{3})*(?:\.\d+)?)",
     re.IGNORECASE,
 )
 EXCHANGE_RATE_PATTERN = re.compile(r"Exchange\s+Rate\s+Rs\s*/\s*US\s*\$[:\s]+(\d+(?:\.\d+)?)", re.IGNORECASE)
@@ -44,6 +44,10 @@ TREND_UP_TERMS = ("higher", "rise", "rally", "firm", "increase", "up", "strong")
 TREND_DOWN_TERMS = ("lower", "fall", "decline", "down", "weak", "soft")
 TREND_STABLE_TERMS = ("steady", "stable", "unchanged", "flat")
 PRICE_ORDER = ["arabica_parchment", "arabica_cherry", "robusta_parchment", "robusta_cherry"]
+KARNATAKA_HEADER_PATTERN = re.compile(
+    r"ar\.?\s*pmt.*ar\.?\s*chy.*rob\.?\s*pmt.*rob\.?\s*chy",
+    re.IGNORECASE,
+)
 
 
 def is_coffee_commodity(commodity: CommodityConfig) -> bool:
@@ -100,6 +104,28 @@ def extract_section(text: str, start_markers: tuple[str, ...], end_markers: tupl
     return normalize_space(tail)
 
 
+def extract_section_raw(text: str, start_markers: tuple[str, ...], end_markers: tuple[str, ...], window: int = 2200) -> str:
+    lowered = text.lower()
+    start_index = -1
+    marker_used = ""
+    for marker in start_markers:
+        idx = lowered.find(marker.lower())
+        if idx != -1:
+            start_index = idx
+            marker_used = marker
+            break
+    if start_index == -1:
+        return ""
+
+    start_index += len(marker_used)
+    tail = text[start_index:start_index + window]
+    lowered_tail = tail.lower()
+    end_positions = [lowered_tail.find(marker.lower()) for marker in end_markers if lowered_tail.find(marker.lower()) != -1]
+    if end_positions:
+        tail = tail[:min(end_positions)]
+    return tail
+
+
 def parse_numeric(value: str) -> float:
     return float(value.replace(",", ""))
 
@@ -116,21 +142,29 @@ def format_inr_precise_range(low: float, high: float, unit_suffix: str) -> str:
     return f"₹{low:,.2f}–₹{high:,.2f} {unit_suffix}"
 
 
-def extract_range_after_label(text: str, labels: tuple[str, ...]) -> tuple[float, float, str] | None:
-    for label in labels:
-        pattern = re.compile(rf"{re.escape(label)}[\s:()/-]{{0,20}}(.{{0,120}}?)", re.IGNORECASE)
-        for match in pattern.finditer(text):
-            chunk = match.group(1)
-            range_match = RANGE_PATTERN.search(chunk)
-            if range_match:
-                low = parse_numeric(range_match.group(1))
-                high = parse_numeric(range_match.group(2))
-                return low, high, format_inr_range(low, high, "per 50 kg")
-    return None
+def is_valid_50kg_coffee_range(low: float, high: float) -> bool:
+    return low <= high and low >= 5000 and high >= 5000
 
 
-def extract_domestic_prices(report_text: str) -> dict[str, dict[str, Any]]:
-    domestic_section = extract_section(
+def build_price_payload(low_50kg: float, high_50kg: float) -> dict[str, Any]:
+    min_kg = round(low_50kg / 50.0, 2)
+    max_kg = round(high_50kg / 50.0, 2)
+    mid_50kg = round((low_50kg + high_50kg) / 2.0, 2)
+    mid_kg = round(mid_50kg / 50.0, 2)
+    return {
+        "min50kg": low_50kg,
+        "max50kg": high_50kg,
+        "mid50kg": mid_50kg,
+        "minKg": min_kg,
+        "maxKg": max_kg,
+        "midKg": mid_kg,
+        "display": format_inr_range(low_50kg, high_50kg, "per 50 kg"),
+        "displayPerKg": format_inr_precise_range(min_kg, max_kg, "per kg"),
+    }
+
+
+def extract_karnataka_structured_prices(report_text: str) -> tuple[dict[str, dict[str, Any]], dict[str, str]]:
+    domestic_section_raw = extract_section_raw(
         report_text,
         (
             "Raw Coffee Price (Karnataka)",
@@ -142,35 +176,48 @@ def extract_domestic_prices(report_text: str) -> dict[str, dict[str, Any]]:
         ("Market Analysis", "International", "ICO", "Futures", "Exchange Rate"),
         window=2600,
     )
-    prices: dict[str, dict[str, Any]] = {}
-    for product_key, labels in PRICE_LABELS.items():
-        found = extract_range_after_label(domestic_section or report_text, labels)
-        if not found and domestic_section:
-            ordered_ranges = list(RANGE_PATTERN.finditer(domestic_section))
-            if len(ordered_ranges) >= 4 and product_key in PRICE_ORDER:
-                idx = PRICE_ORDER.index(product_key)
-                range_match = ordered_ranges[idx]
-                found = (
-                    parse_numeric(range_match.group(1)),
-                    parse_numeric(range_match.group(2)),
-                    format_inr_range(parse_numeric(range_match.group(1)), parse_numeric(range_match.group(2)), "per 50 kg"),
-                )
-        if not found:
-            continue
-        low_50kg, high_50kg, display = found
-        min_kg = round(low_50kg / 50.0, 2)
-        max_kg = round(high_50kg / 50.0, 2)
-        mid_kg = round(((low_50kg + high_50kg) / 2.0) / 50.0, 2)
-        prices[product_key] = {
-            "min50kg": low_50kg,
-            "max50kg": high_50kg,
-            "mid50kg": round((low_50kg + high_50kg) / 2.0, 2),
-            "minKg": min_kg,
-            "maxKg": max_kg,
-            "midKg": mid_kg,
-            "display": display,
-            "displayPerKg": format_inr_precise_range(min_kg, max_kg, "per kg"),
-        }
+    if not domestic_section_raw:
+        return {}, {product_key: "Karnataka raw coffee section was not found in the Coffee Board PDF." for product_key in PRICE_ORDER}
+
+    lines = [normalize_space(line) for line in domestic_section_raw.splitlines() if normalize_space(line)]
+    header_index = -1
+    for index in range(len(lines)):
+        header_blob = " ".join(lines[index:index + 3])
+        if KARNATAKA_HEADER_PATTERN.search(header_blob):
+            header_index = index
+            break
+
+    if header_index == -1:
+        return {}, {product_key: "Karnataka raw coffee header row was not found in the Coffee Board PDF." for product_key in PRICE_ORDER}
+
+    candidate_blob = ""
+    for offset in range(1, min(5, len(lines) - header_index)):
+        candidate_blob = " ".join(lines[header_index + offset:header_index + offset + 3])
+        range_matches = list(RANGE_PATTERN.finditer(candidate_blob))
+        if len(range_matches) >= 4:
+            parsed_prices: dict[str, dict[str, Any]] = {}
+            parse_errors: dict[str, str] = {}
+            for product_key, range_match in zip(PRICE_ORDER, range_matches[:4]):
+                low_50kg = parse_numeric(range_match.group(1))
+                high_50kg = parse_numeric(range_match.group(2))
+                if not is_valid_50kg_coffee_range(low_50kg, high_50kg):
+                    parse_errors[product_key] = (
+                        f"Invalid Coffee Board Karnataka range parsed for {product_key}: "
+                        f"{low_50kg:g}-{high_50kg:g} per 50 kg."
+                    )
+                    continue
+                parsed_prices[product_key] = build_price_payload(low_50kg, high_50kg)
+            if parsed_prices:
+                for product_key in PRICE_ORDER:
+                    parse_errors.setdefault(product_key, f"Karnataka raw coffee row did not contain a valid range for {product_key}.")
+                return parsed_prices, parse_errors
+            break
+
+    return {}, {product_key: "Karnataka raw coffee data row was not found below the Coffee Board header row." for product_key in PRICE_ORDER}
+
+
+def extract_domestic_prices(report_text: str) -> dict[str, dict[str, Any]]:
+    prices, _ = extract_karnataka_structured_prices(report_text)
     return prices
 
 
@@ -274,7 +321,7 @@ def fetch_latest_report() -> dict[str, Any]:
     report_date_text, report_date_iso = extract_report_date(page_text, pdf_text)
     futures = extract_futures_rows(pdf_text)
     analysis_text = extract_analysis(pdf_text)
-    domestic_prices = extract_domestic_prices(pdf_text)
+    domestic_prices, domestic_price_errors = extract_karnataka_structured_prices(pdf_text)
     report_fingerprint = build_report_fingerprint(report_date_text, download.suggested_filename, pdf_text)
     log(
         f"[COFFEE_BOARD] fetched report date={report_date_text or 'unknown'} "
@@ -293,12 +340,14 @@ def fetch_latest_report() -> dict[str, Any]:
         "analysisText": analysis_text,
         "futures": futures,
         "domesticPrices": domestic_prices,
+        "domesticPriceErrors": domestic_price_errors,
         "fetchedAt": now_iso(),
     }
 
 
 def build_coffee_item(commodity: CommodityConfig, report: dict[str, Any]) -> dict[str, Any]:
     domestic_price = report["domesticPrices"].get(commodity.product_key)
+    domestic_price_error = (report.get("domesticPriceErrors") or {}).get(commodity.product_key)
     report_date = report.get("reportDate")
     report_title = report.get("title")
     source_url = report.get("sourceUrl") or REPORT_PAGE_URL
@@ -316,7 +365,7 @@ def build_coffee_item(commodity: CommodityConfig, report: dict[str, Any]) -> dic
             source_url=source_url,
             raw_text=report.get("pdfText"),
             confidence=None,
-            error=f"{commodity.display_name} was not found in the latest Coffee Board report.",
+            error=domestic_price_error or f"{commodity.display_name} was not found in the latest Coffee Board report.",
             extras={
                 "shortDescription": "Coffee Board report was fetched, but this commodity range was not found.",
                 "analysisSummary": analysis_text or "Coffee Board report did not expose a readable market note for this commodity.",
