@@ -154,7 +154,17 @@ type PricesHistoryResponse = {
   daily: PriceHistoryPoint[]
 }
 
-type PipelineRunStatus = 'SUCCESS' | 'PARTIAL' | 'FAILED' | 'RUNNING' | null | undefined
+type PipelineRunStatus =
+  | 'SUCCESS'
+  | 'PARTIAL'
+  | 'FAILED'
+  | 'RUNNING'
+  | 'LIVE'
+  | 'VERIFIED'
+  | 'AVAILABLE'
+  | 'DEGRADED'
+  | null
+  | undefined
 
 function formatPrice(value: number | null | undefined) {
   return value != null ? `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : '-'
@@ -190,6 +200,9 @@ function formatDateTime(value: string | null | undefined) {
 
 function getStatusTone(status: PipelineRunStatus) {
   switch (status) {
+    case 'LIVE':
+    case 'VERIFIED':
+    case 'AVAILABLE':
     case 'SUCCESS':
       return {
         dot: 'bg-emerald-400',
@@ -197,6 +210,7 @@ function getStatusTone(status: PipelineRunStatus) {
         border: 'border-emerald-400/20 hover:border-emerald-400/35',
         glow: 'shadow-[0_0_30px_rgba(16,185,129,0.08)]',
       }
+    case 'DEGRADED':
     case 'PARTIAL':
     case 'RUNNING':
       return {
@@ -351,6 +365,12 @@ function isCoffeeCommodity(product: Pick<PriceProduct, 'productKey' | 'displayNa
   return /(arabica|robusta)/.test(marker)
 }
 
+function isCoffeeBoardSource(card: Pick<PriceLatestCard, 'source' | 'metadata'> | null | undefined) {
+  const source = (card?.source || '').trim().toLowerCase()
+  const reportSourceLabel = getMetadataString(card?.metadata, 'reportSourceLabel')?.toLowerCase()
+  return source === 'coffee board india' || reportSourceLabel === 'coffee board india'
+}
+
 function formatPer50KgEquivalent(value: number | null | undefined) {
   if (value == null) return 'Not available'
   return `≈ ${formatPrice(value * 50)} per 50 kg`
@@ -359,6 +379,11 @@ function formatPer50KgEquivalent(value: number | null | undefined) {
 function formatPrimaryCoffeePrice(value: number | null | undefined) {
   if (value == null) return 'Not available'
   return `${formatPrice(value * 50)} per 50 kg`
+}
+
+function formatMidpointPerKg(value: number | null | undefined) {
+  if (value == null) return 'Not available'
+  return `≈ ${formatPrice(value)} / kg midpoint`
 }
 
 function getMetadataString(metadata: Record<string, unknown> | null | undefined, key: string) {
@@ -698,6 +723,13 @@ export default function HomePage() {
     () => latestByKey.get(activeSelectedKey) || null,
     [latestByKey, activeSelectedKey]
   )
+  const selectedCoffeeBoardLatest = isCoffeeCommodity(selectedProduct) && !isCoffeeBoardSource(selectedLatest)
+    ? null
+    : selectedLatest
+  const coffeeCards = useMemo(
+    () => visibleProducts.map((product) => latestByKey.get(product.productKey)).filter(Boolean) as PriceLatestCard[],
+    [visibleProducts, latestByKey]
+  )
 
   const dbHistoryChart = useMemo(
     () => buildMarketHorizonChart(history?.daily || history?.history, selectedLatest?.forecastPoints, selectedLatest?.expectedNextPrice),
@@ -727,49 +759,49 @@ export default function HomePage() {
   )
   const lastUpdated = latest?.run?.runAt || latest?.updatedAt || null
   const latestPriceDisplay = formatRangeOrValue(
-    selectedLatest?.todayPrice ?? selectedLatest?.currentPrice ?? selectedLatest?.value,
-    selectedLatest?.todayPriceMin,
-    selectedLatest?.todayPriceMax
+    selectedCoffeeBoardLatest?.todayPrice ?? selectedCoffeeBoardLatest?.currentPrice ?? selectedCoffeeBoardLatest?.value,
+    selectedCoffeeBoardLatest?.todayPriceMin,
+    selectedCoffeeBoardLatest?.todayPriceMax
   )
-  const currentKgDisplay = selectedLatest?.currentPrice != null || selectedLatest?.value != null
-    ? `${formatPrice(selectedLatest?.currentPrice ?? selectedLatest?.value)} ${selectedLatest?.unit || selectedProduct?.unit || 'INR/kg'}`
+  const currentKgDisplay = selectedCoffeeBoardLatest?.currentPrice != null || selectedCoffeeBoardLatest?.value != null
+    ? `${formatPrice(selectedCoffeeBoardLatest?.currentPrice ?? selectedCoffeeBoardLatest?.value)} ${selectedCoffeeBoardLatest?.unit || selectedProduct?.unit || 'INR/kg'}`
     : 'Not available'
   const lastWeekDisplay = formatRangeOrValue(
-    selectedLatest?.lastWeekPrice,
-    selectedLatest?.lastWeekPriceMin,
-    selectedLatest?.lastWeekPriceMax
+    selectedCoffeeBoardLatest?.lastWeekPrice,
+    selectedCoffeeBoardLatest?.lastWeekPriceMin,
+    selectedCoffeeBoardLatest?.lastWeekPriceMax
   )
   const nextWeekDisplay = formatRangeOrValue(
-    selectedLatest?.expectedNextPrice,
-    selectedLatest?.expectedNextPriceMin,
-    selectedLatest?.expectedNextPriceMax
+    selectedCoffeeBoardLatest?.expectedNextPrice,
+    selectedCoffeeBoardLatest?.expectedNextPriceMin,
+    selectedCoffeeBoardLatest?.expectedNextPriceMax
   )
-  const trendDisplay = formatValueOrNotAvailable(selectedLatest?.trend)
+  const trendDisplay = formatValueOrNotAvailable(selectedCoffeeBoardLatest?.trend)
   const confidenceDisplay =
-    selectedLatest?.confidence != null ? `${Math.round(selectedLatest.confidence * 100)}%` : 'Not available'
+    selectedCoffeeBoardLatest?.confidence != null ? `${Math.round(selectedCoffeeBoardLatest.confidence * 100)}%` : 'Not available'
   const scheduleFreshnessWarning = (latest?.runHealth?.freshnessHours ?? 0) > 24
   const currentPer50KgDisplay = isCoffeeCommodity(selectedProduct)
-    ? formatPer50KgEquivalent(selectedLatest?.currentPrice ?? selectedLatest?.value)
+    ? formatPer50KgEquivalent(selectedCoffeeBoardLatest?.currentPrice ?? selectedCoffeeBoardLatest?.value)
     : null
   const currentPrimaryDisplay = isCoffeeCommodity(selectedProduct)
-    ? formatPrimaryCoffeePrice(selectedLatest?.currentPrice ?? selectedLatest?.value)
-    : formatPrice(selectedLatest?.currentPrice ?? selectedLatest?.value)
+    ? formatPrimaryCoffeePrice(selectedCoffeeBoardLatest?.currentPrice ?? selectedCoffeeBoardLatest?.value)
+    : formatPrice(selectedCoffeeBoardLatest?.currentPrice ?? selectedCoffeeBoardLatest?.value)
   const currentSecondaryDisplay = isCoffeeCommodity(selectedProduct)
     ? `(${currentKgDisplay.replace(/^/, '≈ ')})`
-    : (selectedLatest?.unit || selectedProduct?.unit || 'INR/kg')
+    : (selectedCoffeeBoardLatest?.unit || selectedProduct?.unit || 'INR/kg')
   const lastWeekParts = formatRangeOrValueParts(
-    selectedLatest?.lastWeekPrice,
-    selectedLatest?.lastWeekPriceMin,
-    selectedLatest?.lastWeekPriceMax
+    selectedCoffeeBoardLatest?.lastWeekPrice,
+    selectedCoffeeBoardLatest?.lastWeekPriceMin,
+    selectedCoffeeBoardLatest?.lastWeekPriceMax
   )
   const nextWeekParts = formatRangeOrValueParts(
-    selectedLatest?.expectedNextPrice,
-    selectedLatest?.expectedNextPriceMin,
-    selectedLatest?.expectedNextPriceMax
+    selectedCoffeeBoardLatest?.expectedNextPrice,
+    selectedCoffeeBoardLatest?.expectedNextPriceMin,
+    selectedCoffeeBoardLatest?.expectedNextPriceMax
   )
-  const lastWeekSignal = getMetadataString(selectedLatest?.metadata, 'last_week_display_signal')
-  const nextWeekSignal = getMetadataString(selectedLatest?.metadata, 'next_week_display_signal')
-  const sentimentDisplay = getMetadataString(selectedLatest?.metadata, 'marketSentiment') || 'Stable'
+  const lastWeekSignal = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'last_week_display_signal')
+  const nextWeekSignal = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'next_week_display_signal')
+  const sentimentDisplay = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'marketSentiment') || 'Stable'
   const lastWeekDisplayParts = formatSignalParts(lastWeekParts, lastWeekSignal, 'last_week')
   const nextWeekDisplayParts = formatSignalParts(nextWeekParts, nextWeekSignal, 'next_week')
   const recentDailyHistory = useMemo(
@@ -779,22 +811,22 @@ export default function HomePage() {
   const contextualSummary = useMemo(() => {
     return (
       sanitizeInsightText(selectedLatest?.shortDescription) ||
-      sanitizeInsightText(selectedLatest?.analysisSummary) ||
+      sanitizeInsightText(selectedCoffeeBoardLatest?.analysisSummary) ||
       'No reliable structured market summary available.'
     )
-  }, [selectedLatest])
+  }, [selectedCoffeeBoardLatest, selectedLatest])
   const analysisText = useMemo(() => {
     return (
-      sanitizeInsightText(selectedLatest?.analysisSummary) ||
-      sanitizeInsightText(selectedLatest?.shortDescription) ||
+      sanitizeInsightText(selectedCoffeeBoardLatest?.analysisSummary) ||
+      sanitizeInsightText(selectedCoffeeBoardLatest?.shortDescription) ||
       'No reliable structured market summary available.'
     )
-  }, [selectedLatest])
+  }, [selectedCoffeeBoardLatest])
   const derivedHighlights = useMemo(() => {
     const normalized = new Set<string>()
     const items: string[] = []
 
-    for (const bullet of selectedLatest?.analysisBullets || []) {
+    for (const bullet of selectedCoffeeBoardLatest?.analysisBullets || []) {
       const cleaned = sanitizeInsightText(bullet)
       if (!isUsefulHighlightLine(cleaned)) continue
       const key = canonicalizeInsightLine(cleaned)
@@ -803,7 +835,7 @@ export default function HomePage() {
       items.push(cleaned)
     }
 
-    const summary = sanitizeInsightText(selectedLatest?.shortDescription || selectedLatest?.analysisSummary || '')
+    const summary = sanitizeInsightText(selectedCoffeeBoardLatest?.shortDescription || selectedCoffeeBoardLatest?.analysisSummary || '')
     if (isUsefulHighlightLine(summary)) {
       const key = canonicalizeInsightLine(summary)
       if (!normalized.has(key)) {
@@ -813,7 +845,7 @@ export default function HomePage() {
     }
 
     if (items.length === 0) {
-      for (const line of pickHighlightSentences(selectedLatest?.rawText, selectedProduct?.displayName)) {
+      for (const line of pickHighlightSentences(selectedCoffeeBoardLatest?.rawText, selectedProduct?.displayName)) {
         const cleaned = sanitizeInsightText(line)
         if (!isUsefulHighlightLine(cleaned)) continue
         const key = canonicalizeInsightLine(cleaned)
@@ -824,23 +856,44 @@ export default function HomePage() {
     }
 
     return items.slice(0, 4)
-  }, [selectedLatest, selectedProduct])
-  const reportTitle = getMetadataString(selectedLatest?.metadata, 'reportTitle') || selectedLatest?.source || 'Coffee Board India'
-  const reportDate = getMetadataString(selectedLatest?.metadata, 'reportDate')
-  const reportSourceUrl = getMetadataString(selectedLatest?.metadata, 'reportSourceUrl') || selectedLatest?.sourceUrl
-  const reportFileName = getMetadataString(selectedLatest?.metadata, 'reportFileName')
-  const reportRangeOriginal = getMetadataString(selectedLatest?.metadata, 'currentRangeOriginal')
-  const reportRangeNormalized = getMetadataString(selectedLatest?.metadata, 'currentRangeInrPerKg')
-  const reportAnalysis = getMetadataString(selectedLatest?.metadata, 'marketAnalysis')
-  const reportStatus = getMetadataString(selectedLatest?.metadata, 'reportStatus')
-  const lastCheckedAt = getMetadataString(selectedLatest?.metadata, 'lastCheckedAt')
+  }, [selectedCoffeeBoardLatest, selectedProduct])
+  const reportTitle = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'reportTitle') || selectedCoffeeBoardLatest?.source || 'Coffee Board India'
+  const reportDate = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'reportDate')
+  const reportSourceUrl = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'reportSourceUrl') || selectedCoffeeBoardLatest?.sourceUrl
+  const reportFileName = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'reportFileName')
+  const reportRangeOriginal = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'currentRangeOriginal')
+  const reportRangeNormalized = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'currentRangeInrPerKg')
+  const reportAnalysis = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'marketAnalysis')
+  const reportStatus = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'reportStatus')
+  const lastCheckedAt = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'lastCheckedAt')
   const latestSuccessfulReportDate = getMetadataString(selectedLatest?.metadata, 'latestSuccessfulReportDate') || reportDate
-  const carryingForwardPreviousReport = getMetadataBoolean(selectedLatest?.metadata, 'carryingForwardPreviousReport')
-  const reportStatusMessage = reportStatus === 'NO_NEW_REPORT'
-    ? `No new Coffee Board report published yet today. Showing latest available report from ${latestSuccessfulReportDate || 'the previous successful update'}.`
-    : reportStatus === 'FETCH_FAILED' && carryingForwardPreviousReport
-      ? `Coffee Board could not be refreshed right now. Showing the latest successful report from ${latestSuccessfulReportDate || 'the previous successful update'}.`
+  const reportStatusBadge = reportStatus === 'NEW_REPORT'
+    ? 'LIVE REPORT'
+    : reportStatus === 'FETCH_FAILED'
+      ? 'COFFEE BOARD UNAVAILABLE'
+      : !selectedCoffeeBoardLatest && isCoffeeCommodity(selectedProduct)
+        ? 'COFFEE BOARD DATA REQUIRED'
+        : 'REPORT STATUS UNKNOWN'
+  const reportStatusMessage = reportStatus === 'FETCH_FAILED'
+    ? 'Coffee Board could not be refreshed right now. Coffee prices are unavailable until the PDF is fetched again.'
+    : reportStatus === 'NEW_REPORT'
+      ? 'Live Coffee Board report loaded.'
+      : !selectedCoffeeBoardLatest && isCoffeeCommodity(selectedProduct)
+        ? 'Coffee prices are unavailable because no valid Coffee Board PDF data is present in the latest run.'
       : null
+  const coffeeAvailableCount = visibleProducts.filter((product) => {
+    const card = latestByKey.get(product.productKey)
+    return Boolean(card && isCoffeeBoardSource(card) && (card.currentPrice != null || card.value != null))
+  }).length
+  const coffeeDashboardStatus = visibleProducts.length > 0 && coffeeAvailableCount === visibleProducts.length
+    ? (coffeeCards.some((card) => isCoffeeBoardSource(card) && getMetadataString(card.metadata, 'reportStatus') === 'NEW_REPORT') ? 'LIVE' : 'VERIFIED')
+    : coffeeAvailableCount > 0
+      ? 'DEGRADED'
+      : 'FAILED'
+  const coffeeSummarySubtitle = `${coffeeAvailableCount}/${visibleProducts.length || 4} coffee commodities available`
+  const coffeeMidpointDisplay = formatMidpointPerKg(selectedCoffeeBoardLatest?.currentPrice ?? selectedCoffeeBoardLatest?.value)
+  const currentCoffeePrimaryDisplay = reportRangeOriginal || currentPrimaryDisplay
+  const currentCoffeeSecondaryDisplay = reportRangeNormalized || currentSecondaryDisplay
 
   return (
     <div id="top" className="space-y-14">
@@ -901,29 +954,29 @@ export default function HomePage() {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <PipelineStatusCard
-                  title="Latest Run Status"
-                  status={latest?.run?.status || 'Not available'}
-                  timestamp={latest?.run?.runAt}
-                  subtitle={latest?.run ? `${latest.run.successfulCount}/${latest.run.totalProducts} commodities captured` : 'No pipeline run recorded yet'}
+                  title="Coffee Dashboard Status"
+                  status={coffeeDashboardStatus}
+                  timestamp={lastCheckedAt || latest?.run?.runAt}
+                  subtitle={coffeeSummarySubtitle}
                   icon={<ActivityIcon />}
                 />
                 <PipelineStatusCard
-                  title="Last Successful Run"
-                  status={latest?.lastSuccessfulRun?.status || 'Not available'}
-                  timestamp={latest?.lastSuccessfulRun?.runAt}
-                  subtitle={latest?.lastSuccessfulRun ? `Trigger: ${latest.lastSuccessfulRun.trigger}` : 'No successful run has been recorded yet'}
+                  title="Latest Coffee Board Report"
+                  status={reportStatus === 'NEW_REPORT' ? 'LIVE' : coffeeDashboardStatus}
+                  timestamp={reportDate || latestSuccessfulReportDate || latest?.lastSuccessfulRun?.runAt}
+                  subtitle={reportStatusMessage || 'Latest verified Coffee Board snapshot is available.'}
                   icon={<CheckCircleIcon />}
                 />
                 <PipelineStatusCard
-                  title="Daily Schedule Health"
+                  title="Daily Coffee Check"
                   status={
                     latest?.runHealth?.freshnessHours == null
                       ? 'Not available'
                       : scheduleFreshnessWarning
                         ? 'FAILED'
-                        : latest?.runHealth?.latestRunStatus || 'SUCCESS'
+                        : coffeeDashboardStatus
                   }
-                  timestamp={latest?.runHealth?.lastSuccessfulRunAt || latest?.runHealth?.latestRunAt}
+                  timestamp={lastCheckedAt || latest?.runHealth?.latestRunAt || latest?.runHealth?.lastSuccessfulRunAt}
                   subtitle={
                     latest?.runHealth
                       ? `${latest.runHealth.scheduleTimeLocal} ${latest.runHealth.scheduleTimezone} • freshness window ${latest.runHealth.maxFreshnessHours}h`
@@ -961,10 +1014,14 @@ export default function HomePage() {
                         </span>
                       </div>
                       <p className="mt-2 text-2xl font-bold text-[#f4ead9]">
-                        {isCoffeeCommodity(product) ? formatPrimaryCoffeePrice(card?.currentPrice ?? card?.value) : formatPrice(card?.currentPrice ?? card?.value)}
+                        {isCoffeeCommodity(product)
+                          ? (getMetadataString(card?.metadata, 'currentRangeOriginal') || formatPrimaryCoffeePrice(card?.currentPrice ?? card?.value))
+                          : formatPrice(card?.currentPrice ?? card?.value)}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {isCoffeeCommodity(product) ? `(${card?.currentPrice != null || card?.value != null ? `≈ ${formatPrice((card?.currentPrice ?? card?.value ?? 0))}/kg` : 'Not available'})` : product.unit}
+                        {isCoffeeCommodity(product)
+                          ? (getMetadataString(card?.metadata, 'currentRangeInrPerKg') || (card?.currentPrice != null || card?.value != null ? `≈ ${formatPrice((card?.currentPrice ?? card?.value ?? 0))}/kg` : 'Not available'))
+                          : product.unit}
                       </p>
                       {card?.trend && <p className="mt-1 text-xs text-emerald-300">{card.trend}</p>}
                       {card?.error && <p className="mt-1 text-xs text-red-300">{card.error}</p>}
@@ -1002,20 +1059,20 @@ export default function HomePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                   <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Current', 'ಪ್ರಸ್ತುತ')}</p>
-                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{currentPrimaryDisplay}</p>
+                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{currentCoffeePrimaryDisplay}</p>
                     <p className="mt-1 text-xs text-gray-400">
-                      {currentSecondaryDisplay}
+                      {currentCoffeeSecondaryDisplay}
                     </p>
                   </div>
                   <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Last Week', 'ಕಳೆದ ವಾರ')}</p>
-                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{lastWeekDisplayParts.large}</p>
-                    <p className="mt-1 text-xs text-gray-400">{lastWeekDisplayParts.small}</p>
+                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Midpoint</p>
+                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{coffeeMidpointDisplay}</p>
+                    <p className="mt-1 text-xs text-gray-400">Used for continuity in charts and history</p>
                   </div>
                   <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Next Week', 'ಮುಂದಿನ ವಾರ')}</p>
-                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{nextWeekDisplayParts.large}</p>
-                    <p className="mt-1 text-xs text-gray-400">{nextWeekDisplayParts.small}</p>
+                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Report Status</p>
+                    <p className="mt-2 text-2xl font-bold text-[#f7e9d6]">{reportStatusBadge}</p>
+                    <p className="mt-1 text-xs text-gray-400">{reportStatusMessage || 'Coffee Board values are in sync with the latest verified report.'}</p>
                   </div>
                   <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Trend', 'ಪ್ರವೃತ್ತಿ')}</p>
@@ -1029,7 +1086,12 @@ export default function HomePage() {
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
                   <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Daily Coffee Report</p>
-                    <p className="mt-3 text-xl font-semibold text-[#f7e9d6]">{reportTitle}</p>
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
+                      <p className="text-xl font-semibold text-[#f7e9d6]">{reportTitle}</p>
+                      <span className="rounded-full border border-emerald-300/30 bg-emerald-950/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-200">
+                        {reportStatusBadge}
+                      </span>
+                    </div>
                     <p className="mt-2 text-sm text-[#d5c4b2]">{reportDate || 'Report date not available'}</p>
                     {reportFileName && <p className="mt-1 text-xs text-gray-400">{reportFileName}</p>}
                     {reportStatusMessage && (
@@ -1052,9 +1114,10 @@ export default function HomePage() {
                     )}
                   </div>
                   <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Normalized Coffee Range</p>
+                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Exact Coffee Board Range</p>
                     <p className="mt-3 text-2xl font-bold text-[#f7e9d6]">{reportRangeOriginal || 'Not available'}</p>
                     <p className="mt-2 text-sm text-gray-400">{reportRangeNormalized || 'Normalized INR/kg not available'}</p>
+                    <p className="mt-2 text-xs text-emerald-300">{coffeeMidpointDisplay}</p>
                     <p className="mt-3 text-sm text-[#d5c4b2]">{reportAnalysis || analysisText}</p>
                   </div>
                 </div>

@@ -43,6 +43,7 @@ PRICE_LABELS: dict[str, tuple[str, ...]] = {
 TREND_UP_TERMS = ("higher", "rise", "rally", "firm", "increase", "up", "strong")
 TREND_DOWN_TERMS = ("lower", "fall", "decline", "down", "weak", "soft")
 TREND_STABLE_TERMS = ("steady", "stable", "unchanged", "flat")
+PRICE_ORDER = ["arabica_parchment", "arabica_cherry", "robusta_parchment", "robusta_cherry"]
 
 
 def is_coffee_commodity(commodity: CommodityConfig) -> bool:
@@ -103,6 +104,18 @@ def parse_numeric(value: str) -> float:
     return float(value.replace(",", ""))
 
 
+def format_inr_value(value: float) -> str:
+    return f"₹{value:,.0f}"
+
+
+def format_inr_range(low: float, high: float, unit_suffix: str) -> str:
+    return f"{format_inr_value(low)}–{format_inr_value(high)} {unit_suffix}"
+
+
+def format_inr_precise_range(low: float, high: float, unit_suffix: str) -> str:
+    return f"₹{low:,.2f}–₹{high:,.2f} {unit_suffix}"
+
+
 def extract_range_after_label(text: str, labels: tuple[str, ...]) -> tuple[float, float, str] | None:
     for label in labels:
         pattern = re.compile(rf"{re.escape(label)}[\s:()/-]{{0,20}}(.{{0,120}}?)", re.IGNORECASE)
@@ -112,14 +125,20 @@ def extract_range_after_label(text: str, labels: tuple[str, ...]) -> tuple[float
             if range_match:
                 low = parse_numeric(range_match.group(1))
                 high = parse_numeric(range_match.group(2))
-                return low, high, f"Rs. {range_match.group(1)}–{range_match.group(2)} per 50 kg"
+                return low, high, format_inr_range(low, high, "per 50 kg")
     return None
 
 
 def extract_domestic_prices(report_text: str) -> dict[str, dict[str, Any]]:
     domestic_section = extract_section(
         report_text,
-        ("Raw Coffee Prices in Karnataka", "Raw coffee prices in Karnataka", "Raw Coffee Price in Karnataka"),
+        (
+            "Raw Coffee Price (Karnataka)",
+            "Raw Coffee Price (Karnataka) as on",
+            "Raw Coffee Prices in Karnataka",
+            "Raw coffee prices in Karnataka",
+            "Raw Coffee Price in Karnataka",
+        ),
         ("Market Analysis", "International", "ICO", "Futures", "Exchange Rate"),
         window=2600,
     )
@@ -128,26 +147,29 @@ def extract_domestic_prices(report_text: str) -> dict[str, dict[str, Any]]:
         found = extract_range_after_label(domestic_section or report_text, labels)
         if not found and domestic_section:
             ordered_ranges = list(RANGE_PATTERN.finditer(domestic_section))
-            order = ["arabica_parchment", "arabica_cherry", "robusta_parchment", "robusta_cherry"]
-            if len(ordered_ranges) >= 4 and product_key in order:
-                idx = order.index(product_key)
+            if len(ordered_ranges) >= 4 and product_key in PRICE_ORDER:
+                idx = PRICE_ORDER.index(product_key)
                 range_match = ordered_ranges[idx]
                 found = (
                     parse_numeric(range_match.group(1)),
                     parse_numeric(range_match.group(2)),
-                    f"Rs. {range_match.group(1)}–{range_match.group(2)} per 50 kg",
+                    format_inr_range(parse_numeric(range_match.group(1)), parse_numeric(range_match.group(2)), "per 50 kg"),
                 )
         if not found:
             continue
         low_50kg, high_50kg, display = found
+        min_kg = round(low_50kg / 50.0, 2)
+        max_kg = round(high_50kg / 50.0, 2)
+        mid_kg = round(((low_50kg + high_50kg) / 2.0) / 50.0, 2)
         prices[product_key] = {
             "min50kg": low_50kg,
             "max50kg": high_50kg,
             "mid50kg": round((low_50kg + high_50kg) / 2.0, 2),
-            "minKg": round(low_50kg / 50.0, 2),
-            "maxKg": round(high_50kg / 50.0, 2),
-            "midKg": round(((low_50kg + high_50kg) / 2.0) / 50.0, 2),
+            "minKg": min_kg,
+            "maxKg": max_kg,
+            "midKg": mid_kg,
             "display": display,
+            "displayPerKg": format_inr_precise_range(min_kg, max_kg, "per kg"),
         }
     return prices
 
@@ -214,18 +236,12 @@ def build_analysis_bullets(
 ) -> list[str]:
     bullets: list[str] = []
     if domestic_price:
-        bullets.append(f"Current range: {domestic_price['display']}")
-        bullets.append(f"Normalized: Rs. {domestic_price['minKg']:.2f}–{domestic_price['maxKg']:.2f} per kg")
+        bullets.append(f"Coffee Board range: {domestic_price['display']}")
+        bullets.append(f"Normalized range: {domestic_price['displayPerKg']}")
+        bullets.append(f"Midpoint estimate: {format_inr_value(domestic_price['midKg'])}/kg")
     if report_date:
         bullets.append(f"Report date: {report_date}")
-    if futures.get("arabica"):
-        first = futures["arabica"][0]
-        bullets.append(f"ICE Arabica: {first['month']} at {first['centsLb']} cents/lb")
-    elif futures.get("robusta"):
-        first = futures["robusta"][0]
-        bullets.append(f"ICE Robusta: {first['month']} at {first['usdTonne']} US$/tonne")
-    if analysis_text:
-        bullets.append(analysis_text[:180])
+    bullets.append("Source: Daily Coffee Market Report")
     return bullets[:4]
 
 
@@ -328,13 +344,17 @@ def build_coffee_item(commodity: CommodityConfig, report: dict[str, Any]) -> dic
             },
         )
 
-    trend = derive_trend(analysis_text)
+    trend = "Stable"
     current_price = domestic_price["midKg"]
     last_week_price = None
+    short_description = (
+        f"{commodity.display_name} is trading at {domestic_price['display']} today "
+        f"({domestic_price['displayPerKg']}), reflecting the latest Coffee Board market report for Karnataka."
+    )
     analysis_summary = (
-        f"{commodity.display_name} in the latest Coffee Board report is quoted at {domestic_price['display']} "
-        f"(about Rs. {domestic_price['midKg']:.2f} per kg). {analysis_text}"
-    ).strip()
+        f"Today's Coffee Board report places {commodity.display_name} in the {domestic_price['display']} range. "
+        f"This keeps the market anchored around a midpoint of {format_inr_value(domestic_price['midKg'])}/kg."
+    )
 
     return build_item(
         product_key=commodity.product_key,
@@ -354,9 +374,9 @@ def build_coffee_item(commodity: CommodityConfig, report: dict[str, Any]) -> dic
             "todayPriceMax": domestic_price["maxKg"],
             "lastWeekPrice": last_week_price,
             "expectedNextPrice": None,
-            "shortDescription": f"{commodity.display_name} is currently reported at {domestic_price['display']} in Coffee Board Karnataka market data.",
+            "shortDescription": short_description,
             "trend": trend,
-            "analysisSummary": analysis_summary[:1200],
+            "analysisSummary": analysis_summary,
             "analysisBullets": build_analysis_bullets(commodity, domestic_price, report_date, analysis_text, futures),
             "historicalPoints": [],
             "forecastPoints": [],
@@ -375,7 +395,12 @@ def build_coffee_item(commodity: CommodityConfig, report: dict[str, Any]) -> dic
                 "carryingForwardPreviousReport": False,
                 "originalUnit": "50kg",
                 "currentRangeOriginal": domestic_price["display"],
-                "currentRangeInrPerKg": f"Rs. {domestic_price['minKg']:.2f}–{domestic_price['maxKg']:.2f} per kg",
+                "currentRangeInrPerKg": domestic_price["displayPerKg"],
+                "todayPriceMin": domestic_price["min50kg"],
+                "todayPriceMax": domestic_price["max50kg"],
+                "todayPriceMid": domestic_price["mid50kg"],
+                "todayPriceMinPerKg": domestic_price["minKg"],
+                "todayPriceMaxPerKg": domestic_price["maxKg"],
                 "marketAnalysis": analysis_text,
                 "futures": futures,
                 "domesticPrices": report.get("domesticPrices"),
