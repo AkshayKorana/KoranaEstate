@@ -40,19 +40,24 @@ def build_failed_output(message: str) -> dict:
         "items": items,
         "errors": errors,
     }
-    
+
 SOURCE_NAME = "bing"
 PAYLOAD_SOURCE = "Bing (Playwright)"
 SEARCH_BASE = "https://www.bing.com/search"
 
-SCRAPER_FAST_MODE = env_bool("SCRAPER_FAST_MODE", True)
-NAV_TIMEOUT_MS = env_int("NAV_TIMEOUT_MS", 9000 if SCRAPER_FAST_MODE else 25000)
-RESULTS_TIMEOUT_MS = env_int("RESULTS_TIMEOUT_MS", 5000 if SCRAPER_FAST_MODE else 12000)
-PRODUCT_TIMEOUT_MS = env_int("PRODUCT_TIMEOUT_MS", 9000 if SCRAPER_FAST_MODE else 30000)
-SCRAPER_HEADLESS = env_bool("SCRAPER_HEADLESS", True)
 IS_RENDER = bool(os.getenv("RENDER") or os.getenv("RENDER_EXTERNAL_URL"))
-SCRAPER_BROWSER = (os.getenv("SCRAPER_BROWSER") or ("chromium" if IS_RENDER else "firefox")).strip().lower()
+
+SCRAPER_FAST_MODE = env_bool("SCRAPER_FAST_MODE", True)
+
+# On Render, use tighter timeouts to avoid SIGTERM
+NAV_TIMEOUT_MS = env_int("NAV_TIMEOUT_MS", 12000 if IS_RENDER else (9000 if SCRAPER_FAST_MODE else 25000))
+RESULTS_TIMEOUT_MS = env_int("RESULTS_TIMEOUT_MS", 6000 if IS_RENDER else (5000 if SCRAPER_FAST_MODE else 12000))
+PRODUCT_TIMEOUT_MS = env_int("PRODUCT_TIMEOUT_MS", 25000 if IS_RENDER else (9000 if SCRAPER_FAST_MODE else 30000))
+
+SCRAPER_HEADLESS = env_bool("SCRAPER_HEADLESS", True)
+SCRAPER_BROWSER = (os.getenv("SCRAPER_BROWSER") or "chromium").strip().lower()
 SCRAPER_BROWSER_CHANNEL = os.getenv("SCRAPER_BROWSER_CHANNEL")
+
 CHROMIUM_LAUNCH_ARGS = [
     "--no-sandbox",
     "--disable-setuid-sandbox",
@@ -60,23 +65,41 @@ CHROMIUM_LAUNCH_ARGS = [
     "--disable-gpu",
     "--no-zygote",
     "--single-process",
+    "--disable-extensions",
+    "--disable-background-networking",
+    "--disable-default-apps",
+    "--disable-sync",
+    "--disable-translate",
+    "--hide-scrollbars",
+    "--metrics-recording-only",
+    "--mute-audio",
+    "--no-first-run",
+    "--safebrowsing-disable-auto-update",
+    "--js-flags=--max-old-space-size=256",  # limit JS heap to 256MB
 ]
+
 FIREFOX_USER_AGENTS = [
     "Mozilla/5.0 (X11; Linux x86_64; rv:136.0) Gecko/20100101 Firefox/136.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:136.0) Gecko/20100101 Firefox/136.0",
 ]
 
-DELAY_BETWEEN_PRODUCTS_MIN = env_float("DELAY_BETWEEN_PRODUCTS_MIN", 0.1 if SCRAPER_FAST_MODE else 1.0)
-DELAY_BETWEEN_PRODUCTS_MAX = env_float("DELAY_BETWEEN_PRODUCTS_MAX", 0.3 if SCRAPER_FAST_MODE else 2.0)
-NETWORK_IDLE_TIMEOUT_MS = 1200 if SCRAPER_FAST_MODE else 3000
-STABILIZE_WAIT_MS = 350 if SCRAPER_FAST_MODE else 1500
-BODY_TEXT_TIMEOUT_MS = 1500 if SCRAPER_FAST_MODE else 3000
+# On Render: no delays between products — we need to finish fast
+DELAY_BETWEEN_PRODUCTS_MIN = env_float("DELAY_BETWEEN_PRODUCTS_MIN", 0.0 if IS_RENDER else (0.1 if SCRAPER_FAST_MODE else 1.0))
+DELAY_BETWEEN_PRODUCTS_MAX = env_float("DELAY_BETWEEN_PRODUCTS_MAX", 0.1 if IS_RENDER else (0.3 if SCRAPER_FAST_MODE else 2.0))
+
+# Render: skip networkidle entirely — it hangs on slow connections
+NETWORK_IDLE_TIMEOUT_MS = 0 if IS_RENDER else (1200 if SCRAPER_FAST_MODE else 3000)
+STABILIZE_WAIT_MS = 200 if IS_RENDER else (350 if SCRAPER_FAST_MODE else 1500)
+BODY_TEXT_TIMEOUT_MS = 3000 if IS_RENDER else (1500 if SCRAPER_FAST_MODE else 3000)
 RESULT_BLOCK_LIMIT = 4 if SCRAPER_FAST_MODE else 8
 CONTEXT_BLOCK_LIMIT = 1 if SCRAPER_FAST_MODE else 2
 SOURCE_SCAN_LIMIT = 8 if SCRAPER_FAST_MODE else 20
 SOURCE_RETURN_LIMIT = 5 if SCRAPER_FAST_MODE else 8
-SEARCH_SCROLL_ROUNDS = 3 if SCRAPER_FAST_MODE else 10
+
+# On Render: skip scrolling — wastes time and memory
+SEARCH_SCROLL_ROUNDS = 0 if IS_RENDER else (3 if SCRAPER_FAST_MODE else 10)
 SCROLL_WAIT_MS = 350 if SCRAPER_FAST_MODE else 1000
+
 USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0",
@@ -91,6 +114,7 @@ BLOCK_MARKERS = [
     "unusual traffic",
 ]
 
+
 def log(message: str) -> None:
     print(message, file=sys.stderr, flush=True)
 
@@ -101,7 +125,8 @@ def looks_blocked(text: str) -> bool:
 
 
 def safe_wait(page, ms: int) -> None:
-    page.wait_for_timeout(ms)
+    if ms > 0:
+        page.wait_for_timeout(ms)
 
 
 def stabilize(page) -> None:
@@ -109,62 +134,36 @@ def stabilize(page) -> None:
         page.wait_for_load_state("domcontentloaded", timeout=NAV_TIMEOUT_MS)
     except Exception:
         pass
-    try:
-        page.wait_for_load_state("networkidle", timeout=NETWORK_IDLE_TIMEOUT_MS)
-    except Exception:
-        pass
+    # Skip networkidle on Render — it hangs on slow/blocked responses
+    if NETWORK_IDLE_TIMEOUT_MS > 0:
+        try:
+            page.wait_for_load_state("networkidle", timeout=NETWORK_IDLE_TIMEOUT_MS)
+        except Exception:
+            pass
     safe_wait(page, STABILIZE_WAIT_MS)
 
 
 def get_body_text(page) -> str:
-    stabilize(page)
-    return (page.locator("body").inner_text(timeout=BODY_TEXT_TIMEOUT_MS) or "")[:20000]
+    try:
+        return (page.locator("body").inner_text(timeout=BODY_TEXT_TIMEOUT_MS) or "")[:20000]
+    except Exception:
+        return ""
 
 
 def submit_search(page, query: str) -> None:
-    page.goto("https://www.bing.com", wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
-    stabilize(page)
-
-    search_box_selectors = [
-        'textarea[name="q"]',
-        'input[name="q"]',
-        '#sb_form_q',
-    ]
-
-    for selector in search_box_selectors:
-        try:
-            locator = page.locator(selector).first
-            if locator.is_visible(timeout=1000):
-                locator.fill(query, timeout=2000)
-                break
-        except Exception:
-            continue
-
-    selectors = [
-        '#search_icon',
-        '#sb_form_go',
-        'button:has-text("Search")',
-        'input[type="submit"]',
-    ]
-
-    for selector in selectors:
-        try:
-            locator = page.locator(selector).first
-            if locator.is_visible(timeout=1000):
-                locator.click(timeout=2000)
-                stabilize(page)
-                return
-        except Exception:
-            continue
-
+    # KEY FIX: go directly to search URL instead of homepage + interact
+    # This cuts 1 full page load per commodity
+    search_url = f"{SEARCH_BASE}?q={quote_plus(query)}&setlang=en-IN"
     try:
-        page.locator('textarea[name="q"], input[name="q"], #sb_form_q').first.press("Enter", timeout=2000)
-        stabilize(page)
+        page.goto(search_url, wait_until="domcontentloaded", timeout=NAV_TIMEOUT_MS)
+        safe_wait(page, STABILIZE_WAIT_MS)
     except Exception:
         pass
 
 
-def scroll_entire_page(page, rounds: int = 8) -> None:
+def scroll_entire_page(page, rounds: int = 3) -> None:
+    if rounds == 0:
+        return
     last_height = 0
     stable_rounds = 0
 
@@ -218,14 +217,13 @@ def capture_full_search_page_text(page) -> str:
         page.wait_for_load_state("domcontentloaded", timeout=NAV_TIMEOUT_MS)
     except Exception:
         pass
-    try:
-        page.wait_for_load_state("networkidle", timeout=NETWORK_IDLE_TIMEOUT_MS)
-    except Exception:
-        pass
     safe_wait(page, STABILIZE_WAIT_MS)
-    scroll_entire_page(page, rounds=SEARCH_SCROLL_ROUNDS)
-    safe_wait(page, STABILIZE_WAIT_MS)
-    return (page.locator("body").inner_text(timeout=BODY_TEXT_TIMEOUT_MS) or "")[:20000]
+    # Only scroll if not on Render
+    if SEARCH_SCROLL_ROUNDS > 0:
+        scroll_entire_page(page, rounds=SEARCH_SCROLL_ROUNDS)
+        safe_wait(page, STABILIZE_WAIT_MS)
+    return get_body_text(page)
+
 
 def _source_score(commodity, title: str, url: str) -> int:
     haystack = f"{title} {url}".lower()
@@ -291,27 +289,16 @@ def extract_sources(page, commodity) -> list[dict[str, str]]:
     sources.sort(key=lambda source: _source_score(commodity, source.get("title", ""), source.get("url", "")), reverse=True)
     return sources[:SOURCE_RETURN_LIMIT]
 
+
 def search_and_extract(page, commodity) -> tuple[str | None, str, list[dict[str, str]], str]:
-    query = commodity.query
     search_url = SEARCH_BASE
 
-    # 1) Open search page
-    # 2) Wait for search UI
-    # 3) Click Search / submit query
-    submit_search(page, query)
+    submit_search(page, commodity.query)
 
     body_before = get_body_text(page)
     if looks_blocked(body_before):
         return None, body_before, [], page.url or search_url
 
-    # 4) Wait for results
-    body_mid = get_body_text(page)
-    if looks_blocked(body_mid):
-        return None, body_mid, [], page.url or search_url
-
-    # 5) Scroll entire search page
-    # 6) Final wait
-    # 7) Extract everything visible from the search page only
     body_text = capture_full_search_page_text(page)
     sources = extract_sources(page, commodity)
 
@@ -324,7 +311,7 @@ def search_and_extract(page, commodity) -> tuple[str | None, str, list[dict[str,
 def scrape_product(page, commodity) -> dict:
     started_at = time.monotonic()
     log(
-        f"[BING][headless={SCRAPER_HEADLESS}][fast={SCRAPER_FAST_MODE}] "
+        f"[BING][headless={SCRAPER_HEADLESS}][fast={SCRAPER_FAST_MODE}][render={IS_RENDER}] "
         f"{commodity.product_key} -> {commodity.query}"
     )
 
@@ -430,26 +417,25 @@ def run() -> dict:
     commodities = get_active_commodities()
 
     with sync_playwright() as playwright:
-        browser_name = "firefox" if SCRAPER_BROWSER == "firefox" else "chromium"
-        launch_options = {
+        browser_name = "chromium"  # always chromium on Render
+        launch_options: dict = {
             "headless": SCRAPER_HEADLESS,
+            "args": CHROMIUM_LAUNCH_ARGS,
         }
-        if browser_name == "chromium":
-            launch_options["args"] = CHROMIUM_LAUNCH_ARGS
-            if SCRAPER_BROWSER_CHANNEL:
-                launch_options["channel"] = SCRAPER_BROWSER_CHANNEL
-            browser = playwright.chromium.launch(**launch_options)
-            user_agent = random.choice(USER_AGENTS)
-        else:
-            browser = playwright.firefox.launch(**launch_options)
-            user_agent = random.choice(FIREFOX_USER_AGENTS)
+        if SCRAPER_BROWSER_CHANNEL:
+            launch_options["channel"] = SCRAPER_BROWSER_CHANNEL
 
-        log(f"[BING] browser={browser_name} headless={SCRAPER_HEADLESS} fast={SCRAPER_FAST_MODE}")
+        browser = playwright.chromium.launch(**launch_options)
+        user_agent = random.choice(USER_AGENTS)
+
+        log(f"[BING] browser={browser_name} headless={SCRAPER_HEADLESS} fast={SCRAPER_FAST_MODE} render={IS_RENDER}")
+
         context = browser.new_context(
-            viewport={"width": 1440, "height": 900},
+            viewport={"width": 1280, "height": 800},  # smaller viewport = less memory
             locale="en-IN",
             timezone_id="Asia/Kolkata",
             user_agent=user_agent,
+            java_script_enabled=True,
         )
         context.add_init_script(
             """
@@ -458,16 +444,32 @@ def run() -> dict:
             });
             """
         )
+
         try:
             for index, commodity in enumerate(commodities):
                 page = context.new_page()
                 try:
                     item = scrape_product(page, commodity)
+                except Exception as exc:
+                    log(f"[BING] unexpected error for {commodity.product_key}: {exc}")
+                    item = build_item(
+                        product_key=commodity.product_key,
+                        display_name=commodity.display_name,
+                        unit=commodity.unit,
+                        status="FAILED",
+                        reason="ERROR",
+                        source=SOURCE_NAME,
+                        source_url=SEARCH_BASE,
+                        raw_text=None,
+                        confidence=None,
+                        error=str(exc),
+                    )
                 finally:
                     try:
                         page.close()
                     except Exception:
                         pass
+
                 output["items"].append(item)
 
                 if item.get("status") != "OK":
@@ -480,7 +482,10 @@ def run() -> dict:
                     )
 
                 if index < len(commodities) - 1:
-                    time.sleep(random.uniform(DELAY_BETWEEN_PRODUCTS_MIN, DELAY_BETWEEN_PRODUCTS_MAX))
+                    delay = random.uniform(DELAY_BETWEEN_PRODUCTS_MIN, DELAY_BETWEEN_PRODUCTS_MAX)
+                    if delay > 0:
+                        time.sleep(delay)
+
         finally:
             try:
                 context.close()
