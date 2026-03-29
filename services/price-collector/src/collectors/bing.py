@@ -50,11 +50,10 @@ NAV_TIMEOUT_MS = env_int("NAV_TIMEOUT_MS", 9000 if SCRAPER_FAST_MODE else 25000)
 RESULTS_TIMEOUT_MS = env_int("RESULTS_TIMEOUT_MS", 5000 if SCRAPER_FAST_MODE else 12000)
 PRODUCT_TIMEOUT_MS = env_int("PRODUCT_TIMEOUT_MS", 9000 if SCRAPER_FAST_MODE else 30000)
 SCRAPER_HEADLESS = env_bool("SCRAPER_HEADLESS", True)
-SCRAPER_BROWSER = (os.getenv("SCRAPER_BROWSER") or "firefox").strip().lower()
+IS_RENDER = bool(os.getenv("RENDER") or os.getenv("RENDER_EXTERNAL_URL"))
+SCRAPER_BROWSER = (os.getenv("SCRAPER_BROWSER") or ("chromium" if IS_RENDER else "firefox")).strip().lower()
 SCRAPER_BROWSER_CHANNEL = os.getenv("SCRAPER_BROWSER_CHANNEL")
 CHROMIUM_LAUNCH_ARGS = [
-    "--start-maximized",
-    "--disable-blink-features=AutomationControlled",
     "--no-sandbox",
     "--disable-setuid-sandbox",
     "--disable-dev-shm-usage",
