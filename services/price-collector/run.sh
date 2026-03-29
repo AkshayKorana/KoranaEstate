@@ -3,6 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LEGACY_DIR="$SCRIPT_DIR/../../scripts/playwright_prices"
+PLAYWRIGHT_BROWSERS_DIR="$SCRIPT_DIR/.playwright-browsers"
 
 find_venv_dir() {
   for candidate in "$SCRIPT_DIR/.venv" "$LEGACY_DIR/.venv"; do
@@ -21,5 +22,7 @@ if ! VENV_DIR="$(find_venv_dir)"; then
 fi
 
 ENTRYPOINT="${1:-${PRICES_SCRAPER_ENTRY:-scrape_prices.py}}"
+
+export PLAYWRIGHT_BROWSERS_PATH="${PLAYWRIGHT_BROWSERS_PATH:-$PLAYWRIGHT_BROWSERS_DIR}"
 
 exec "$VENV_DIR/bin/python" "$SCRIPT_DIR/src/main.py" "$ENTRYPOINT"
