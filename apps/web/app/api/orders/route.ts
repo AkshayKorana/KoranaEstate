@@ -250,7 +250,7 @@ export async function POST(request: NextRequest) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        items: [{ retailProductId: productId, quantity, unitPrice: Number(product.price ?? 0) }],
+        items: [{ productId, quantity }],
         customer,
       }),
       cache: 'no-store',

@@ -85,16 +85,16 @@ export class OrdersService {
       throw new BadRequestException('At least one order item is required.')
     }
 
-    const productIds = [...new Set(dto.items.map((item) => item.retailProductId))]
+    const productIds = [...new Set(dto.items.map((item) => item.productId))]
     const products = await this.prisma.retailProduct.findMany({
       where: { id: { in: productIds } },
       include: { seller: { select: { id: true, fullName: true, sellerVerified: true } } },
     })
     const productMap = new Map(products.map((product) => [product.id, product]))
     const normalizedItems = dto.items.map((item) => {
-      const product = productMap.get(item.retailProductId)
+      const product = productMap.get(item.productId)
       if (!product || product.deletedAt || !product.isActive) {
-        throw new NotFoundException(`Product ${item.retailProductId} is not available.`)
+        throw new NotFoundException(`Product ${item.productId} is not available.`)
       }
       if (item.quantity < 1) {
         throw new BadRequestException('Quantity must be at least 1.')
@@ -128,7 +128,7 @@ export class OrdersService {
         commissionRate,
         platformFee,
         sellerPayout,
-        shippingAddress: this.buildShippingAddress(dto.customer, dto.shippingAddress),
+        shippingAddress: this.buildShippingAddress(dto.customer),
         ...this.customerData(dto.customer),
         itemNameSnapshot: primaryItem?.product.title ?? null,
         itemCategorySnapshot: primaryItem?.product.category ?? null,
