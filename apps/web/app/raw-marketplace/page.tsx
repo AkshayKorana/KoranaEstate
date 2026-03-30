@@ -297,12 +297,12 @@ export default function RawMarketplacePage() {
                     
                     <div className="space-y-3 mb-5">
                       <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50">
-                        <span className="text-sm font-medium text-[#444444]">{t('Price', 'ಬೆಲೆ')}</span>
-                        <span className="text-lg font-bold text-emerald-600">₹{listing.pricePerKg}/kg</span>
+                        <span className={`text-sm font-medium ${isDark ? 'text-[#e0e0e0]' : 'text-[#444444]'}`}>{t('Price', 'ಬೆಲೆ')}</span>
+                        <span className={`text-lg font-bold ${isDark ? 'text-white' : 'text-emerald-600'}`}>₹{listing.pricePerKg}/kg</span>
                       </div>
                       <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50">
-                        <span className="text-sm font-medium text-[#444444]">{t('Quantity', 'ಪ್ರಮಾಣ')}</span>
-                        <span className="text-lg font-bold text-amber-700">{listing.quantityKg} kg</span>
+                        <span className={`text-sm font-medium ${isDark ? 'text-[#e0e0e0]' : 'text-[#444444]'}`}>{t('Quantity', 'ಪ್ರಮಾಣ')}</span>
+                        <span className={`text-lg font-bold ${isDark ? 'text-white' : 'text-amber-700'}`}>{listing.quantityKg} kg</span>
                       </div>
                       <div className="flex items-center space-x-2 text-sm text-[#444444] dark:text-[#aaaaaa]">
                         <div className="w-8 h-8 rounded-full gradient-coffee-cream flex items-center justify-center text-white font-bold text-xs">

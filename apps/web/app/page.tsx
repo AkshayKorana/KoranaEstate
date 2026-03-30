@@ -15,6 +15,7 @@ import {
 import Hero from './components/Hero'
 import Footer from './components/Footer'
 import { useLanguage } from './language-context'
+import { useEffectiveTheme } from './theme-context'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend)
 const Line = dynamic(() => import('react-chartjs-2').then((mod) => mod.Line), { ssr: false })
@@ -567,6 +568,7 @@ function pickHighlightSentences(rawText: string | null | undefined, displayName:
 
 export default function HomePage() {
   const { t } = useLanguage()
+  const { isDark } = useEffectiveTheme()
 
   const [products, setProducts] = useState<PriceProduct[]>([])
   const [latest, setLatest] = useState<PricesLatestResponse | null>(null)
@@ -981,33 +983,41 @@ export default function HomePage() {
                       type="button"
                       onClick={() => setSelectedKey(product.productKey)}
                       className={`text-left rounded-2xl border p-4 transition ${
-                        selectedKey === product.productKey
-                          ? 'border-emerald-500/60 bg-[#1d1a15]'
-                          : 'border-[#2f3a33] bg-[#12100d]/80 hover:border-emerald-400/40'
+                        isDark
+                          ? selectedKey === product.productKey
+                            ? 'border-emerald-500/60 bg-[#1d1a15]'
+                            : 'border-[#2f3a33] bg-[#12100d]/80 hover:border-emerald-400/40'
+                          : selectedKey === product.productKey
+                            ? 'border-emerald-500/50 bg-[#f7f2ea]'
+                            : 'border-black/10 bg-white/90 hover:border-emerald-500/35'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <p className="font-semibold text-[#efe4d4]">{product.displayName}</p>
+                        <p className={`font-semibold ${isDark ? 'text-[#efe4d4]' : 'text-[#111111]'}`}>{product.displayName}</p>
                         <span className={`text-[11px] px-2 py-0.5 rounded-full border ${
                           status === 'OK'
-                            ? 'border-emerald-500/40 text-emerald-300 bg-emerald-900/30'
-                            : 'border-red-500/40 text-red-300 bg-red-900/30'
+                            ? isDark
+                              ? 'border-emerald-500/40 text-emerald-300 bg-emerald-900/30'
+                              : 'border-emerald-500/30 text-emerald-700 bg-emerald-50'
+                            : isDark
+                              ? 'border-red-500/40 text-red-300 bg-red-900/30'
+                              : 'border-red-500/30 text-red-700 bg-red-50'
                         }`}>
                           {status}
                         </span>
                       </div>
-                      <p className="mt-2 text-2xl font-bold text-[#f4ead9]">
+                      <p className={`mt-2 text-2xl font-bold ${isDark ? 'text-[#f4ead9]' : 'text-[#111111]'}`}>
                         {isCoffeeCommodity(product)
                           ? (getMetadataString(card?.metadata, 'currentRangeOriginal') || formatPrimaryCoffeePrice(card?.currentPrice ?? card?.value))
                           : formatPrice(card?.currentPrice ?? card?.value)}
                       </p>
-                      <p className="text-xs text-gray-400">
+                      <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-[#444444]'}`}>
                         {isCoffeeCommodity(product)
                           ? (getMetadataString(card?.metadata, 'currentRangeInrPerKg') || (card?.currentPrice != null || card?.value != null ? `≈ ${formatPrice((card?.currentPrice ?? card?.value ?? 0))}/kg` : 'Not available'))
                           : product.unit}
                       </p>
-                      {card?.trend && <p className="mt-1 text-xs text-emerald-300">{card.trend}</p>}
-                      {card?.error && <p className="mt-1 text-xs text-red-300">{card.error}</p>}
+                      {card?.trend && <p className={`mt-1 text-xs ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>{card.trend}</p>}
+                      {card?.error && <p className={`mt-1 text-xs ${isDark ? 'text-red-300' : 'text-red-700'}`}>{card.error}</p>}
                     </button>
                   )
                 })}
