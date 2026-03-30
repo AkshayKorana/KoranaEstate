@@ -295,7 +295,7 @@ export default function StorePage() {
                       ) : (
                         <div className="text-center">
                           <span className="text-6xl float-animation">☕</span>
-                          <p className="text-sm text-gray-500 mt-2 font-medium">{categoryLabel(product.category)}</p>
+                          <p className="text-sm text-[#444444] dark:text-[#aaaaaa] mt-2 font-medium">{categoryLabel(product.category)}</p>
                         </div>
                       )}
                       {product.stock === 0 && (
@@ -307,7 +307,7 @@ export default function StorePage() {
 
                     <div className="p-6">
                       <div className="flex justify-between items-start mb-3">
-                        <h3 className="font-bold text-lg text-[#efe4d4] line-clamp-2">{product.name}</h3>
+                        <h3 className="font-bold text-lg text-[#111111] dark:text-[#ffffff] line-clamp-2">{product.name}</h3>
                         <span className="gradient-brand-spectrum text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-md whitespace-nowrap ml-2">
                           {categoryLabel(product.category)}
                         </span>
@@ -321,12 +321,12 @@ export default function StorePage() {
                       
                       <div className="space-y-2 mb-4">
                         <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50">
-                          <span className="text-sm font-medium text-gray-600">📦 {t('Stock', 'ಸ್ಟಾಕ್')}</span>
+                          <span className="text-sm font-medium text-[#444444]">📦 {t('Stock', 'ಸ್ಟಾಕ್')}</span>
                           <span className={`text-sm font-bold ${product.stock > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                             {product.stock > 0 ? `${product.stock} ${t('units', 'ಯೂನಿಟ್‌ಗಳು')}` : t('Out', 'ಖಾಲಿ')}
                           </span>
                         </div>
-                        <div className="flex items-center space-x-2 text-sm text-gray-600">
+                        <div className="flex items-center space-x-2 text-sm text-[#444444] dark:text-[#aaaaaa]">
                           <div className="w-7 h-7 rounded-full gradient-coffee-cream flex items-center justify-center text-white font-bold text-xs">
                             {product.seller?.name?.[0]?.toUpperCase() || 'S'}
                           </div>
@@ -335,7 +335,7 @@ export default function StorePage() {
                       </div>
 
                       {product.description && (
-                        <p className="text-sm text-gray-600 mb-4 line-clamp-2">{product.description}</p>
+                        <p className="text-sm text-[#444444] dark:text-[#aaaaaa] mb-4 line-clamp-2">{product.description}</p>
                       )}
 
                       <button
@@ -405,7 +405,7 @@ export default function StorePage() {
 
             <form onSubmit={handleCreateProduct} className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Product Name', 'ಉತ್ಪನ್ನದ ಹೆಸರು')} *</label>
+                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Product Name', 'ಉತ್ಪನ್ನದ ಹೆಸರು')} *</label>
                 <input
                   required
                   type="text"
@@ -417,7 +417,7 @@ export default function StorePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Category', 'ವರ್ಗ')} *</label>
+                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Category', 'ವರ್ಗ')} *</label>
                 <select
                   required
                   className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
@@ -432,7 +432,7 @@ export default function StorePage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Price (₹)', 'ಬೆಲೆ (₹)')} *</label>
+                  <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Price (₹)', 'ಬೆಲೆ (₹)')} *</label>
                   <input
                     required
                     type="number"
@@ -445,7 +445,7 @@ export default function StorePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Stock (units)', 'ಸ್ಟಾಕ್ (ಯೂನಿಟ್‌ಗಳು)')} *</label>
+                  <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Stock (units)', 'ಸ್ಟಾಕ್ (ಯೂನಿಟ್‌ಗಳು)')} *</label>
                   <input
                     required
                     type="number"
@@ -459,7 +459,7 @@ export default function StorePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Description (optional)', 'ವಿವರಣೆ (ಐಚ್ಛಿಕ)')}</label>
+                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Description (optional)', 'ವಿವರಣೆ (ಐಚ್ಛಿಕ)')}</label>
                 <textarea
                   className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
                   rows={3}
@@ -470,7 +470,7 @@ export default function StorePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Image URL (optional)', 'ಚಿತ್ರ URL (ಐಚ್ಛಿಕ)')}</label>
+                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Image URL (optional)', 'ಚಿತ್ರ URL (ಐಚ್ಛಿಕ)')}</label>
                 <input
                   type="url"
                   className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all"
@@ -478,7 +478,7 @@ export default function StorePage() {
                   value={formData.imageUrl || ''}
                   onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
                 />
-                <p className="text-xs text-gray-500 mt-1">{t('Enter a direct link to your product image', 'ನಿಮ್ಮ ಉತ್ಪನ್ನದ ಚಿತ್ರಕ್ಕೆ ನೇರ ಲಿಂಕ್ ನಮೂದಿಸಿ')}</p>
+                <p className="text-xs text-[#444444] dark:text-[#aaaaaa] mt-1">{t('Enter a direct link to your product image', 'ನಿಮ್ಮ ಉತ್ಪನ್ನದ ಚಿತ್ರಕ್ಕೆ ನೇರ ಲಿಂಕ್ ನಮೂದಿಸಿ')}</p>
               </div>
 
               <div className="flex gap-3 pt-4">
@@ -515,18 +515,18 @@ export default function StorePage() {
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">
                   {t('Place Order', 'ಆರ್ಡರ್ ಮಾಡಿ')}
                 </h2>
-                <p className="text-gray-600 text-sm">{selectedProduct.name}</p>
+                <p className="text-[#444444] dark:text-[#aaaaaa] text-sm">{selectedProduct.name}</p>
               </div>
             </div>
 
             <form onSubmit={handlePlaceOrder} className="space-y-5">
               <div className="p-4 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200">
-                <p className="text-sm font-medium text-gray-600 mb-1">{t('Unit Price', 'ಯೂನಿಟ್ ಬೆಲೆ')}</p>
+                <p className="text-sm font-medium text-[#444444] mb-1">{t('Unit Price', 'ಯೂನಿಟ್ ಬೆಲೆ')}</p>
                 <p className="text-2xl font-bold text-amber-700">₹{selectedProduct.price.toFixed(2)}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Quantity', 'ಪ್ರಮಾಣ')} *</label>
+                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Quantity', 'ಪ್ರಮಾಣ')} *</label>
                 <input
                   required
                   type="number"
@@ -537,11 +537,11 @@ export default function StorePage() {
                   value={orderData.quantity}
                   onChange={(e) => setOrderData({ ...orderData, quantity: parseInt(e.target.value) })}
                 />
-                <p className="text-xs text-gray-500 mt-1">{t('Available', 'ಲಭ್ಯ')}: {selectedProduct.stock} {t('units', 'ಯೂನಿಟ್‌ಗಳು')}</p>
+                <p className="text-xs text-[#444444] dark:text-[#aaaaaa] mt-1">{t('Available', 'ಲಭ್ಯ')}: {selectedProduct.stock} {t('units', 'ಯೂನಿಟ್‌ಗಳು')}</p>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">📍 {t('Shipping Address', 'ಶಿಪ್ಪಿಂಗ್ ವಿಳಾಸ')}</label>
+                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">📍 {t('Shipping Address', 'ಶಿಪ್ಪಿಂಗ್ ವಿಳಾಸ')}</label>
                 <textarea
                   className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
                   rows={3}
@@ -552,7 +552,7 @@ export default function StorePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">📞 {t('Phone Number', 'ಫೋನ್ ಸಂಖ್ಯೆ')}</label>
+                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">📞 {t('Phone Number', 'ಫೋನ್ ಸಂಖ್ಯೆ')}</label>
                 <input
                   type="tel"
                   className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"

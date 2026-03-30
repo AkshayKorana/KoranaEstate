@@ -297,14 +297,14 @@ export default function RawMarketplacePage() {
                     
                     <div className="space-y-3 mb-5">
                       <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50">
-                        <span className="text-sm font-medium text-gray-600">{t('Price', 'ಬೆಲೆ')}</span>
+                        <span className="text-sm font-medium text-[#444444]">{t('Price', 'ಬೆಲೆ')}</span>
                         <span className="text-lg font-bold text-emerald-600">₹{listing.pricePerKg}/kg</span>
                       </div>
                       <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50">
-                        <span className="text-sm font-medium text-gray-600">{t('Quantity', 'ಪ್ರಮಾಣ')}</span>
+                        <span className="text-sm font-medium text-[#444444]">{t('Quantity', 'ಪ್ರಮಾಣ')}</span>
                         <span className="text-lg font-bold text-amber-700">{listing.quantityKg} kg</span>
                       </div>
-                      <div className="flex items-center space-x-2 text-sm text-gray-600">
+                      <div className="flex items-center space-x-2 text-sm text-[#444444] dark:text-[#aaaaaa]">
                         <div className="w-8 h-8 rounded-full gradient-coffee-cream flex items-center justify-center text-white font-bold text-xs">
                           {listing.seller?.name?.[0]?.toUpperCase() || 'S'}
                         </div>
@@ -371,7 +371,7 @@ export default function RawMarketplacePage() {
 
             <form onSubmit={handleCreateListing} className="space-y-5">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Commodity', 'ವಸ್ತು')} *</label>
+                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Commodity', 'ವಸ್ತು')} *</label>
                 <select
                   required
                   className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
@@ -385,7 +385,7 @@ export default function RawMarketplacePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Grade (optional)', 'ಗ್ರೇಡ್ (ಐಚ್ಛಿಕ)')}</label>
+                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Grade (optional)', 'ಗ್ರೇಡ್ (ಐಚ್ಛಿಕ)')}</label>
                 <input
                   type="text"
                   className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
@@ -397,7 +397,7 @@ export default function RawMarketplacePage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Quantity (kg)', 'ಪ್ರಮಾಣ (ಕೆಜಿ)')} *</label>
+                  <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Quantity (kg)', 'ಪ್ರಮಾಣ (ಕೆಜಿ)')} *</label>
                   <input
                     required
                     type="number"
@@ -410,7 +410,7 @@ export default function RawMarketplacePage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Price (₹/kg)', 'ಬೆಲೆ (₹/ಕೆಜಿ)')} *</label>
+                  <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Price (₹/kg)', 'ಬೆಲೆ (₹/ಕೆಜಿ)')} *</label>
                   <input
                     required
                     type="number"
@@ -424,7 +424,7 @@ export default function RawMarketplacePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Location', 'ಸ್ಥಳ')} *</label>
+                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Location', 'ಸ್ಥಳ')} *</label>
                 <input
                   required
                   type="text"
@@ -436,7 +436,7 @@ export default function RawMarketplacePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Description (optional)', 'ವಿವರಣೆ (ಐಚ್ಛಿಕ)')}</label>
+                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Description (optional)', 'ವಿವರಣೆ (ಐಚ್ಛಿಕ)')}</label>
                 <textarea
                   className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
                   rows={3}
@@ -480,18 +480,18 @@ export default function RawMarketplacePage() {
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">
                   {t('Make an Offer', 'ಆಫರ್ ನೀಡಿ')}
                 </h2>
-                <p className="text-gray-600 text-sm">{selectedListing.commodity} - {selectedListing.location}</p>
+                <p className="text-[#444444] dark:text-[#aaaaaa] text-sm">{selectedListing.commodity} - {selectedListing.location}</p>
               </div>
             </div>
 
             <form onSubmit={handleMakeOffer} className="space-y-5">
               <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-200">
-                <p className="text-sm font-medium text-gray-600 mb-1">{t("Seller's Asking Price", 'ಮಾರಾಟಗಾರರ ಕೇಳುವ ಬೆಲೆ')}</p>
+                <p className="text-sm font-medium text-[#444444] mb-1">{t("Seller's Asking Price", 'ಮಾರಾಟಗಾರರ ಕೇಳುವ ಬೆಲೆ')}</p>
                 <p className="text-2xl font-bold text-emerald-600">₹{selectedListing.pricePerKg}/kg</p>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Your Offer Price (₹/kg)', 'ನಿಮ್ಮ ಆಫರ್ ಬೆಲೆ (₹/ಕೆಜಿ)')} *</label>
+                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Your Offer Price (₹/kg)', 'ನಿಮ್ಮ ಆಫರ್ ಬೆಲೆ (₹/ಕೆಜಿ)')} *</label>
                 <input
                   required
                   type="number"
@@ -504,7 +504,7 @@ export default function RawMarketplacePage() {
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Quantity (kg)', 'ಪ್ರಮಾಣ (ಕೆಜಿ)')} *</label>
+                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Quantity (kg)', 'ಪ್ರಮಾಣ (ಕೆಜಿ)')} *</label>
                 <input
                   required
                   type="number"
@@ -515,11 +515,11 @@ export default function RawMarketplacePage() {
                   value={offerData.quantity || ''}
                   onChange={(e) => setOfferData({ ...offerData, quantity: parseFloat(e.target.value) })}
                 />
-                <p className="text-xs text-gray-500 mt-1">{t('Available', 'ಲಭ್ಯ')}: {selectedListing.quantityKg} kg</p>
+                <p className="text-xs text-[#444444] dark:text-[#aaaaaa] mt-1">{t('Available', 'ಲಭ್ಯ')}: {selectedListing.quantityKg} kg</p>
               </div>
 
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">{t('Message (optional)', 'ಸಂದೇಶ (ಐಚ್ಛಿಕ)')}</label>
+                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Message (optional)', 'ಸಂದೇಶ (ಐಚ್ಛಿಕ)')}</label>
                 <textarea
                   className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
                   rows={3}
