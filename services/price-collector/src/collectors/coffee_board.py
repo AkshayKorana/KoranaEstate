@@ -6,6 +6,8 @@ import re
 import tempfile
 from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import urljoin
+from urllib.request import Request, urlopen
 
 from pypdf import PdfReader
 from playwright.sync_api import TimeoutError as PWTimeout
@@ -20,6 +22,7 @@ REPORT_LINK_TEXT = "Click here to view Daily report"
 SOURCE_NAME = "coffee-board-india"
 PAYLOAD_SOURCE = "Coffee Board India"
 COFFEE_BOARD_PAGE_TITLE = "Daily Coffee Market Report"
+PDF_ACQUIRE_TIMEOUT_MS = 30000
 DATE_PATTERN = re.compile(
     r"(?:(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+)?"
     r"(January|February|March|April|May|June|July|August|September|October|November|December)\s+"
@@ -354,21 +357,173 @@ def build_analysis_summary(commodity: CommodityConfig, domestic_price: dict[str,
     )
 
 
+def looks_like_pdf_url(url: str | None) -> bool:
+    if not url:
+        return False
+    lowered = url.lower()
+    return lowered.endswith(".pdf") or ".pdf?" in lowered
+
+
+def download_pdf_from_url(pdf_url: str, referer: str | None = None) -> tuple[str, str]:
+    headers = {"User-Agent": "Mozilla/5.0"}
+    if referer:
+        headers["Referer"] = referer
+    request = Request(pdf_url, headers=headers)
+    with urlopen(request, timeout=30) as response:
+        content = response.read()
+
+    with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
+        temp_file.write(content)
+        download_path = temp_file.name
+
+    suggested_filename = os.path.basename(pdf_url.split("?")[0]) or "coffee-board-report.pdf"
+    return download_path, suggested_filename
+
+
+def extract_pdf_url_from_control(report_link, base_url: str) -> str | None:
+    try:
+        href = (report_link.get_attribute("href") or "").strip()
+    except Exception:
+        href = ""
+    if href:
+        return urljoin(base_url, href)
+
+    try:
+        onclick = (report_link.get_attribute("onclick") or "").strip()
+    except Exception:
+        onclick = ""
+    if onclick:
+        match = re.search(r"""['"]([^'"]+\.pdf[^'"]*)['"]""", onclick, re.IGNORECASE)
+        if match:
+            return urljoin(base_url, match.group(1))
+    return None
+
+
+def acquire_daily_report_pdf(page) -> tuple[str, str, str]:
+    pdf_response_urls: list[str] = []
+    download_event = {"value": None}
+    opened_page = {"value": None}
+
+    def on_response(response) -> None:
+        try:
+            content_type = response.headers.get("content-type", "")
+            if "application/pdf" in content_type.lower():
+                pdf_response_urls.append(response.url)
+        except Exception:
+            pass
+
+    def on_download(download) -> None:
+        download_event["value"] = download
+
+    def on_page(new_page) -> None:
+        opened_page["value"] = new_page
+
+    page.context.on("response", on_response)
+    page.on("download", on_download)
+    page.context.on("page", on_page)
+    report_link = page.get_by_text(REPORT_LINK_TEXT, exact=False).first
+    report_link.wait_for(state="visible", timeout=PDF_ACQUIRE_TIMEOUT_MS)
+    direct_url = extract_pdf_url_from_control(report_link, page.url)
+
+    download_path = ""
+    pdf_url = ""
+    suggested_filename = "coffee-board-report.pdf"
+    strategy = ""
+
+    if direct_url and looks_like_pdf_url(direct_url):
+        pdf_url = direct_url
+        download_path, suggested_filename = download_pdf_from_url(pdf_url, REPORT_PAGE_URL)
+        strategy = "direct_control_url"
+
+    if not download_path:
+        try:
+            report_link.click(timeout=PDF_ACQUIRE_TIMEOUT_MS)
+        except Exception:
+            pass
+
+    if not download_path:
+        for _ in range(30):
+            download = download_event["value"]
+            if download is not None:
+                with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
+                    download_path = temp_file.name
+                download.save_as(download_path)
+                pdf_url = download.url or direct_url or page.url
+                suggested_filename = download.suggested_filename or suggested_filename
+                strategy = "expect_download"
+                break
+
+            new_page = opened_page["value"]
+            if new_page is not None:
+                try:
+                    new_page.wait_for_load_state("domcontentloaded", timeout=2000)
+                except Exception:
+                    pass
+                if looks_like_pdf_url(new_page.url):
+                    pdf_url = new_page.url
+                    download_path, suggested_filename = download_pdf_from_url(pdf_url, REPORT_PAGE_URL)
+                    strategy = "new_tab"
+                    break
+
+            if looks_like_pdf_url(page.url):
+                pdf_url = page.url
+                download_path, suggested_filename = download_pdf_from_url(pdf_url, REPORT_PAGE_URL)
+                strategy = "same_tab"
+                break
+
+            if pdf_response_urls:
+                pdf_url = pdf_response_urls[0]
+                download_path, suggested_filename = download_pdf_from_url(pdf_url, REPORT_PAGE_URL)
+                strategy = "network_response"
+                break
+
+            page.wait_for_timeout(1000)
+
+    if not download_path and direct_url:
+        pdf_url = direct_url
+        download_path, suggested_filename = download_pdf_from_url(pdf_url, REPORT_PAGE_URL)
+        strategy = "manual_download"
+
+    new_page = opened_page["value"]
+    if new_page is not None:
+        try:
+            new_page.close()
+        except Exception:
+            pass
+
+    try:
+        page.context.remove_listener("response", on_response)
+    except Exception:
+        pass
+    try:
+        page.remove_listener("download", on_download)
+    except Exception:
+        pass
+    try:
+        page.context.remove_listener("page", on_page)
+    except Exception:
+        pass
+
+    if not download_path:
+        raise RuntimeError("Unable to acquire Coffee Board daily report PDF after clicking the visible daily report control.")
+
+    log(
+        f"[COFFEE_BOARD] pdf acquisition strategy={strategy} "
+        f"pdf_url={pdf_url or 'unknown'} suggested_filename={suggested_filename}"
+    )
+    return download_path, suggested_filename, (pdf_url or REPORT_PAGE_URL)
+
+
 def fetch_latest_report() -> dict[str, Any]:
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True, args=CHROMIUM_LAUNCH_ARGS)
         page = browser.new_page(locale="en-IN", timezone_id="Asia/Kolkata")
         try:
             log(f"[COFFEE_BOARD] opening market info page {REPORT_PAGE_URL}")
-            page.goto(REPORT_PAGE_URL, wait_until="domcontentloaded", timeout=20000)
-            page.get_by_role("button", name=REPORT_LINK_TEXT).wait_for(state="visible", timeout=8000)
+            page.goto(REPORT_PAGE_URL, wait_until="domcontentloaded", timeout=PDF_ACQUIRE_TIMEOUT_MS)
+            page.get_by_text(REPORT_LINK_TEXT, exact=False).first.wait_for(state="visible", timeout=PDF_ACQUIRE_TIMEOUT_MS)
             page_text = page.locator("body").inner_text(timeout=4000)
-            with page.expect_download(timeout=15000) as download_info:
-                page.get_by_role("button", name=REPORT_LINK_TEXT).click()
-            download = download_info.value
-            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
-                download_path = temp_file.name
-            download.save_as(download_path)
+            download_path, suggested_filename, pdf_url = acquire_daily_report_pdf(page)
         finally:
             browser.close()
 
@@ -384,18 +539,18 @@ def fetch_latest_report() -> dict[str, Any]:
     futures = extract_futures_rows(pdf_text)
     analysis_text = extract_analysis(pdf_text)
     domestic_prices, domestic_price_errors = extract_karnataka_structured_prices(pdf_text)
-    report_fingerprint = build_report_fingerprint(report_date_text, download.suggested_filename, pdf_text)
+    report_fingerprint = build_report_fingerprint(report_date_text, suggested_filename, pdf_text)
     log(
         f"[COFFEE_BOARD] fetched report date={report_date_text or 'unknown'} "
-        f"file={download.suggested_filename} prices_found={sorted(domestic_prices.keys())}"
+        f"file={suggested_filename} prices_found={sorted(domestic_prices.keys())}"
     )
 
     return {
         "title": COFFEE_BOARD_PAGE_TITLE,
         "reportDate": report_date_text,
         "reportDateIso": report_date_iso,
-        "sourceUrl": REPORT_PAGE_URL,
-        "suggestedFileName": download.suggested_filename,
+        "sourceUrl": pdf_url,
+        "suggestedFileName": suggested_filename,
         "reportFingerprint": report_fingerprint,
         "pageText": page_text,
         "pdfText": pdf_text,
