@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
+import { getAccessTokenFromRequest } from '@/app/api/_lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,18 +57,13 @@ function toCommodityType(commodity: string) {
   return /cardamom|pepper/i.test(commodity) ? 'SPICE' : 'COFFEE'
 }
 
-async function getAccessToken() {
-  const session = await getServerSession(authOptions)
-  return typeof session?.accessToken === 'string' ? session.accessToken : null
-}
-
 function getApiErrorMessage(payload: unknown, fallback: string) {
   return extractMessage(payload) || fallback
 }
 
 export async function GET(request: NextRequest) {
   try {
-    const accessToken = await getAccessToken()
+    const accessToken = await getAccessTokenFromRequest(request)
     if (!accessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -110,7 +104,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const accessToken = await getAccessToken()
+    const accessToken = await getAccessTokenFromRequest(request)
     if (!accessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

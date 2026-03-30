@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
+import { getAccessTokenFromRequest } from '@/app/api/_lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -201,7 +202,7 @@ function mapOrder(payload: BackendOrder, session: Awaited<ReturnType<typeof getS
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession()
-    const accessToken = typeof session?.accessToken === 'string' ? session.accessToken : null
+    const accessToken = await getAccessTokenFromRequest(request)
     if (!accessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

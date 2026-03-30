@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
+import { getAccessTokenFromRequest } from '@/app/api/_lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -69,10 +68,6 @@ type BackendOrder = {
   error?: string
 }
 
-async function getSession() {
-  return getServerSession(authOptions)
-}
-
 function getApiErrorMessage(payload: unknown, fallback: string) {
   return extractMessage(payload) || fallback
 }
@@ -122,8 +117,7 @@ function mapOrder(payload: BackendOrder) {
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ orderId: string }> }) {
   try {
-    const session = await getSession()
-    const accessToken = typeof session?.accessToken === 'string' ? session.accessToken : null
+    const accessToken = await getAccessTokenFromRequest(_request)
     if (!accessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

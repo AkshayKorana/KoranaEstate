@@ -1,17 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
+import { getAccessTokenFromRequest } from '@/app/api/_lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:4000/api/v1'
-
-async function getAccessToken() {
-  const session = await getServerSession(authOptions)
-  return typeof session?.accessToken === 'string' ? session.accessToken : null
-}
 
 function getApiErrorMessage(payload: unknown, fallback: string) {
   return extractMessage(payload) || fallback
@@ -19,7 +13,7 @@ function getApiErrorMessage(payload: unknown, fallback: string) {
 
 export async function GET(request: NextRequest) {
   try {
-    const accessToken = await getAccessToken()
+    const accessToken = await getAccessTokenFromRequest(request)
     if (!accessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -33,7 +27,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const accessToken = await getAccessToken()
+    const accessToken = await getAccessTokenFromRequest(request)
     if (!accessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
