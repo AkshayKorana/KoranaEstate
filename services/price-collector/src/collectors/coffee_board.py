@@ -48,6 +48,48 @@ KARNATAKA_HEADER_PATTERN = re.compile(
     r"ar\.?\s*pmt.*ar\.?\s*chy.*rob\.?\s*pmt.*rob\.?\s*chy",
     re.IGNORECASE,
 )
+COFFEE_COPY_BY_PRODUCT_KEY = {
+    "arabica_parchment": {
+        "shortDescriptionTemplate": "{display_name} is trading at {display_50kg} today ({display_kg}), based on the latest Coffee Board Karnataka report.",
+        "analysisSummaryTemplate": "Domestic Arabica prices remain firm within the Karnataka market range, supported by steady demand for premium-grade beans. The current Coffee Board range is {display_50kg}.",
+        "analysisBullets": [
+            "Firm domestic arabica pricing",
+            "Premium-grade demand remains strong",
+            "Karnataka range holding steady",
+            "Global futures slightly softer",
+        ],
+    },
+    "arabica_cherry": {
+        "shortDescriptionTemplate": "{display_name} is trading at {display_50kg} today ({display_kg}), reflecting the latest Coffee Board Karnataka market range.",
+        "analysisSummaryTemplate": "Arabica Cherry pricing indicates a moderate domestic market, with stable local demand and slight influence from softer global trends. The current Coffee Board range is {display_50kg}.",
+        "analysisBullets": [
+            "Moderate domestic price band",
+            "Stable Karnataka demand",
+            "Quality-driven price spread",
+            "Mild global pressure",
+        ],
+    },
+    "robusta_parchment": {
+        "shortDescriptionTemplate": "{display_name} is trading at {display_50kg} today ({display_kg}), based on the latest Coffee Board Karnataka report.",
+        "analysisSummaryTemplate": "Robusta Parchment continues to trade within a stable and healthy domestic range. The current Coffee Board range is {display_50kg}.",
+        "analysisBullets": [
+            "Stable domestic robusta pricing",
+            "Consistent Karnataka supply-demand",
+            "Global pressure remains limited",
+            "Short-term outlook steady",
+        ],
+    },
+    "robusta_cherry": {
+        "shortDescriptionTemplate": "{display_name} is trading at {display_50kg} today ({display_kg}), reflecting the lower-end robusta segment in the Karnataka market.",
+        "analysisSummaryTemplate": "Robusta Cherry remains in a steady domestic trading range, representing entry-level raw coffee pricing. The current Coffee Board range is {display_50kg}.",
+        "analysisBullets": [
+            "Entry-level robusta pricing",
+            "Stable local market conditions",
+            "Consistent Karnataka supply",
+            "Mild global softness",
+        ],
+    },
+}
 
 
 def is_coffee_commodity(commodity: CommodityConfig) -> bool:
@@ -281,15 +323,35 @@ def build_analysis_bullets(
     analysis_text: str,
     futures: dict[str, Any],
 ) -> list[str]:
-    bullets: list[str] = []
-    if domestic_price:
-        bullets.append(f"Coffee Board range: {domestic_price['display']}")
-        bullets.append(f"Normalized range: {domestic_price['displayPerKg']}")
-        bullets.append(f"Midpoint estimate: {format_inr_value(domestic_price['midKg'])}/kg")
-    if report_date:
-        bullets.append(f"Report date: {report_date}")
-    bullets.append("Source: Daily Coffee Market Report")
-    return bullets[:4]
+    copy = COFFEE_COPY_BY_PRODUCT_KEY.get(commodity.product_key)
+    if copy:
+        return list(copy["analysisBullets"])
+    return ["Latest Coffee Board market range available."]
+
+
+def build_short_description(commodity: CommodityConfig, domestic_price: dict[str, Any]) -> str:
+    copy = COFFEE_COPY_BY_PRODUCT_KEY.get(commodity.product_key, {})
+    template = copy.get("shortDescriptionTemplate") or (
+        "{display_name} is trading at {display_50kg} today ({display_kg}), based on the latest Coffee Board Karnataka report."
+    )
+    return template.format(
+        display_name=commodity.display_name,
+        display_50kg=domestic_price["display"],
+        display_kg=domestic_price["displayPerKg"],
+    )
+
+
+def build_analysis_summary(commodity: CommodityConfig, domestic_price: dict[str, Any]) -> str:
+    copy = COFFEE_COPY_BY_PRODUCT_KEY.get(commodity.product_key, {})
+    template = copy.get("analysisSummaryTemplate") or (
+        "{display_name} is currently quoted in the {display_50kg} range, with a midpoint of {mid_kg}/kg."
+    )
+    return template.format(
+        display_name=commodity.display_name,
+        display_50kg=domestic_price["display"],
+        display_kg=domestic_price["displayPerKg"],
+        mid_kg=format_inr_value(domestic_price["midKg"]),
+    )
 
 
 def fetch_latest_report() -> dict[str, Any]:
@@ -396,14 +458,8 @@ def build_coffee_item(commodity: CommodityConfig, report: dict[str, Any]) -> dic
     trend = "Stable"
     current_price = domestic_price["midKg"]
     last_week_price = None
-    short_description = (
-        f"{commodity.display_name} is trading at {domestic_price['display']} today "
-        f"({domestic_price['displayPerKg']}), reflecting the latest Coffee Board market report for Karnataka."
-    )
-    analysis_summary = (
-        f"Today's Coffee Board report places {commodity.display_name} in the {domestic_price['display']} range. "
-        f"This keeps the market anchored around a midpoint of {format_inr_value(domestic_price['midKg'])}/kg."
-    )
+    short_description = build_short_description(commodity, domestic_price)
+    analysis_summary = build_analysis_summary(commodity, domestic_price)
 
     return build_item(
         product_key=commodity.product_key,

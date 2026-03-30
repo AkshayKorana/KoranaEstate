@@ -810,11 +810,11 @@ export default function HomePage() {
   )
   const contextualSummary = useMemo(() => {
     return (
-      sanitizeInsightText(selectedLatest?.shortDescription) ||
+      sanitizeInsightText(selectedCoffeeBoardLatest?.shortDescription) ||
       sanitizeInsightText(selectedCoffeeBoardLatest?.analysisSummary) ||
       'No reliable structured market summary available.'
     )
-  }, [selectedCoffeeBoardLatest, selectedLatest])
+  }, [selectedCoffeeBoardLatest])
   const analysisText = useMemo(() => {
     return (
       sanitizeInsightText(selectedCoffeeBoardLatest?.analysisSummary) ||
@@ -835,35 +835,14 @@ export default function HomePage() {
       items.push(cleaned)
     }
 
-    const summary = sanitizeInsightText(selectedCoffeeBoardLatest?.shortDescription || selectedCoffeeBoardLatest?.analysisSummary || '')
-    if (isUsefulHighlightLine(summary)) {
-      const key = canonicalizeInsightLine(summary)
-      if (!normalized.has(key)) {
-        normalized.add(key)
-        items.push(summary)
-      }
-    }
-
-    if (items.length === 0) {
-      for (const line of pickHighlightSentences(selectedCoffeeBoardLatest?.rawText, selectedProduct?.displayName)) {
-        const cleaned = sanitizeInsightText(line)
-        if (!isUsefulHighlightLine(cleaned)) continue
-        const key = canonicalizeInsightLine(cleaned)
-        if (normalized.has(key)) continue
-        normalized.add(key)
-        items.push(cleaned)
-      }
-    }
-
     return items.slice(0, 4)
-  }, [selectedCoffeeBoardLatest, selectedProduct])
+  }, [selectedCoffeeBoardLatest])
   const reportTitle = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'reportTitle') || selectedCoffeeBoardLatest?.source || 'Coffee Board India'
   const reportDate = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'reportDate')
   const reportSourceUrl = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'reportSourceUrl') || selectedCoffeeBoardLatest?.sourceUrl
   const reportFileName = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'reportFileName')
   const reportRangeOriginal = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'currentRangeOriginal')
   const reportRangeNormalized = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'currentRangeInrPerKg')
-  const reportAnalysis = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'marketAnalysis')
   const reportStatus = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'reportStatus')
   const lastCheckedAt = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'lastCheckedAt')
   const latestSuccessfulReportDate = getMetadataString(selectedLatest?.metadata, 'latestSuccessfulReportDate') || reportDate
@@ -1118,7 +1097,7 @@ export default function HomePage() {
                     <p className="mt-3 text-2xl font-bold text-[#f7e9d6]">{reportRangeOriginal || 'Not available'}</p>
                     <p className="mt-2 text-sm text-gray-400">{reportRangeNormalized || 'Normalized INR/kg not available'}</p>
                     <p className="mt-2 text-xs text-emerald-300">{coffeeMidpointDisplay}</p>
-                    <p className="mt-3 text-sm text-[#d5c4b2]">{reportAnalysis || analysisText}</p>
+                    <p className="mt-3 text-sm text-[#d5c4b2]">{analysisText}</p>
                   </div>
                 </div>
 
