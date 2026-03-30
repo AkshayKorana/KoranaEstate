@@ -442,7 +442,7 @@ def build_coffee_item(commodity: CommodityConfig, report: dict[str, Any]) -> dic
                     "reportFileName": report.get("suggestedFileName"),
                     "reportFingerprint": report.get("reportFingerprint"),
                     "reportSourceLabel": PAYLOAD_SOURCE,
-                    "reportStatus": "NEW_REPORT",
+                    "reportStatus": "LIVE_REPORT",
                     "lastCheckedAt": report.get("fetchedAt"),
                     "latestSuccessfulReportDate": report_date,
                     "carryingForwardPreviousReport": False,
@@ -494,7 +494,7 @@ def build_coffee_item(commodity: CommodityConfig, report: dict[str, Any]) -> dic
                 "reportFingerprint": report.get("reportFingerprint"),
                 "reportSourceLabel": PAYLOAD_SOURCE,
                 "reportSourceUrl": source_url,
-                "reportStatus": "NEW_REPORT",
+                "reportStatus": "LIVE_REPORT",
                 "lastCheckedAt": report.get("fetchedAt"),
                 "latestSuccessfulReportDate": report_date,
                 "carryingForwardPreviousReport": False,
@@ -612,7 +612,7 @@ def run() -> dict:
     else:
         payload["fetchedAt"] = report.get("reportDateIso") or report["fetchedAt"]
         payload["metadata"]["coffeeBoard"] = {
-            "reportStatus": "NEW_REPORT",
+            "reportStatus": "LIVE_REPORT",
             "reportFound": True,
             "newReportDetected": True,
             "usedPreviousSnapshot": False,

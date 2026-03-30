@@ -846,17 +846,21 @@ export default function HomePage() {
   const reportStatus = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'reportStatus')
   const lastCheckedAt = getMetadataString(selectedCoffeeBoardLatest?.metadata, 'lastCheckedAt')
   const latestSuccessfulReportDate = getMetadataString(selectedLatest?.metadata, 'latestSuccessfulReportDate') || reportDate
-  const reportStatusBadge = reportStatus === 'NEW_REPORT'
+  const reportStatusBadge = reportStatus === 'LIVE_REPORT'
     ? 'LIVE REPORT'
-    : reportStatus === 'FETCH_FAILED'
-      ? 'COFFEE BOARD UNAVAILABLE'
-      : !selectedCoffeeBoardLatest && isCoffeeCommodity(selectedProduct)
-        ? 'COFFEE BOARD DATA REQUIRED'
-        : 'REPORT STATUS UNKNOWN'
-  const reportStatusMessage = reportStatus === 'FETCH_FAILED'
-    ? 'Coffee Board could not be refreshed right now. Coffee prices are unavailable until the PDF is fetched again.'
-    : reportStatus === 'NEW_REPORT'
-      ? 'Live Coffee Board report loaded.'
+    : reportStatus === 'PREVIOUS_REPORT_CARRIED_FORWARD'
+      ? 'PREVIOUS REPORT CARRIED FORWARD'
+      : reportStatus === 'TEMPORARILY_USING_LAST_VERIFIED_REPORT'
+        ? 'TEMPORARILY USING LAST VERIFIED REPORT'
+        : !selectedCoffeeBoardLatest && isCoffeeCommodity(selectedProduct)
+          ? 'COFFEE BOARD DATA REQUIRED'
+          : 'REPORT STATUS UNKNOWN'
+  const reportStatusMessage = reportStatus === 'TEMPORARILY_USING_LAST_VERIFIED_REPORT'
+    ? 'Coffee Board could not be refreshed right now. Showing the last verified market snapshot.'
+    : reportStatus === 'PREVIOUS_REPORT_CARRIED_FORWARD'
+      ? 'No new Coffee Board report was published today yet. Showing the latest verified market report.'
+      : reportStatus === 'LIVE_REPORT'
+        ? 'Live Coffee Board report loaded.'
       : !selectedCoffeeBoardLatest && isCoffeeCommodity(selectedProduct)
         ? 'Coffee prices are unavailable because no valid Coffee Board PDF data is present in the latest run.'
       : null
@@ -865,7 +869,7 @@ export default function HomePage() {
     return Boolean(card && isCoffeeBoardSource(card) && (card.currentPrice != null || card.value != null))
   }).length
   const coffeeDashboardStatus = visibleProducts.length > 0 && coffeeAvailableCount === visibleProducts.length
-    ? (coffeeCards.some((card) => isCoffeeBoardSource(card) && getMetadataString(card.metadata, 'reportStatus') === 'NEW_REPORT') ? 'LIVE' : 'VERIFIED')
+    ? (coffeeCards.some((card) => isCoffeeBoardSource(card) && getMetadataString(card.metadata, 'reportStatus') === 'LIVE_REPORT') ? 'LIVE' : 'VERIFIED')
     : coffeeAvailableCount > 0
       ? 'DEGRADED'
       : 'FAILED'
@@ -941,7 +945,7 @@ export default function HomePage() {
                 />
                 <PipelineStatusCard
                   title="Latest Coffee Board Report"
-                  status={reportStatus === 'NEW_REPORT' ? 'LIVE' : coffeeDashboardStatus}
+                  status={reportStatus === 'LIVE_REPORT' ? 'LIVE' : coffeeDashboardStatus}
                   timestamp={reportDate || latestSuccessfulReportDate || latest?.lastSuccessfulRun?.runAt}
                   subtitle={reportStatusMessage || 'Latest verified Coffee Board snapshot is available.'}
                   icon={<CheckCircleIcon />}

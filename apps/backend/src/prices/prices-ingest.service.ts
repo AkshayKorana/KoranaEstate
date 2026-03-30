@@ -86,6 +86,16 @@ export class PricesIngestService {
 
   constructor(private readonly pricesService: PricesService) {}
 
+  private asRecord(value: unknown): Record<string, unknown> | null {
+    return value && typeof value === 'object' && !Array.isArray(value)
+      ? value as Record<string, unknown>
+      : null
+  }
+
+  private asString(value: unknown): string | undefined {
+    return typeof value === 'string' && value.trim() ? value : undefined
+  }
+
   private isCoffeeProductKey(productKey: string) {
     return this.coffeeProductKeys.has(productKey)
   }
@@ -186,7 +196,7 @@ export class PricesIngestService {
 
     const validItems = (payload.items || []).filter((item) => !this.isCoffeeProductKey(item.productKey) || this.isCoffeeBoardObservation(item))
 
-    const observations = validItems
+    let observations = validItems
       .filter((item) => item?.productKey && (Number.isFinite(item.value) || Number.isFinite(item.currentPrice)))
       .flatMap((item) => {
         const rawText = item.rawText || item.meta?.query || `${item.productKey} ${item.value} ${item.unit || 'INR/kg'}`
@@ -256,7 +266,7 @@ export class PricesIngestService {
         }]
       })
 
-    const perItemErrors = [
+    let perItemErrors = [
       ...invalidCoffeeBoardErrors,
       ...validItems
         .filter((item) => item?.productKey && !Number.isFinite(item.value) && !Number.isFinite(item.currentPrice))
@@ -293,6 +303,83 @@ export class PricesIngestService {
         }),
     ]
 
+    const payloadMetadata = this.asRecord(payload.metadata)
+    const payloadCoffeeBoard = this.asRecord(payloadMetadata?.coffeeBoard)
+    const latestCoffeeRows = await this.pricesService.getLatestSuccessfulObservations([...this.coffeeProductKeys], undefined, true)
+    const latestCoffeeRow = [...latestCoffeeRows.values()].sort(
+      (left, right) => right.capturedAt.getTime() - left.capturedAt.getTime(),
+    )[0]
+    const latestCoffeeRunPayload = this.asRecord(latestCoffeeRow?.run.rawPayload)
+    const latestCoffeeRunMetadata = this.asRecord(latestCoffeeRunPayload?.metadata)
+    const latestCoffeeBoard = this.asRecord(latestCoffeeRunMetadata?.coffeeBoard)
+    const latestFingerprint = this.asString(latestCoffeeBoard?.reportFingerprint)
+    const latestReportDate = this.asString(latestCoffeeBoard?.reportDate)
+    const currentFingerprint = this.asString(payloadCoffeeBoard?.reportFingerprint)
+    const fetchStatus = this.asString(payloadCoffeeBoard?.reportStatus)
+    const checkedAt = normalizedRunAt
+    const carryForwardProductKeys = new Set<string>()
+    let effectiveCoffeeBoardMetadata = payloadCoffeeBoard ? { ...payloadCoffeeBoard } : undefined
+
+    if (latestCoffeeRow && currentFingerprint && latestFingerprint && currentFingerprint === latestFingerprint) {
+      for (const productKey of latestCoffeeRows.keys()) {
+        carryForwardProductKeys.add(productKey)
+      }
+      effectiveCoffeeBoardMetadata = {
+        ...(effectiveCoffeeBoardMetadata || {}),
+        reportStatus: 'PREVIOUS_REPORT_CARRIED_FORWARD',
+        reportFound: true,
+        newReportDetected: false,
+        usedPreviousSnapshot: true,
+        checkedAt,
+        lastCheckedAt: checkedAt,
+        latestSuccessfulReportDate: latestReportDate,
+        carryingForwardPreviousReport: true,
+      }
+      this.logger.log(
+        `Coffee Board decision=PREVIOUS_REPORT_CARRIED_FORWARD pageReportDate=${this.asString(payloadCoffeeBoard?.reportDate) ?? 'unknown'} ` +
+        `storedReportDate=${latestReportDate ?? 'unknown'} fingerprint=${currentFingerprint.slice(0, 12)} reusedPreviousSnapshot=true`,
+      )
+    } else if (latestCoffeeRow && fetchStatus === 'FETCH_FAILED') {
+      for (const productKey of latestCoffeeRows.keys()) {
+        carryForwardProductKeys.add(productKey)
+      }
+      effectiveCoffeeBoardMetadata = {
+        ...(effectiveCoffeeBoardMetadata || {}),
+        reportStatus: 'TEMPORARILY_USING_LAST_VERIFIED_REPORT',
+        reportFound: false,
+        newReportDetected: false,
+        usedPreviousSnapshot: true,
+        checkedAt,
+        lastCheckedAt: checkedAt,
+        latestSuccessfulReportDate: latestReportDate,
+        carryingForwardPreviousReport: true,
+      }
+      this.logger.warn(
+        `Coffee Board decision=TEMPORARILY_USING_LAST_VERIFIED_REPORT storedReportDate=${latestReportDate ?? 'unknown'} reusedPreviousSnapshot=true reason=${this.asString(payloadCoffeeBoard?.reason) ?? 'unknown'}`,
+      )
+    } else if (payloadCoffeeBoard) {
+      effectiveCoffeeBoardMetadata = {
+        ...effectiveCoffeeBoardMetadata,
+        reportStatus: 'LIVE_REPORT',
+        reportFound: true,
+        newReportDetected: true,
+        usedPreviousSnapshot: false,
+        checkedAt,
+        lastCheckedAt: checkedAt,
+        latestSuccessfulReportDate: this.asString(payloadCoffeeBoard.reportDate) ?? latestReportDate,
+        carryingForwardPreviousReport: false,
+      }
+      this.logger.log(
+        `Coffee Board decision=LIVE_REPORT pageReportDate=${this.asString(payloadCoffeeBoard.reportDate) ?? 'unknown'} ` +
+        `storedReportDate=${latestReportDate ?? 'none'} reusedPreviousSnapshot=false`,
+      )
+    }
+
+    if (carryForwardProductKeys.size > 0) {
+      observations = observations.filter((item) => !carryForwardProductKeys.has(item.productKey))
+      perItemErrors = perItemErrors.filter((item) => !carryForwardProductKeys.has(item.productKey))
+    }
+
     const errors = [...perItemErrors, ...(payload.errors || []).map((item) => ({
       productKey: item.productKey,
       error: item.error,
@@ -300,17 +387,19 @@ export class PricesIngestService {
       rawText: item.rawText || '',
       source: item.source || payload.source || 'Python Playwright Scraper',
       capturedAt: item.capturedAt,
-    }))]
+    }))].filter((item) => !carryForwardProductKeys.has(item.productKey))
 
     const dto: IngestPricesDto = {
       runAt: normalizedRunAt,
       results: observations,
       errors,
       metadata: {
-        ...(payload.metadata || {}),
+        ...(payloadMetadata || {}),
         source: payload.source,
         payloadFetchedAt: payload.fetchedAt,
         ingestedAt: new Date().toISOString(),
+        carryForwardProductKeys: [...carryForwardProductKeys],
+        coffeeBoard: effectiveCoffeeBoardMetadata,
       },
     }
 
