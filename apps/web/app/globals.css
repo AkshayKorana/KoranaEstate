@@ -46,6 +46,27 @@
   --lux-navbar-text: #1f1f1f;
   --lux-navbar-text-muted: #3b3b3b;
   --lux-navbar-hover: rgba(47, 107, 79, 0.12);
+  --background-hsl: 42 24% 92%;
+  --foreground-hsl: 222 47% 11%;
+  --card-hsl: 40 30% 96%;
+  --card-foreground-hsl: 222 47% 11%;
+  --popover-hsl: 40 30% 97%;
+  --popover-foreground-hsl: 222 47% 11%;
+  --primary-hsl: 148 36% 35%;
+  --primary-foreground-hsl: 0 0% 100%;
+  --secondary-hsl: 40 18% 88%;
+  --secondary-foreground-hsl: 222 47% 14%;
+  --accent-hsl: 148 28% 92%;
+  --accent-foreground-hsl: 148 40% 20%;
+  --muted-hsl: 40 18% 88%;
+  --muted-foreground-hsl: 222 18% 32%;
+  --subtle-foreground-hsl: 222 12% 40%;
+  --soft-foreground-hsl: 222 10% 46%;
+  --border-hsl: 30 18% 78%;
+  --input-hsl: 30 18% 82%;
+  --ring-hsl: 148 36% 35%;
+  --destructive-hsl: 0 72% 51%;
+  --destructive-foreground-hsl: 0 0% 100%;
 }
 
 @theme inline {
@@ -92,6 +113,27 @@ html.dark {
   --lux-navbar-text: #f3efe7;
   --lux-navbar-text-muted: #d3c3ae;
   --lux-navbar-hover: rgba(46, 111, 83, 0.25);
+  --background-hsl: 210 40% 8%;
+  --foreground-hsl: 40 20% 92%;
+  --card-hsl: 216 33% 16%;
+  --card-foreground-hsl: 40 20% 94%;
+  --popover-hsl: 216 33% 14%;
+  --popover-foreground-hsl: 40 20% 94%;
+  --primary-hsl: 148 36% 42%;
+  --primary-foreground-hsl: 0 0% 100%;
+  --secondary-hsl: 216 22% 20%;
+  --secondary-foreground-hsl: 40 20% 92%;
+  --accent-hsl: 148 20% 18%;
+  --accent-foreground-hsl: 148 45% 85%;
+  --muted-hsl: 216 22% 18%;
+  --muted-foreground-hsl: 40 10% 72%;
+  --subtle-foreground-hsl: 40 8% 78%;
+  --soft-foreground-hsl: 40 6% 68%;
+  --border-hsl: 216 16% 28%;
+  --input-hsl: 216 16% 26%;
+  --ring-hsl: 148 36% 42%;
+  --destructive-hsl: 0 63% 45%;
+  --destructive-foreground-hsl: 0 0% 100%;
 }
 
 body {
@@ -376,6 +418,115 @@ html {
   border: 1px solid var(--lux-border-neutral);
   border-radius: 1.25rem;
   box-shadow: 0 14px 30px -20px var(--lux-shadow);
+}
+
+.text-strong {
+  color: hsl(var(--foreground-hsl));
+}
+
+.text-card-strong {
+  color: hsl(var(--card-foreground-hsl));
+}
+
+.text-muted-safe {
+  color: hsl(var(--muted-foreground-hsl));
+}
+
+.text-subtle-safe {
+  color: hsl(var(--subtle-foreground-hsl));
+}
+
+.text-soft-safe {
+  color: hsl(var(--soft-foreground-hsl));
+}
+
+.surface-card {
+  background: hsl(var(--card-hsl) / 0.88);
+  color: hsl(var(--card-foreground-hsl));
+  border: 1px solid hsl(var(--border-hsl) / 0.7);
+  backdrop-filter: blur(14px);
+}
+
+.surface-card-strong {
+  background: hsl(var(--card-hsl) / 0.94);
+  color: hsl(var(--card-foreground-hsl));
+  border: 1px solid hsl(var(--border-hsl) / 0.8);
+  backdrop-filter: blur(14px);
+}
+
+.surface-input {
+  background: hsl(var(--background-hsl) / 0.8);
+  color: hsl(var(--foreground-hsl));
+  border: 1px solid hsl(var(--input-hsl));
+}
+
+.surface-chip {
+  background: hsl(var(--secondary-hsl) / 0.9);
+  color: hsl(var(--secondary-foreground-hsl));
+  border: 1px solid hsl(var(--border-hsl) / 0.7);
+}
+
+.surface-button-secondary {
+  background: hsl(var(--secondary-hsl));
+  color: hsl(var(--secondary-foreground-hsl));
+  border: 1px solid hsl(var(--border-hsl));
+}
+
+.surface-panel {
+  background: hsl(var(--card-hsl) / 0.82);
+  color: hsl(var(--card-foreground-hsl));
+  border: 1px solid hsl(var(--border-hsl) / 0.65);
+  backdrop-filter: blur(16px);
+}
+
+@layer utilities {
+  .text-app-strong {
+    @apply text-zinc-900 dark:text-zinc-50;
+  }
+
+  .text-app-body {
+    @apply text-zinc-800 dark:text-zinc-100;
+  }
+
+  .text-app-muted {
+    @apply text-zinc-600 dark:text-zinc-300;
+  }
+
+  .text-app-soft {
+    @apply text-zinc-500 dark:text-zinc-400;
+  }
+
+  .text-app-faint {
+    @apply text-zinc-400 dark:text-zinc-500;
+  }
+
+  .surface-app-card {
+    @apply bg-white/92 dark:bg-zinc-950/70 border border-zinc-200/80 dark:border-white/10 backdrop-blur-md;
+  }
+
+  .surface-app-card-strong {
+    @apply bg-white dark:bg-zinc-950/80 border border-zinc-200 dark:border-white/10 backdrop-blur-md;
+  }
+
+  .surface-app-panel {
+    @apply bg-zinc-100/85 dark:bg-zinc-900/55 border border-zinc-200/70 dark:border-white/10 backdrop-blur-md;
+  }
+
+  .surface-app-panel-soft {
+    @apply bg-zinc-50/90 dark:bg-zinc-900/40 border border-zinc-200/70 dark:border-white/10 backdrop-blur-md;
+  }
+
+  .surface-app-input {
+    @apply bg-white dark:bg-zinc-900/70 border border-zinc-300 dark:border-white/10 text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-500 dark:placeholder:text-zinc-400;
+  }
+
+  .surface-app-chip {
+    @apply bg-zinc-100 text-zinc-700 dark:bg-white/10 dark:text-zinc-200 border border-zinc-200 dark:border-white/10;
+  }
+
+  .surface-app-button-secondary {
+    @apply bg-zinc-100 hover:bg-zinc-200 text-zinc-800 border border-zinc-200 dark:bg-white/10 dark:hover:bg-white/15 dark:text-zinc-100 dark:border-white/10;
+  }
 }
 
 .soft-glow-hover {

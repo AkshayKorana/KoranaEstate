@@ -3,6 +3,7 @@ import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swa
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 import { Roles } from '../common/decorators/roles.decorator'
 import { RolesGuard } from '../common/guards/roles.guard'
+import { CreateRawMarketplaceOrderDto } from './dto/create-raw-marketplace-order.dto'
 import { CreateDisputeDto } from './dto/create-dispute.dto'
 import { CreateOrderDto } from './dto/create-order.dto'
 import { CreateReviewDto } from './dto/create-review.dto'
@@ -24,11 +25,30 @@ export class OrdersController {
     return this.ordersService.createOrder(req.user.userId, dto)
   }
 
+  @Post('raw-marketplace')
+  @Roles('BUYER', 'ADMIN')
+  @ApiOperation({ summary: 'Create raw marketplace COD order' })
+  @ApiOkResponse({ description: 'Raw marketplace order created' })
+  createRawMarketplaceOrder(
+    @Req() req: { user: { userId: string } },
+    @Body() dto: CreateRawMarketplaceOrderDto,
+  ) {
+    return this.ordersService.createRawMarketplaceOrder(req.user.userId, dto)
+  }
+
   @Get('me')
   @ApiOperation({ summary: 'List authenticated user orders' })
   @ApiOkResponse({ description: 'Orders retrieved' })
   listMine(@Req() req: { user: { userId: string } }) {
     return this.ordersService.listBuyerOrders(req.user.userId)
+  }
+
+  @Get(':orderId')
+  @Roles('BUYER', 'ADMIN')
+  @ApiOperation({ summary: 'Get single order' })
+  @ApiOkResponse({ description: 'Order retrieved' })
+  getById(@Param('orderId') orderId: string, @Req() req: { user: { userId: string; role?: string } }) {
+    return this.ordersService.getOrderById(orderId, req.user.userId, req.user.role)
   }
 
   @Patch('commission-rate')

@@ -24,6 +24,11 @@ export class CreateRawProductDto {
   @IsString()
   grade?: string
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsString()
+  location?: string
+
   @ApiProperty({ minimum: 0.01 })
   @IsNumber()
   @Min(0.01)

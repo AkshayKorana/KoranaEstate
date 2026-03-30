@@ -297,20 +297,20 @@ function PipelineStatusCard({
 
   return (
     <div
-      className={`rounded-xl border ${tone.border} ${tone.glow} bg-black/40 backdrop-blur p-5 transition duration-300 hover:-translate-y-0.5`}
+      className={`surface-card rounded-xl ${tone.border} ${tone.glow} p-5 transition duration-300 hover:-translate-y-0.5`}
     >
-      <div className="flex items-center gap-3 text-[#d5c4b2]">
-        <div className="rounded-lg border border-white/10 bg-white/5 p-2">{icon}</div>
-        <p className="text-xs uppercase tracking-[0.28em] text-[#9fb8a2]">{title}</p>
+      <div className="flex items-center gap-3 text-muted-safe">
+        <div className="rounded-lg border border-black/10 bg-black/3 p-2 dark:border-white/10 dark:bg-white/5">{icon}</div>
+        <p className="text-xs uppercase tracking-[0.28em] text-subtle-safe">{title}</p>
       </div>
 
       <div className="mt-5 space-y-2 transition duration-300 ease-out">
         <StatusIndicator status={status as PipelineRunStatus} />
-        <p className="text-sm text-[#d5c4b2]">{timestampText}</p>
-        <p className={`text-xs ${freshnessWarning ? 'text-amber-300' : 'text-gray-400'}`}>
+        <p className="text-sm text-muted-safe">{timestampText}</p>
+        <p className={`text-xs ${freshnessWarning ? 'text-amber-300' : 'text-muted-safe'}`}>
           Updated {timeAgo}
         </p>
-        <p className="pt-1 text-xs text-gray-500">{subtitle}</p>
+        <p className="pt-1 text-xs text-subtle-safe">{subtitle}</p>
       </div>
     </div>
   )
@@ -893,14 +893,14 @@ export default function HomePage() {
               <h2 className="font-luxe text-3xl font-bold text-[#f6e8d7]">
                 {t('Commodity Intelligence Dashboard', 'ವಸ್ತು ಬುದ್ಧಿವಂತಿಕೆ ಡ್ಯಾಶ್‌ಬೋರ್ಡ್')}
               </h2>
-              <p className="mt-2 max-w-2xl text-sm text-[#d5c4b2]">
+              <p className={`mt-2 max-w-2xl text-sm ${isDark ? 'text-[#d5c4b2]' : 'text-muted-safe'}`}>
                 {t(
                   'Track today, last week, and next-week outlook per commodity with richer market notes.',
                   'ಪ್ರತಿ ವಸ್ತುವಿಗೆ ಇಂದಿನ, ಕಳೆದ ವಾರದ ಮತ್ತು ಮುಂದಿನ ವಾರದ ಪ್ರವೃತ್ತಿಯನ್ನು ಮಾರುಕಟ್ಟೆ ವಿಶ್ಲೇಷಣೆಯೊಂದಿಗೆ ನೋಡಿ.'
                 )}
               </p>
             </div>
-            <p className="text-xs text-[#d5c4b2]">
+            <p className={`text-xs ${isDark ? 'text-[#d5c4b2]' : 'text-muted-safe'}`}>
               {t('Last updated', 'ಕೊನೆಯ ನವೀಕರಣ')}: {lastUpdated ? new Date(lastUpdated).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}
             </p>
           </div>
@@ -982,18 +982,18 @@ export default function HomePage() {
                       key={product.productKey}
                       type="button"
                       onClick={() => setSelectedKey(product.productKey)}
-                      className={`text-left rounded-2xl border p-4 transition ${
+                      className={`text-left rounded-2xl p-4 transition ${
                         isDark
                           ? selectedKey === product.productKey
                             ? 'border-emerald-500/60 bg-[#1d1a15]'
                             : 'border-[#2f3a33] bg-[#12100d]/80 hover:border-emerald-400/40'
                           : selectedKey === product.productKey
-                            ? 'border-emerald-500/50 bg-[#f7f2ea]'
-                            : 'border-black/10 bg-white/90 hover:border-emerald-500/35'
+                            ? 'surface-card-strong border-emerald-500/50'
+                            : 'surface-card hover:border-emerald-500/35'
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <p className={`font-semibold ${isDark ? 'text-[#efe4d4]' : 'text-[#111111]'}`}>{product.displayName}</p>
+                        <p className={`font-semibold ${isDark ? 'text-[#efe4d4]' : 'text-card-strong'}`}>{product.displayName}</p>
                         <span className={`text-[11px] px-2 py-0.5 rounded-full border ${
                           status === 'OK'
                             ? isDark
@@ -1006,12 +1006,12 @@ export default function HomePage() {
                           {status}
                         </span>
                       </div>
-                      <p className={`mt-2 text-2xl font-bold ${isDark ? 'text-[#f4ead9]' : 'text-[#111111]'}`}>
+                      <p className={`mt-2 text-2xl font-bold ${isDark ? 'text-[#f4ead9]' : 'text-card-strong'}`}>
                         {isCoffeeCommodity(product)
                           ? (getMetadataString(card?.metadata, 'currentRangeOriginal') || formatPrimaryCoffeePrice(card?.currentPrice ?? card?.value))
                           : formatPrice(card?.currentPrice ?? card?.value)}
                       </p>
-                      <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-[#444444]'}`}>
+                      <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-muted-safe'}`}>
                         {isCoffeeCommodity(product)
                           ? (getMetadataString(card?.metadata, 'currentRangeInrPerKg') || (card?.currentPrice != null || card?.value != null ? `≈ ${formatPrice((card?.currentPrice ?? card?.value ?? 0))}/kg` : 'Not available'))
                           : product.unit}
@@ -1023,20 +1023,20 @@ export default function HomePage() {
                 })}
               </div>
 
-              <div className="rounded-2xl bg-[#171411]/80 border border-emerald-200/25 p-5 shadow-lg space-y-5">
+              <div className="surface-app-card rounded-2xl p-5 shadow-lg space-y-5">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <h3 className="font-bold text-2xl text-[#efe4d4]">
+                    <h3 className="font-bold text-2xl text-app-strong">
                       {selectedProduct?.displayName || t('Commodity Detail', 'ವಸ್ತು ವಿವರ')}
                     </h3>
-                    <p className="mt-1 text-sm text-[#cbbcae]">
+                    <p className="mt-1 text-sm text-app-muted">
                       {contextualSummary || t('Structured intelligence updates appear here when available.', 'ಲಭ್ಯವಿರುವಾಗ ರಚಿತ ಮಾರುಕಟ್ಟೆ ಮಾಹಿತಿ ಇಲ್ಲಿ ಕಾಣುತ್ತದೆ.')}
                     </p>
                   </div>
                   <div className="max-w-sm min-w-[240px]">
                     <select
                       aria-label="Select commodity"
-                      className="lux-input w-full p-2.5 rounded-xl font-medium"
+                      className="surface-app-input w-full p-2.5 rounded-xl font-medium"
                       value={activeSelectedKey}
                       onChange={(event) => setSelectedKey(event.target.value)}
                     >
@@ -1050,50 +1050,50 @@ export default function HomePage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-                  <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Current', 'ಪ್ರಸ್ತುತ')}</p>
-                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{currentCoffeePrimaryDisplay}</p>
-                    <p className="mt-1 text-xs text-gray-400">
+                  <div className="surface-app-panel rounded-xl p-4">
+                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">{t('Current', 'ಪ್ರಸ್ತುತ')}</p>
+                    <p className="mt-2 text-3xl font-bold text-app-strong">{currentCoffeePrimaryDisplay}</p>
+                    <p className="mt-1 text-xs text-app-muted">
                       {currentCoffeeSecondaryDisplay}
                     </p>
                   </div>
-                  <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Midpoint</p>
-                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{coffeeMidpointDisplay}</p>
-                    <p className="mt-1 text-xs text-gray-400">Used for continuity in charts and history</p>
+                  <div className="surface-app-panel rounded-xl p-4">
+                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">Midpoint</p>
+                    <p className="mt-2 text-3xl font-bold text-app-strong">{coffeeMidpointDisplay}</p>
+                    <p className="mt-1 text-xs text-app-muted">Used for continuity in charts and history</p>
                   </div>
-                  <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Report Status</p>
-                    <p className="mt-2 text-2xl font-bold text-[#f7e9d6]">{reportStatusBadge}</p>
-                    <p className="mt-1 text-xs text-gray-400">{reportStatusMessage || 'Coffee Board values are in sync with the latest verified report.'}</p>
+                  <div className="surface-app-panel rounded-xl p-4">
+                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">Report Status</p>
+                    <p className="mt-2 text-2xl font-bold text-app-strong">{reportStatusBadge}</p>
+                    <p className="mt-1 text-xs text-app-muted">{reportStatusMessage || 'Coffee Board values are in sync with the latest verified report.'}</p>
                   </div>
-                  <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">{t('Trend', 'ಪ್ರವೃತ್ತಿ')}</p>
-                    <p className="mt-2 text-3xl font-bold text-[#f7e9d6]">{selectedLatest?.trend || '-'}</p>
-                    <p className="mt-1 text-xs text-gray-400">
+                  <div className="surface-app-panel rounded-xl p-4">
+                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">{t('Trend', 'ಪ್ರವೃತ್ತಿ')}</p>
+                    <p className="mt-2 text-3xl font-bold text-app-strong">{selectedLatest?.trend || '-'}</p>
+                    <p className="mt-1 text-xs text-app-muted">
                       {selectedLatest?.confidence != null ? `${Math.round(selectedLatest.confidence * 100)}% confidence` : t('Partial data is handled safely.', 'ಅಪೂರ್ಣ ಮಾಹಿತಿಯೂ ಸುರಕ್ಷಿತವಾಗಿ ತೋರಿಸಲಾಗುತ್ತದೆ.')}
                     </p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Daily Coffee Report</p>
+                  <div className="surface-app-panel rounded-xl p-4">
+                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">Daily Coffee Report</p>
                     <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <p className="text-xl font-semibold text-[#f7e9d6]">{reportTitle}</p>
-                      <span className="rounded-full border border-emerald-300/30 bg-emerald-950/30 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-emerald-200">
+                      <p className="text-xl font-semibold text-app-strong">{reportTitle}</p>
+                      <span className="surface-app-chip rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]">
                         {reportStatusBadge}
                       </span>
                     </div>
-                    <p className="mt-2 text-sm text-[#d5c4b2]">{reportDate || 'Report date not available'}</p>
-                    {reportFileName && <p className="mt-1 text-xs text-gray-400">{reportFileName}</p>}
+                    <p className="mt-2 text-sm text-app-muted">{reportDate || 'Report date not available'}</p>
+                    {reportFileName && <p className="mt-1 text-xs text-app-soft">{reportFileName}</p>}
                     {reportStatusMessage && (
                       <p className="mt-3 rounded-xl border border-amber-300/25 bg-amber-950/20 px-3 py-2 text-sm text-amber-200">
                         {reportStatusMessage}
                       </p>
                     )}
                     {lastCheckedAt && (
-                      <p className="mt-2 text-xs text-gray-500">Last checked: {formatDateTime(lastCheckedAt)}</p>
+                      <p className="mt-2 text-xs text-app-soft">Last checked: {formatDateTime(lastCheckedAt)}</p>
                     )}
                     {reportSourceUrl && (
                       <a
@@ -1106,67 +1106,67 @@ export default function HomePage() {
                       </a>
                     )}
                   </div>
-                  <div className="rounded-2xl border border-emerald-200/20 bg-[#110f0d] p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-[#9fb8a2]">Exact Coffee Board Range</p>
-                    <p className="mt-3 text-2xl font-bold text-[#f7e9d6]">{reportRangeOriginal || 'Not available'}</p>
-                    <p className="mt-2 text-sm text-gray-400">{reportRangeNormalized || 'Normalized INR/kg not available'}</p>
+                  <div className="surface-app-panel rounded-xl p-4">
+                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">Exact Coffee Board Range</p>
+                    <p className="mt-3 text-2xl font-bold text-app-strong">{reportRangeOriginal || 'Not available'}</p>
+                    <p className="mt-2 text-sm text-app-muted">{reportRangeNormalized || 'Normalized INR/kg not available'}</p>
                     <p className="mt-2 text-xs text-emerald-300">{coffeeMidpointDisplay}</p>
-                    <p className="mt-3 text-sm text-[#d5c4b2]">{analysisText}</p>
+                    <p className="mt-3 text-sm text-app-muted">{analysisText}</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 xl:grid-cols-[1.4fr,0.9fr] gap-5">
-                  <div className="rounded-2xl border border-emerald-200/25 bg-[#14110e] p-4 space-y-4">
-                    <div className="rounded-2xl border border-emerald-200/20 bg-[#100d0a] p-4 space-y-4">
-                      <h4 className="text-xl font-semibold text-[#efe4d4]">Market Report</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-[#d6c8b9]">
-                        <div className="rounded-xl bg-[#171411] px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Latest Price</p>
-                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{isCoffeeCommodity(selectedProduct) ? currentPrimaryDisplay : latestPriceDisplay}</p>
+                  <div className="surface-app-card rounded-2xl p-4 space-y-4">
+                    <div className="surface-app-panel rounded-xl p-4 space-y-4">
+                      <h4 className="text-xl font-semibold text-app-strong">Market Report</h4>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-app-muted">
+                        <div className="surface-app-panel rounded-xl px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-app-soft">Latest Price</p>
+                          <p className="mt-2 text-lg font-semibold text-app-strong">{isCoffeeCommodity(selectedProduct) ? currentPrimaryDisplay : latestPriceDisplay}</p>
                         </div>
-                        <div className="rounded-xl bg-[#171411] px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">{isCoffeeCommodity(selectedProduct) ? 'Normalized INR/kg' : 'Current INR/kg equivalent'}</p>
-                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{currentKgDisplay}</p>
-                          {currentPer50KgDisplay && <p className="mt-1 text-xs text-gray-400">{currentPer50KgDisplay}</p>}
+                        <div className="surface-app-panel rounded-xl px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-app-soft">{isCoffeeCommodity(selectedProduct) ? 'Normalized INR/kg' : 'Current INR/kg equivalent'}</p>
+                          <p className="mt-2 text-lg font-semibold text-app-strong">{currentKgDisplay}</p>
+                          {currentPer50KgDisplay && <p className="mt-1 text-xs text-app-soft">{currentPer50KgDisplay}</p>}
                         </div>
-                        <div className="rounded-xl bg-[#171411] px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Last Week range/value</p>
-                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{lastWeekDisplayParts.large}</p>
-                          <p className="mt-1 text-xs text-gray-400">{lastWeekDisplayParts.small}</p>
+                        <div className="surface-app-panel rounded-xl px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-app-soft">Last Week range/value</p>
+                          <p className="mt-2 text-lg font-semibold text-app-strong">{lastWeekDisplayParts.large}</p>
+                          <p className="mt-1 text-xs text-app-soft">{lastWeekDisplayParts.small}</p>
                         </div>
-                        <div className="rounded-xl bg-[#171411] px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Next Week outlook/range</p>
-                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{nextWeekDisplayParts.large}</p>
-                          <p className="mt-1 text-xs text-gray-400">{nextWeekDisplayParts.small}</p>
+                        <div className="surface-app-panel rounded-xl px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-app-soft">Next Week outlook/range</p>
+                          <p className="mt-2 text-lg font-semibold text-app-strong">{nextWeekDisplayParts.large}</p>
+                          <p className="mt-1 text-xs text-app-soft">{nextWeekDisplayParts.small}</p>
                         </div>
-                        <div className="rounded-xl bg-[#171411] px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Trend</p>
-                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{trendDisplay}</p>
+                        <div className="surface-app-panel rounded-xl px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-app-soft">Trend</p>
+                          <p className="mt-2 text-lg font-semibold text-app-strong">{trendDisplay}</p>
                         </div>
-                        <div className="rounded-xl bg-[#171411] px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Market Sentiment</p>
-                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{sentimentDisplay}</p>
-                          <p className="mt-1 text-xs text-gray-400">{confidenceDisplay} confidence</p>
+                        <div className="surface-app-panel rounded-xl px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-app-soft">Market Sentiment</p>
+                          <p className="mt-2 text-lg font-semibold text-app-strong">{sentimentDisplay}</p>
+                          <p className="mt-1 text-xs text-app-soft">{confidenceDisplay} confidence</p>
                         </div>
-                        <div className="rounded-xl bg-[#171411] px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-[#9fb8a2]">Confidence</p>
-                          <p className="mt-2 text-lg font-semibold text-[#f7e9d6]">{confidenceDisplay}</p>
+                        <div className="surface-app-panel rounded-xl px-4 py-3">
+                          <p className="text-xs uppercase tracking-[0.2em] text-app-soft">Confidence</p>
+                          <p className="mt-2 text-lg font-semibold text-app-strong">{confidenceDisplay}</p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-emerald-200/20 bg-[#100d0a] p-4">
-                      <h4 className="text-xl font-semibold text-[#efe4d4]">Contextual Summary</h4>
-                      <p className="mt-3 text-sm leading-7 text-[#d6c8b9]">
+                    <div className="surface-app-panel-soft rounded-xl p-4">
+                      <h4 className="text-xl font-semibold text-app-strong">Contextual Summary</h4>
+                      <p className="mt-3 text-sm leading-7 text-app-body">
                         {contextualSummary || 'No reliable structured market summary available.'}
                       </p>
                     </div>
 
                     <div className="flex items-center justify-between gap-3">
-                      <h4 className="text-lg font-semibold text-[#efe4d4]">
+                      <h4 className="text-lg font-semibold text-app-strong">
                         {t('Price Curve', 'ಬೆಲೆ ವಕ್ರ')}
                       </h4>
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-app-muted">
                         {dbHistoryChart ? 'Using stored historical observations with latest forecast overlay' : t('Falling back to historical observations', 'ಇತಿಹಾಸ ಆಬ್ಸರ್ವೇಶನ್‌ಗಳಿಗೆ ಹಿಂತಿರುಗುತ್ತಿದೆ')}
                       </p>
                     </div>
@@ -1180,7 +1180,7 @@ export default function HomePage() {
                     )}
 
                     {!chartConfig && !loadingHistory && (
-                      <p className="text-sm text-gray-400">
+                      <p className="text-sm text-app-muted">
                         {t('No chartable points available for this commodity yet.', 'ಈ ವಸ್ತುವಿಗೆ ಇನ್ನೂ ಚಾರ್ಟ್ ಮಾಡಬಹುದಾದ ಪಾಯಿಂಟ್‌ಗಳು ಲಭ್ಯವಿಲ್ಲ.')}
                       </p>
                     )}
@@ -1217,38 +1217,67 @@ export default function HomePage() {
                                 },
                               ],
                         }}
-                        options={{ responsive: true, plugins: { legend: { position: 'top' } } }}
+                        options={{
+                          responsive: true,
+                          plugins: {
+                            legend: {
+                              position: 'top',
+                              labels: {
+                                color: isDark ? 'rgb(212 212 216)' : 'rgb(82 82 91)',
+                              },
+                            },
+                            tooltip: {
+                              backgroundColor: isDark ? 'rgba(9,9,11,0.95)' : 'rgba(255,255,255,0.98)',
+                              borderColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(228,228,231,0.9)',
+                              borderWidth: 1,
+                              titleColor: isDark ? '#fafafa' : '#18181b',
+                              bodyColor: isDark ? '#fafafa' : '#18181b',
+                            },
+                          },
+                          scales: {
+                            x: {
+                              ticks: { color: isDark ? 'rgb(212 212 216)' : 'rgb(82 82 91)', font: { size: 12 } },
+                              grid: { color: isDark ? 'rgba(63,63,70,0.5)' : 'rgba(212,212,216,0.7)' },
+                              border: { color: isDark ? 'rgb(63 63 70)' : 'rgb(212 212 216)' },
+                            },
+                            y: {
+                              ticks: { color: isDark ? 'rgb(212 212 216)' : 'rgb(82 82 91)', font: { size: 12 } },
+                              grid: { color: isDark ? 'rgba(63,63,70,0.5)' : 'rgba(212,212,216,0.7)' },
+                              border: { color: isDark ? 'rgb(63 63 70)' : 'rgb(212 212 216)' },
+                            },
+                          },
+                        }}
                       />
                     )}
                   </div>
 
                   <div className="space-y-4">
-                    <div className="rounded-2xl border border-emerald-200/25 bg-[#14110e] p-4">
-                      <h4 className="text-lg font-semibold text-[#efe4d4]">{t('Analysis', 'ವಿಶ್ಲೇಷಣೆ')}</h4>
-                      <p className="mt-3 text-sm leading-6 text-[#d6c8b9]">
+                    <div className="surface-app-panel-soft rounded-xl p-4">
+                      <h4 className="text-lg font-semibold text-app-strong">{t('Analysis', 'ವಿಶ್ಲೇಷಣೆ')}</h4>
+                      <p className="mt-3 text-sm leading-6 text-app-body">
                         {analysisText || t('No analysis summary is available yet. The dashboard will keep rendering partial results safely.', 'ವಿಶ್ಲೇಷಣೆಯ ಸಾರಾಂಶ ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ. ಭಾಗಶಃ ಫಲಿತಾಂಶಗಳೂ ಸುರಕ್ಷಿತವಾಗಿ ತೋರಿಸಲಾಗುತ್ತವೆ.')}
                       </p>
                     </div>
 
-                    <div className="rounded-2xl border border-emerald-200/25 bg-[#14110e] p-4">
-                      <h4 className="text-lg font-semibold text-[#efe4d4]">{t('Highlights', 'ಮುಖ್ಯಾಂಶಗಳು')}</h4>
+                    <div className="surface-app-panel-soft rounded-xl p-4">
+                      <h4 className="text-lg font-semibold text-app-strong">{t('Highlights', 'ಮುಖ್ಯಾಂಶಗಳು')}</h4>
                       <div className="mt-3 space-y-2">
                         {derivedHighlights.length > 0 ? (
                           derivedHighlights.map((bullet, index) => (
-                            <div key={`${bullet}-${index}`} className="rounded-xl bg-[#100d0a] px-3 py-2 text-sm leading-6 text-[#d6c8b9]">
+                            <div key={`${bullet}-${index}`} className="surface-app-panel rounded-xl px-3 py-2 text-sm leading-6 text-app-body">
                               {bullet}
                             </div>
                           ))
                         ) : (
-                          <p className="text-sm text-gray-400">
+                          <p className="text-sm text-app-muted">
                             {t('No structured highlights available yet.', 'ರಚಿತ ಮುಖ್ಯಾಂಶಗಳು ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ.')}
                           </p>
                         )}
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-emerald-200/25 bg-[#14110e] p-4">
-                      <h4 className="text-lg font-semibold text-[#efe4d4]">{t('Sources', 'ಮೂಲಗಳು')}</h4>
+                    <div className="surface-app-panel-soft rounded-xl p-4">
+                      <h4 className="text-lg font-semibold text-app-strong">{t('Sources', 'ಮೂಲಗಳು')}</h4>
                       <div className="mt-3 space-y-2">
                         {(selectedLatest?.sources || []).length > 0 ? (
                           (selectedLatest?.sources || []).map((source, index) => (
@@ -1257,10 +1286,10 @@ export default function HomePage() {
                               href={source.url}
                               target="_blank"
                               rel="noreferrer"
-                              className="block rounded-xl bg-[#100d0a] px-3 py-2 text-sm text-[#d6c8b9] hover:bg-[#17120d]"
+                              className="surface-app-panel block rounded-xl px-3 py-2 text-sm text-app-body hover:bg-zinc-200/80 dark:hover:bg-zinc-800/70"
                             >
-                              <div className="font-medium text-[#efe4d4]">{source.title || source.host || source.url}</div>
-                              <div className="text-xs text-gray-400">{source.host || source.url}</div>
+                              <div className="font-medium text-app-strong">{source.title || source.host || source.url}</div>
+                              <div className="text-xs text-app-soft">{source.host || source.url}</div>
                             </a>
                           ))
                         ) : selectedLatest?.sourceUrl ? (
@@ -1268,42 +1297,42 @@ export default function HomePage() {
                             href={selectedLatest.sourceUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="block rounded-xl bg-[#100d0a] px-3 py-2 text-sm text-[#d6c8b9] hover:bg-[#17120d]"
+                            className="surface-app-panel block rounded-xl px-3 py-2 text-sm text-app-body hover:bg-zinc-200/80 dark:hover:bg-zinc-800/70"
                           >
                             {selectedLatest.sourceUrl}
                           </a>
                         ) : (
-                          <p className="text-sm text-gray-400">
+                          <p className="text-sm text-app-muted">
                             {t('No source links captured for this commodity yet.', 'ಈ ವಸ್ತುವಿಗೆ ಇನ್ನೂ ಮೂಲ ಲಿಂಕ್‌ಗಳು ಲಭ್ಯವಿಲ್ಲ.')}
                           </p>
                         )}
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-emerald-200/25 bg-[#14110e] p-4">
-                      <h4 className="text-lg font-semibold text-[#efe4d4]">Recent Daily History</h4>
+                    <div className="surface-app-panel-soft rounded-xl p-4">
+                      <h4 className="text-lg font-semibold text-app-strong">Recent Daily History</h4>
                       <div className="mt-3 space-y-2">
                         {recentDailyHistory.length > 0 ? (
                           recentDailyHistory.map((point) => (
-                            <div key={`${point.runId}-${point.capturedAt}`} className="rounded-xl bg-[#100d0a] px-3 py-3 text-sm text-[#d6c8b9]">
+                            <div key={`${point.runId}-${point.capturedAt}`} className="surface-app-panel rounded-xl px-3 py-3 text-sm text-app-body">
                               <div className="flex items-center justify-between gap-3">
-                                <span className="font-medium text-[#efe4d4]">
+                                <span className="font-medium text-app-strong">
                                   {new Date(point.capturedAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
                                 </span>
                                 <span className={`text-xs ${point.status === 'OK' ? 'text-emerald-300' : 'text-red-300'}`}>
                                   {point.runStatus} / {point.status}
                                 </span>
                               </div>
-                              <div className="mt-1 text-[#efe4d4]">
+                              <div className="mt-1 text-app-strong">
                                 {point.value != null ? `${formatPrice(point.value)} ${point.unit}` : 'No usable price captured'}
                               </div>
-                              <div className="mt-1 text-xs text-gray-400">
+                              <div className="mt-1 text-xs text-app-soft">
                                 {point.error || point.source || 'Historical observation stored successfully.'}
                               </div>
                             </div>
                           ))
                         ) : (
-                          <p className="text-sm text-gray-400">No recent daily observations stored for this commodity yet.</p>
+                          <p className="text-sm text-app-muted">No recent daily observations stored for this commodity yet.</p>
                         )}
                       </div>
                     </div>

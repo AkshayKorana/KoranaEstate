@@ -3,16 +3,32 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import type { RawListing, RawListingFilters, CreateRawListingInput } from '@/types/marketplace'
+import type { RawListing, RawListingFilters, CreateRawListingInput, CreateRawMarketplaceOrderInput, OrderCustomerDetails } from '@/types/marketplace'
 import { useLanguage } from '@/app/language-context'
 import { useEffectiveTheme } from '@/app/theme-context'
 import { sendMarketplaceMessage } from '@/app/lib/send-marketplace-message'
 
 const COMMODITIES = ['Arabica Cherry', 'Arabica Parchment', 'Robusta Cherry', 'Robusta Parchment', 'Cardamom', 'Arecanut', 'Pepper']
+const RAW_ORDER_REQUIRED_FIELDS: Array<keyof OrderCustomerDetails> = ['fullName', 'mobileNumber', 'addressLine1', 'city', 'state', 'pincode']
+
+function createEmptyCustomerDetails(fullName = ''): OrderCustomerDetails {
+  return {
+    fullName,
+    mobileNumber: '',
+    addressLine1: '',
+    addressLine2: '',
+    area: '',
+    city: '',
+    state: '',
+    pincode: '',
+    landmark: '',
+    orderNote: '',
+  }
+}
 
 export default function RawMarketplacePage() {
   const router = useRouter()
-  const { status } = useSession({
+  const { data: session, status } = useSession({
     required: true,
     onUnauthenticated: () => router.replace('/auth'),
   })
@@ -22,6 +38,7 @@ export default function RawMarketplacePage() {
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showOfferModal, setShowOfferModal] = useState(false)
+  const [showCodModal, setShowCodModal] = useState(false)
   const [selectedListing, setSelectedListing] = useState<RawListing | null>(null)
   const [filters, setFilters] = useState<RawListingFilters>({})
 
@@ -33,6 +50,13 @@ export default function RawMarketplacePage() {
     location: ''
   })
   const [offerData, setOfferData] = useState({ offerPrice: 0, quantity: 0, message: '' })
+  const [codOrderData, setCodOrderData] = useState<CreateRawMarketplaceOrderInput>({
+    listingId: '',
+    quantityKg: 0,
+    customer: createEmptyCustomerDetails(),
+  })
+  const [codErrors, setCodErrors] = useState<Partial<Record<keyof OrderCustomerDetails | 'quantityKg' | 'form', string>>>({})
+  const [submittingCod, setSubmittingCod] = useState(false)
 
   useEffect(() => {
     if (status !== 'authenticated') return
@@ -118,6 +142,76 @@ export default function RawMarketplacePage() {
     } catch (error) {
       console.error('Error creating offer:', error)
       alert(t('Failed to create offer', 'ಆಫರ್ ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+    }
+  }
+
+  async function handlePlaceCodOrder(e: React.FormEvent) {
+    e.preventDefault()
+    if (status !== 'authenticated') {
+      router.push('/auth')
+      return
+    }
+
+    if (!selectedListing) return
+
+    const nextErrors: Partial<Record<keyof OrderCustomerDetails | 'quantityKg' | 'form', string>> = {}
+    if (codOrderData.quantityKg <= 0) {
+      nextErrors.quantityKg = t('Quantity must be greater than zero', 'ಪ್ರಮಾಣ ಶೂನ್ಯಕ್ಕಿಂತ ಹೆಚ್ಚಿರಬೇಕು')
+    } else if (codOrderData.quantityKg > selectedListing.quantityKg) {
+      nextErrors.quantityKg = `${t('Available quantity is', 'ಲಭ್ಯ ಪ್ರಮಾಣ')} ${selectedListing.quantityKg} kg`
+    }
+
+    for (const field of RAW_ORDER_REQUIRED_FIELDS) {
+      if (!codOrderData.customer[field]?.trim()) {
+        nextErrors[field] = t('This field is required', 'ಈ ಕ್ಷೇತ್ರ ಕಡ್ಡಾಯವಾಗಿದೆ')
+      }
+    }
+
+    if (codOrderData.customer.mobileNumber && !/^[6-9]\d{9}$/.test(codOrderData.customer.mobileNumber.trim())) {
+      nextErrors.mobileNumber = t('Enter a valid 10-digit mobile number', 'ಮಾನ್ಯ 10 ಅಂಕೆಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ನಮೂದಿಸಿ')
+    }
+    if (codOrderData.customer.pincode && !/^\d{6}$/.test(codOrderData.customer.pincode.trim())) {
+      nextErrors.pincode = t('Enter a valid 6-digit pincode', 'ಮಾನ್ಯ 6 ಅಂಕೆಯ ಪಿನ್‌ಕೋಡ್ ನಮೂದಿಸಿ')
+    }
+
+    setCodErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) {
+      return
+    }
+
+    try {
+      setSubmittingCod(true)
+      const res = await fetch('/api/raw/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(codOrderData),
+      })
+      const data = await res.json()
+
+      if (!res.ok) {
+        setCodErrors((current) => ({
+          ...current,
+          form: data.error || t('Failed to place COD request', 'COD ವಿನಂತಿಯನ್ನು ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ'),
+        }))
+        return
+      }
+
+      setShowCodModal(false)
+      setCodOrderData({
+        listingId: '',
+        quantityKg: 0,
+        customer: createEmptyCustomerDetails(session?.user?.name || ''),
+      })
+      setCodErrors({})
+      router.push(`/orders/${data.order.id}`)
+    } catch (error) {
+      console.error('Error placing COD request:', error)
+      setCodErrors((current) => ({
+        ...current,
+        form: t('Failed to place COD request', 'COD ವಿನಂತಿಯನ್ನು ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ'),
+      }))
+    } finally {
+      setSubmittingCod(false)
     }
   }
 
@@ -263,7 +357,7 @@ export default function RawMarketplacePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
                   </svg>
                 </div>
-                <h3 className={`text-2xl font-bold mb-2 ${isDark ? 'text-[#efe4d4]' : 'text-[#1f1f1f]'}`}>{t('No Listings Yet', 'ಇನ್ನೂ ಲಿಸ್ಟಿಂಗ್‌ಗಳಿಲ್ಲ')}</h3>
+                <h3 className="text-2xl font-bold mb-2 text-card-strong">{t('No Listings Yet', 'ಇನ್ನೂ ಲಿಸ್ಟಿಂಗ್‌ಗಳಿಲ್ಲ')}</h3>
                 <p className={`mb-6 ${isDark ? 'text-[#bbae9a]' : 'text-[#4a4a4a]'}`}>{t('Be the first to list your commodity!', 'ನಿಮ್ಮ ವಸ್ತುವನ್ನು ಮೊದಲು ಲಿಸ್ಟ್ ಮಾಡಿ!')}</p>
                 <button
                   onClick={() => status === 'authenticated' ? setShowCreateModal(true) : router.push('/auth')}
@@ -280,13 +374,13 @@ export default function RawMarketplacePage() {
                 {listings.map((listing, idx) => (
                   <div 
                     key={listing.id} 
-                    className={`glass rounded-2xl shadow-lg hover:shadow-2xl transition-all p-6 border card-hover fade-in ${isDark ? 'border-emerald-200/30' : 'border-black/10'}`}
+                    className="surface-card rounded-2xl shadow-lg hover:shadow-2xl transition-all p-6 card-hover fade-in"
                     style={{ animationDelay: `${idx * 100}ms` }}
                   >
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className={`font-bold text-xl ${isDark ? 'text-[#efe4d4]' : 'text-[#1f1f1f]'}`}>{listing.commodity}</h3>
-                        <p className={`text-sm mt-1 ${isDark ? 'text-[#b8ab97]' : 'text-[#4a4a4a]'}`}>📍 {listing.location}</p>
+                        <h3 className="font-bold text-xl text-card-strong">{listing.commodity}</h3>
+                        <p className="text-sm mt-1 text-muted-safe">📍 {listing.location}</p>
                       </div>
                       {listing.grade && (
                         <span className="gradient-brand-spectrum text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-md">
@@ -304,7 +398,7 @@ export default function RawMarketplacePage() {
                         <span className={`text-sm font-medium ${isDark ? 'text-[#e0e0e0]' : 'text-[#444444]'}`}>{t('Quantity', 'ಪ್ರಮಾಣ')}</span>
                         <span className={`text-lg font-bold ${isDark ? 'text-white' : 'text-amber-700'}`}>{listing.quantityKg} kg</span>
                       </div>
-                      <div className="flex items-center space-x-2 text-sm text-[#444444] dark:text-[#aaaaaa]">
+                      <div className="flex items-center space-x-2 text-sm text-muted-safe">
                         <div className="w-8 h-8 rounded-full gradient-coffee-cream flex items-center justify-center text-white font-bold text-xs">
                           {listing.seller?.name?.[0]?.toUpperCase() || 'S'}
                         </div>
@@ -313,7 +407,7 @@ export default function RawMarketplacePage() {
                     </div>
 
                     {listing.description && (
-                      <p className={`text-sm mb-4 line-clamp-2 ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{listing.description}</p>
+                      <p className="text-sm mb-4 line-clamp-2 text-muted-safe">{listing.description}</p>
                     )}
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -339,6 +433,24 @@ export default function RawMarketplacePage() {
                         </svg>
                         <span>{t('Message', 'ಸಂದೇಶ')}</span>
                       </button>
+                      <button
+                        onClick={() => {
+                          setSelectedListing(listing)
+                          setCodOrderData({
+                            listingId: listing.id,
+                            quantityKg: Math.min(50, listing.quantityKg),
+                            customer: createEmptyCustomerDetails(session?.user?.name || ''),
+                          })
+                          setCodErrors({})
+                          setShowCodModal(true)
+                        }}
+                        className="w-full gradient-brand-spectrum text-white py-3 rounded-xl font-semibold shadow-md hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center space-x-2"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>{t('Place COD Order', 'COD ಆರ್ಡರ್ ಮಾಡಿ')}</span>
+                      </button>
                     </div>
                     <button
                       onClick={() => handleOpenConversation(listing, true)}
@@ -357,7 +469,7 @@ export default function RawMarketplacePage() {
       {/* Create Listing Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
-          <div className="glass rounded-3xl max-w-lg w-full p-8 shadow-2xl border-2 border-emerald-100 slide-in-up">
+          <div className="surface-card rounded-3xl max-w-lg w-full p-8 shadow-2xl slide-in-up">
             <div className="flex items-center space-x-3 mb-6">
               <div className="p-3 rounded-xl gradient-emerald">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -450,7 +562,7 @@ export default function RawMarketplacePage() {
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all"
+                  className="surface-button-secondary flex-1 py-3 rounded-xl font-semibold transition-all"
                 >
                   {t('Cancel', 'ರದ್ದುಮಾಡಿ')}
                 </button>
@@ -469,7 +581,7 @@ export default function RawMarketplacePage() {
       {/* Make Offer Modal */}
       {showOfferModal && selectedListing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
-          <div className="glass rounded-3xl max-w-lg w-full p-8 shadow-2xl border-2 border-emerald-100 slide-in-up">
+          <div className="surface-card rounded-3xl max-w-lg w-full p-8 shadow-2xl slide-in-up">
             <div className="flex items-center space-x-3 mb-4">
               <div className="p-3 rounded-xl gradient-coffee-cream">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -480,13 +592,13 @@ export default function RawMarketplacePage() {
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">
                   {t('Make an Offer', 'ಆಫರ್ ನೀಡಿ')}
                 </h2>
-                <p className="text-[#444444] dark:text-[#aaaaaa] text-sm">{selectedListing.commodity} - {selectedListing.location}</p>
+                <p className="text-muted-safe text-sm">{selectedListing.commodity} - {selectedListing.location}</p>
               </div>
             </div>
 
             <form onSubmit={handleMakeOffer} className="space-y-5">
               <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-200">
-                <p className="text-sm font-medium text-[#444444] mb-1">{t("Seller's Asking Price", 'ಮಾರಾಟಗಾರರ ಕೇಳುವ ಬೆಲೆ')}</p>
+                <p className="text-sm font-medium text-muted-safe mb-1">{t("Seller's Asking Price", 'ಮಾರಾಟಗಾರರ ಕೇಳುವ ಬೆಲೆ')}</p>
                 <p className="text-2xl font-bold text-emerald-600">₹{selectedListing.pricePerKg}/kg</p>
               </div>
 
@@ -515,7 +627,7 @@ export default function RawMarketplacePage() {
                   value={offerData.quantity || ''}
                   onChange={(e) => setOfferData({ ...offerData, quantity: parseFloat(e.target.value) })}
                 />
-                <p className="text-xs text-[#444444] dark:text-[#aaaaaa] mt-1">{t('Available', 'ಲಭ್ಯ')}: {selectedListing.quantityKg} kg</p>
+                <p className="text-xs text-muted-safe mt-1">{t('Available', 'ಲಭ್ಯ')}: {selectedListing.quantityKg} kg</p>
               </div>
 
               <div>
@@ -538,7 +650,7 @@ export default function RawMarketplacePage() {
                 <button
                   type="button"
                   onClick={() => setShowOfferModal(false)}
-                  className="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all"
+                  className="surface-button-secondary flex-1 py-3 rounded-xl font-semibold transition-all"
                 >
                   {t('Cancel', 'ರದ್ದುಮಾಡಿ')}
                 </button>
@@ -547,6 +659,235 @@ export default function RawMarketplacePage() {
                   className="flex-1 gradient-emerald text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                 >
                   {t('Submit Offer', 'ಆಫರ್ ಸಲ್ಲಿಸಿ')}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showCodModal && selectedListing && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
+          <div className="surface-card rounded-3xl max-w-4xl w-full p-8 shadow-2xl slide-in-up max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center space-x-3 mb-4">
+              <div className="p-3 rounded-xl gradient-brand-spectrum">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">
+                  {t('Confirm COD Request', 'COD ವಿನಂತಿ ದೃಢೀಕರಿಸಿ')}
+                </h2>
+                <p className="text-muted-safe text-sm">{selectedListing.commodity}{selectedListing.grade ? ` • ${selectedListing.grade}` : ''}</p>
+              </div>
+            </div>
+
+            <form onSubmit={handlePlaceCodOrder} className="space-y-6">
+              <section className="surface-app-panel rounded-2xl p-5">
+                <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+                  <div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-xl font-bold text-app-strong">{selectedListing.commodity}</h3>
+                      {selectedListing.grade ? (
+                        <span className="surface-app-chip rounded-full px-3 py-1 text-xs font-semibold">{selectedListing.grade}</span>
+                      ) : null}
+                    </div>
+                    <p className="mt-2 text-sm text-app-muted">
+                      {selectedListing.seller?.name ? `${t('Seller', 'ಮಾರಾಟಗಾರ')}: ${selectedListing.seller.name}` : t('Seller details available after confirmation', 'ಮಾರಾಟಗಾರರ ವಿವರಗಳು ದೃಢೀಕರಣದ ನಂತರ ಲಭ್ಯವಾಗುತ್ತವೆ')}
+                    </p>
+                    <p className="mt-1 text-sm text-app-soft">📍 {selectedListing.location || t('Location not specified', 'ಸ್ಥಳ ನಮೂದಿಸಲಾಗಿಲ್ಲ')}</p>
+                    {selectedListing.description ? <p className="mt-3 text-sm text-app-muted">{selectedListing.description}</p> : null}
+                  </div>
+                  <div className="grid gap-3 min-w-[230px]">
+                    <div className="surface-app-panel-soft rounded-xl p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-soft">{t('Price', 'ಬೆಲೆ')}</p>
+                      <p className="mt-2 text-2xl font-bold text-app-strong">₹{selectedListing.pricePerKg}/kg</p>
+                    </div>
+                    <div className="surface-app-panel-soft rounded-xl p-4">
+                      <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-soft">{t('Available quantity', 'ಲಭ್ಯ ಪ್ರಮಾಣ')}</p>
+                      <p className="mt-2 text-2xl font-bold text-app-strong">{selectedListing.quantityKg} kg</p>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="surface-app-panel rounded-2xl p-5">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <h3 className="text-lg font-bold text-app-strong">{t('Order details', 'ಆರ್ಡರ್ ವಿವರಗಳು')}</h3>
+                    <p className="mt-1 text-sm text-app-muted">{t('Choose your required quantity and confirm your COD request.', 'ನಿಮ್ಮ ಅಗತ್ಯ ಪ್ರಮಾಣವನ್ನು ಆಯ್ಕೆಮಾಡಿ ಮತ್ತು COD ವಿನಂತಿಯನ್ನು ದೃಢೀಕರಿಸಿ.')}</p>
+                  </div>
+                  <div className="surface-app-chip rounded-full px-4 py-2 text-sm font-semibold">CASH ON DELIVERY</div>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-[220px_1fr]">
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Required quantity (kg)', 'ಅಗತ್ಯ ಪ್ರಮಾಣ (ಕೆಜಿ)')} *</label>
+                    <input
+                      type="number"
+                      min="0.1"
+                      max={selectedListing.quantityKg}
+                      step="0.1"
+                      className="surface-app-input w-full rounded-xl px-4 py-3 text-lg font-semibold"
+                      value={codOrderData.quantityKg || ''}
+                      onChange={(e) => {
+                        const nextValue = Number(e.target.value)
+                        setCodOrderData({ ...codOrderData, quantityKg: Number.isFinite(nextValue) ? nextValue : 0 })
+                        setCodErrors((current) => ({ ...current, quantityKg: undefined, form: undefined }))
+                      }}
+                    />
+                    <p className="mt-2 text-xs text-app-soft">{t('Available', 'ಲಭ್ಯ')}: {selectedListing.quantityKg} kg</p>
+                    {codErrors.quantityKg ? <p className="mt-2 text-sm font-medium text-red-600">{codErrors.quantityKg}</p> : null}
+                  </div>
+                  <div className="surface-app-panel-soft rounded-xl p-4">
+                    <p className="text-sm font-semibold text-app-strong">CASH ON DELIVERY</p>
+                    <p className="mt-1 text-sm text-app-muted">{t('Seller will confirm availability before fulfillment if required.', 'ಅಗತ್ಯವಿದ್ದರೆ ಪೂರೈಕೆಗೆ ಮೊದಲು ಮಾರಾಟಗಾರ ಲಭ್ಯತೆಯನ್ನು ದೃಢೀಕರಿಸುತ್ತಾರೆ.')}</p>
+                    <div className="mt-4 space-y-2 text-sm">
+                      <div className="flex justify-between text-app-muted">
+                        <span>{t('Price per kg', 'ಪ್ರತಿ ಕೆಜಿ ಬೆಲೆ')}</span>
+                        <span className="font-semibold text-app-body">₹{selectedListing.pricePerKg}</span>
+                      </div>
+                      <div className="flex justify-between text-app-muted">
+                        <span>{t('Requested quantity', 'ಕೋರಿದ ಪ್ರಮಾಣ')}</span>
+                        <span className="font-semibold text-app-body">{codOrderData.quantityKg || 0} kg</span>
+                      </div>
+                      <div className="flex justify-between border-t border-zinc-200/80 pt-3 text-app-body dark:border-white/10">
+                        <span className="font-semibold">{t('Estimated total', 'ಅಂದಾಜು ಒಟ್ಟು')}</span>
+                        <span className="text-xl font-bold">₹{((codOrderData.quantityKg || 0) * selectedListing.pricePerKg).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+
+              <section className="surface-app-panel rounded-2xl p-5">
+                <h3 className="text-lg font-bold text-app-strong">{t('Buyer details', 'ಖರೀದಿದಾರರ ವಿವರಗಳು')}</h3>
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Full name', 'ಪೂರ್ಣ ಹೆಸರು')} *</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      value={codOrderData.customer.fullName}
+                      onChange={(e) => {
+                        setCodOrderData({ ...codOrderData, customer: { ...codOrderData.customer, fullName: e.target.value } })
+                        setCodErrors((current) => ({ ...current, fullName: undefined, form: undefined }))
+                      }}
+                    />
+                    {codErrors.fullName ? <p className="mt-2 text-sm font-medium text-red-600">{codErrors.fullName}</p> : null}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Mobile number', 'ಮೊಬೈಲ್ ಸಂಖ್ಯೆ')} *</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      inputMode="numeric"
+                      maxLength={10}
+                      value={codOrderData.customer.mobileNumber}
+                      onChange={(e) => {
+                        setCodOrderData({ ...codOrderData, customer: { ...codOrderData.customer, mobileNumber: e.target.value.replace(/\D/g, '').slice(0, 10) } })
+                        setCodErrors((current) => ({ ...current, mobileNumber: undefined, form: undefined }))
+                      }}
+                    />
+                    {codErrors.mobileNumber ? <p className="mt-2 text-sm font-medium text-red-600">{codErrors.mobileNumber}</p> : null}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Delivery address', 'ವಿತರಣಾ ವಿಳಾಸ')} *</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      value={codOrderData.customer.addressLine1}
+                      onChange={(e) => {
+                        setCodOrderData({ ...codOrderData, customer: { ...codOrderData.customer, addressLine1: e.target.value } })
+                        setCodErrors((current) => ({ ...current, addressLine1: undefined, form: undefined }))
+                      }}
+                    />
+                    {codErrors.addressLine1 ? <p className="mt-2 text-sm font-medium text-red-600">{codErrors.addressLine1}</p> : null}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Address line 2', 'ವಿಳಾಸ ಸಾಲು 2')}</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      value={codOrderData.customer.addressLine2 || ''}
+                      onChange={(e) => setCodOrderData({ ...codOrderData, customer: { ...codOrderData.customer, addressLine2: e.target.value } })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Landmark', 'ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್')}</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      value={codOrderData.customer.landmark || ''}
+                      onChange={(e) => setCodOrderData({ ...codOrderData, customer: { ...codOrderData.customer, landmark: e.target.value } })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('City / town', 'ನಗರ / ಪಟ್ಟಣ')} *</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      value={codOrderData.customer.city}
+                      onChange={(e) => {
+                        setCodOrderData({ ...codOrderData, customer: { ...codOrderData.customer, city: e.target.value } })
+                        setCodErrors((current) => ({ ...current, city: undefined, form: undefined }))
+                      }}
+                    />
+                    {codErrors.city ? <p className="mt-2 text-sm font-medium text-red-600">{codErrors.city}</p> : null}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('State', 'ರಾಜ್ಯ')} *</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      value={codOrderData.customer.state}
+                      onChange={(e) => {
+                        setCodOrderData({ ...codOrderData, customer: { ...codOrderData.customer, state: e.target.value } })
+                        setCodErrors((current) => ({ ...current, state: undefined, form: undefined }))
+                      }}
+                    />
+                    {codErrors.state ? <p className="mt-2 text-sm font-medium text-red-600">{codErrors.state}</p> : null}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Pincode', 'ಪಿನ್‌ಕೋಡ್')} *</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={codOrderData.customer.pincode}
+                      onChange={(e) => {
+                        setCodOrderData({ ...codOrderData, customer: { ...codOrderData.customer, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) } })
+                        setCodErrors((current) => ({ ...current, pincode: undefined, form: undefined }))
+                      }}
+                    />
+                    {codErrors.pincode ? <p className="mt-2 text-sm font-medium text-red-600">{codErrors.pincode}</p> : null}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Buyer note', 'ಖರೀದಿದಾರರ ಟಿಪ್ಪಣಿ')}</label>
+                    <textarea
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      rows={3}
+                      value={codOrderData.customer.orderNote || ''}
+                      onChange={(e) => setCodOrderData({ ...codOrderData, customer: { ...codOrderData.customer, orderNote: e.target.value } })}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {codErrors.form ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+                  {codErrors.form}
+                </div>
+              ) : null}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => !submittingCod && setShowCodModal(false)}
+                  className="surface-button-secondary flex-1 py-3 rounded-xl font-semibold transition-all"
+                >
+                  {t('Cancel', 'ರದ್ದುಮಾಡಿ')}
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingCod}
+                  className="flex-1 gradient-emerald text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all disabled:cursor-not-allowed disabled:opacity-70"
+                >
+                  {submittingCod ? t('Submitting...', 'ಸಲ್ಲಿಸಲಾಗುತ್ತಿದೆ...') : t('Confirm COD Request', 'COD ವಿನಂತಿ ದೃಢೀಕರಿಸಿ')}
                 </button>
               </div>
             </form>

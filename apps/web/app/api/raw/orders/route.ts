@@ -7,18 +7,17 @@ export const dynamic = 'force-dynamic'
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:4000/api/v1'
 
-type BackendStoreProduct = {
+type BackendRawListing = {
   id: string
   sellerId?: string | null
+  commodityName?: string | null
   title?: string | null
-  category?: string | null
-  imageUrl?: string | null
-  price?: number | string | null
-  stock?: number | null
+  grade?: string | null
+  location?: string | null
+  quantityKg?: number | string | null
+  pricePerKg?: number | string | null
   description?: string | null
   isActive?: boolean | null
-  createdAt?: string | null
-  updatedAt?: string | null
   seller?: {
     id?: string
     fullName?: string | null
@@ -45,7 +44,6 @@ type BackendOrder = {
   orderNote?: string | null
   itemNameSnapshot?: string | null
   itemCategorySnapshot?: string | null
-  itemImageUrlSnapshot?: string | null
   sellerNameSnapshot?: string | null
   sellerIdSnapshot?: string | null
   locationSnapshot?: string | null
@@ -55,17 +53,6 @@ type BackendOrder = {
   rawProductId?: string | null
   createdAt?: string
   updatedAt?: string
-  items?: Array<{
-    retailProductId?: string
-    quantity?: number
-    unitPrice?: number | string
-    retailProduct?: BackendStoreProduct | null
-  }>
-  buyer?: {
-    id?: string
-    fullName?: string | null
-    email?: string | null
-  } | null
   message?: string
   error?: string
 }
@@ -114,26 +101,17 @@ function validateCustomer(customer: ReturnType<typeof normalizeCustomer>) {
 }
 
 function mapOrder(payload: BackendOrder, session: Awaited<ReturnType<typeof getSession>>) {
-  const fallbackItem = payload.items?.[0]
-  const fallbackProduct = fallbackItem?.retailProduct
-  const quantity = Number(payload.quantitySnapshot ?? fallbackItem?.quantity ?? 0)
-  const unitPrice = Number(payload.unitPriceSnapshot ?? fallbackItem?.unitPrice ?? fallbackProduct?.price ?? 0)
+  const quantity = Number(payload.quantitySnapshot ?? 0)
+  const unitPrice = Number(payload.unitPriceSnapshot ?? 0)
   const createdAt = payload.createdAt ?? new Date().toISOString()
   const updatedAt = payload.updatedAt ?? createdAt
 
   return {
     id: payload.id ?? '',
     buyerId: payload.buyerId ?? session?.user?.id ?? '',
-    sourceType: payload.sourceType ?? 'STORE',
+    sourceType: payload.sourceType ?? 'RAW_MARKETPLACE',
     paymentMethod: payload.paymentMethod ?? 'COD',
-    status: (payload.status ?? 'PENDING') as
-      | 'PENDING'
-      | 'PAID'
-      | 'SHIPPED'
-      | 'DELIVERED'
-      | 'CONFIRMED'
-      | 'COMPLETED'
-      | 'CANCELLED',
+    status: payload.status ?? 'PENDING',
     rawProductId: payload.rawProductId ?? null,
     totalPrice: Number(payload.totalAmount ?? quantity * unitPrice),
     shippingAddress: payload.shippingAddress ?? null,
@@ -149,13 +127,13 @@ function mapOrder(payload: BackendOrder, session: Awaited<ReturnType<typeof getS
       landmark: payload.landmark ?? '',
       orderNote: payload.orderNote ?? '',
     },
-    itemName: payload.itemNameSnapshot ?? fallbackProduct?.title ?? '',
-    itemCategory: payload.itemCategorySnapshot ?? fallbackProduct?.category ?? null,
-    itemImageUrl: payload.itemImageUrlSnapshot ?? fallbackProduct?.imageUrl ?? null,
-    sellerName: payload.sellerNameSnapshot ?? fallbackProduct?.seller?.fullName ?? null,
-    sellerId: payload.sellerIdSnapshot ?? fallbackProduct?.sellerId ?? fallbackProduct?.seller?.id ?? null,
+    itemName: payload.itemNameSnapshot ?? '',
+    itemCategory: payload.itemCategorySnapshot ?? null,
+    itemImageUrl: null,
+    sellerName: payload.sellerNameSnapshot ?? null,
+    sellerId: payload.sellerIdSnapshot ?? null,
     location: payload.locationSnapshot ?? null,
-    unitLabel: payload.unitLabelSnapshot ?? 'unit',
+    unitLabel: payload.unitLabelSnapshot ?? 'kg',
     quantity,
     unitPrice,
     createdAt,
@@ -167,29 +145,6 @@ function mapOrder(payload: BackendOrder, session: Awaited<ReturnType<typeof getS
           email: session.user.email ?? '',
         }
       : undefined,
-    product:
-      payload.sourceType === 'STORE' && fallbackProduct
-        ? {
-            id: fallbackProduct.id,
-            sellerId: fallbackProduct.sellerId ?? '',
-            name: fallbackProduct.title ?? '',
-            category: fallbackProduct.category ?? '',
-            price: Number(fallbackProduct.price ?? unitPrice),
-            stock: Number(fallbackProduct.stock ?? 0),
-            description: fallbackProduct.description ?? null,
-            imageUrl: fallbackProduct.imageUrl ?? null,
-            isActive: fallbackProduct.isActive ?? true,
-            createdAt: fallbackProduct.createdAt ?? createdAt,
-            updatedAt: fallbackProduct.updatedAt ?? updatedAt,
-            seller: fallbackProduct.seller?.id
-              ? {
-                  id: fallbackProduct.seller.id,
-                  name: fallbackProduct.seller.fullName ?? null,
-                  email: '',
-                }
-              : undefined,
-          }
-        : undefined,
   }
 }
 
@@ -202,12 +157,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json()
-    const productId = typeof body?.productId === 'string' ? body.productId : ''
-    const quantity = typeof body?.quantity === 'number' ? Math.floor(body.quantity) : parseInt(String(body?.quantity || ''), 10)
+    const listingId = typeof body?.listingId === 'string' ? body.listingId : ''
+    const quantityKg = typeof body?.quantityKg === 'number' ? body.quantityKg : Number(body?.quantityKg)
     const customer = normalizeCustomer(body?.customer)
 
-    if (!productId || !Number.isFinite(quantity) || quantity <= 0) {
-      return NextResponse.json({ error: 'Missing required fields: productId, quantity' }, { status: 400 })
+    if (!listingId || !Number.isFinite(quantityKg) || quantityKg <= 0) {
+      return NextResponse.json({ error: 'Missing required fields: listingId, quantityKg' }, { status: 400 })
     }
 
     const customerError = validateCustomer(customer)
@@ -215,42 +170,43 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: customerError }, { status: 400 })
     }
 
-    const productsUpstream = await fetch(`${API_BASE}/store/products`, {
+    const listingsUpstream = await fetch(`${API_BASE}/marketplace/listings`, {
       method: 'GET',
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
       cache: 'no-store',
     })
-    const productsText = await productsUpstream.text()
-    const productsPayload = productsText ? (JSON.parse(productsText) as BackendStoreProduct[] | { message?: string; error?: string }) : []
+    const listingsText = await listingsUpstream.text()
+    const listingsPayload = listingsText ? (JSON.parse(listingsText) as BackendRawListing[] | { message?: string; error?: string }) : []
 
-    if (!productsUpstream.ok) {
-      const error = Array.isArray(productsPayload) ? 'Failed to fetch products' : (productsPayload.message || productsPayload.error || 'Failed to fetch products')
-      return NextResponse.json({ error }, { status: productsUpstream.status })
+    if (!listingsUpstream.ok) {
+      const error = Array.isArray(listingsPayload) ? 'Failed to fetch listings' : (listingsPayload.message || listingsPayload.error || 'Failed to fetch listings')
+      return NextResponse.json({ error }, { status: listingsUpstream.status })
     }
 
-    const product = (productsPayload as BackendStoreProduct[]).find((item) => item.id === productId)
-    if (!product) {
-      return NextResponse.json({ error: 'Product not found' }, { status: 404 })
+    const listing = (listingsPayload as BackendRawListing[]).find((item) => item.id === listingId)
+    if (!listing) {
+      return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
     }
-    if (product.isActive === false) {
-      return NextResponse.json({ error: 'This product is no longer available' }, { status: 400 })
-    }
-
-    const stock = Number(product.stock ?? 0)
-    if (quantity > stock) {
-      return NextResponse.json({ error: `Insufficient stock. Available: ${stock}` }, { status: 400 })
+    if (listing.isActive === false) {
+      return NextResponse.json({ error: 'This listing is no longer available' }, { status: 400 })
     }
 
-    const upstream = await fetch(`${API_BASE}/orders`, {
+    const availableQuantity = Number(listing.quantityKg ?? 0)
+    if (quantityKg > availableQuantity) {
+      return NextResponse.json({ error: `Available quantity is ${availableQuantity} kg` }, { status: 400 })
+    }
+
+    const upstream = await fetch(`${API_BASE}/orders/raw-marketplace`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        items: [{ retailProductId: productId, quantity, unitPrice: Number(product.price ?? 0) }],
+        rawProductId: listingId,
+        quantityKg: Number(quantityKg.toFixed(2)),
         customer,
       }),
       cache: 'no-store',
@@ -260,13 +216,13 @@ export async function POST(request: NextRequest) {
     const payload = text ? (JSON.parse(text) as BackendOrder) : {}
 
     if (!upstream.ok) {
-      const error = payload.message || payload.error || 'Failed to create order'
+      const error = payload.message || payload.error || 'Failed to create COD order'
       return NextResponse.json({ error }, { status: upstream.status })
     }
 
     return NextResponse.json({ order: mapOrder(payload, session) }, { status: 201 })
   } catch (error) {
-    console.error('apps/web orders POST failed', error)
-    return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
+    console.error('apps/web raw orders POST failed', error)
+    return NextResponse.json({ error: 'Failed to create COD order' }, { status: 500 })
   }
 }

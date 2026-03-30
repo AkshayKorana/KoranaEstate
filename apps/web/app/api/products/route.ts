@@ -12,12 +12,17 @@ type BackendStoreProduct = {
   sellerId?: string | null
   title?: string | null
   category?: string | null
+  imageUrl?: string | null
   price?: number | string | null
   stock?: number | null
   description?: string | null
   isActive?: boolean | null
   createdAt?: string | null
   updatedAt?: string | null
+  seller?: {
+    id?: string
+    fullName?: string | null
+  } | null
 }
 
 function toProduct(product: BackendStoreProduct) {
@@ -29,11 +34,17 @@ function toProduct(product: BackendStoreProduct) {
     price: Number(product.price ?? 0),
     stock: Number(product.stock ?? 0),
     description: product.description ?? null,
-    imageUrl: null,
+    imageUrl: product.imageUrl ?? null,
     isActive: product.isActive ?? true,
     createdAt: product.createdAt ?? new Date(0).toISOString(),
     updatedAt: product.updatedAt ?? product.createdAt ?? new Date(0).toISOString(),
-    seller: undefined,
+    seller: product.seller?.id
+      ? {
+          id: product.seller.id,
+          name: product.seller.fullName ?? null,
+          email: '',
+        }
+      : undefined,
   }
 }
 
@@ -126,6 +137,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         title: name,
         category,
+        imageUrl: typeof body?.imageUrl === 'string' && body.imageUrl.trim() ? body.imageUrl.trim() : null,
         price: Number(price.toFixed(2)),
         stock: Math.floor(stock),
         description,

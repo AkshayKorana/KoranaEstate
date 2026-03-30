@@ -9,6 +9,7 @@ export class StoreService {
   getProducts() {
     return this.prisma.retailProduct.findMany({
       where: { deletedAt: null, isActive: true },
+      include: { seller: { select: { id: true, fullName: true, sellerVerified: true } } },
       orderBy: { createdAt: 'desc' },
     })
   }

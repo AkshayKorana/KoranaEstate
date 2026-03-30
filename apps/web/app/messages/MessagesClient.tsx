@@ -259,7 +259,7 @@ export default function MessagesClient() {
       <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-slate-950' : 'bg-transparent'}`}>
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
-          <p className={`mt-2 ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>{t('Loading messages...', 'ಸಂದೇಶಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}</p>
+          <p className="mt-2 text-muted-safe">{t('Loading messages...', 'ಸಂದೇಶಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}</p>
         </div>
       </div>
     )
@@ -268,18 +268,13 @@ export default function MessagesClient() {
   return (
     <div className={`min-h-screen ${isDark ? 'bg-slate-950' : 'bg-transparent'}`}>
       <div className="h-[calc(100vh-10rem)] max-w-7xl mx-auto px-6 md:px-8 lg:px-10 py-6">
-        <div className={`h-full rounded-3xl shadow-sm flex overflow-hidden border glass ${isDark ? 'border-slate-700' : 'border-slate-700/70'}`}>
-          <div className={`w-80 border-r flex flex-col ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
-            <div className={`p-4 border-b ${isDark ? 'border-slate-700 bg-slate-800/85' : 'border-slate-700 bg-slate-800/85'}`}>
-              <h2
-                className={`font-luxe text-2xl font-semibold ${isDark ? 'text-brand-spectrum' : ''}`}
-                style={!isDark ? { color: '#ffffff' } : undefined}
-              >
-                {t('Messages', 'ಸಂದೇಶಗಳು')}
-              </h2>
+        <div className="surface-panel h-full rounded-3xl shadow-sm flex overflow-hidden">
+          <div className="w-80 border-r border-black/10 dark:border-white/10 flex flex-col">
+            <div className="surface-card-strong p-4 border-b border-black/10 dark:border-white/10">
+              <h2 className="font-luxe text-2xl font-semibold text-card-strong">{t('Messages', 'ಸಂದೇಶಗಳು')}</h2>
             </div>
 
-            <div className={`flex-1 overflow-y-auto ${isDark ? 'bg-slate-800' : 'bg-slate-800'}`}>
+            <div className="flex-1 overflow-y-auto">
               {conversationError && (
                 <div className="m-4 rounded-xl border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-200">
                   <p>{conversationError}</p>
@@ -298,9 +293,9 @@ export default function MessagesClient() {
                 </div>
               )}
               {conversations.length === 0 ? (
-                <div className={`p-8 text-center ${isDark ? 'text-gray-300' : ''}`} style={!isDark ? { color: '#ffffff' } : undefined}>
-                  <p style={!isDark ? { color: '#ffffff' } : undefined}>{t('No conversations yet.', 'ಇನ್ನೂ ಯಾವುದೇ ಸಂಭಾಷಣೆಗಳಿಲ್ಲ.')}</p>
-                  <p className={`text-sm mt-2 ${isDark ? 'text-gray-300' : ''}`} style={!isDark ? { color: '#ffffff' } : undefined}>
+                <div className="p-8 text-center text-card-strong">
+                  <p>{t('No conversations yet.', 'ಇನ್ನೂ ಯಾವುದೇ ಸಂಭಾಷಣೆಗಳಿಲ್ಲ.')}</p>
+                  <p className="text-sm mt-2 text-muted-safe">
                     {t('Start chatting with sellers!', 'ಮಾರಾಟಗಾರರೊಂದಿಗೆ ಚಾಟ್ ಪ್ರಾರಂಭಿಸಿ!')}
                   </p>
                 </div>
@@ -317,8 +312,8 @@ export default function MessagesClient() {
                       }}
                       className={`w-full p-4 border-b text-left transition-all duration-300 ${
                         isDark
-                          ? `border-slate-700 hover:bg-slate-700 ${selectedConversation?.id === conversation.id ? 'bg-slate-700' : ''}`
-                          : `border-slate-700 hover:bg-slate-700 ${selectedConversation?.id === conversation.id ? 'bg-slate-700' : ''}`
+                          ? `border-white/10 hover:bg-white/5 ${selectedConversation?.id === conversation.id ? 'bg-white/8' : ''}`
+                          : `border-black/10 hover:bg-black/3 ${selectedConversation?.id === conversation.id ? 'bg-black/4' : ''}`
                       }`}
                     >
                       <div className="flex items-start gap-3">
@@ -327,13 +322,13 @@ export default function MessagesClient() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex justify-between items-baseline mb-1">
-                            <h3 className={`font-semibold truncate ${isDark ? 'text-gray-100' : 'text-gray-100'}`}>{getParticipantLabel(conversation)}</h3>
-                            <span className={`text-xs ml-2 flex-shrink-0 ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>
+                            <h3 className="font-semibold truncate text-card-strong">{getParticipantLabel(conversation)}</h3>
+                            <span className="text-xs ml-2 flex-shrink-0 text-muted-safe">
                               {formatDate(conversation.lastMessageAt)}
                             </span>
                           </div>
                           {lastMessage && (
-                            <p className={`text-sm truncate ${isDark ? 'text-gray-300' : 'text-gray-300'}`}>{lastMessage.content}</p>
+                            <p className="text-sm truncate text-muted-safe">{lastMessage.content}</p>
                           )}
                         </div>
                       </div>
@@ -347,21 +342,21 @@ export default function MessagesClient() {
           <div className="flex-1 flex flex-col">
             {selectedConversation ? (
               <>
-                <div className={`p-4 border-b flex items-center gap-3 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-700 bg-slate-900'}`}>
+                <div className="surface-card-strong p-4 border-b border-black/10 dark:border-white/10 flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-semibold">
                     {getParticipantLabel(selectedConversation)[0]?.toUpperCase() || '?'}
                   </div>
                   <div>
-                    <h3 className={`font-semibold ${isDark ? 'text-gray-100' : 'text-gray-100'}`}>
+                    <h3 className="font-semibold text-card-strong">
                       {getParticipantLabel(selectedConversation)}
                     </h3>
-                    <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-400'}`}>
+                    <p className="text-xs text-muted-safe">
                       {getOtherParticipant(selectedConversation)?.user?.role || ''}
                     </p>
                   </div>
                 </div>
 
-                <div className={`flex-1 overflow-y-auto p-4 space-y-4 ${isDark ? 'bg-slate-800/90' : 'bg-slate-800/90'}`}>
+                <div className="flex-1 overflow-y-auto p-4 space-y-4">
                   {messagesError && (
                     <div className="rounded-xl border border-red-400/40 bg-red-500/10 p-3 text-sm text-red-100">
                       <p>{messagesError}</p>
@@ -375,12 +370,12 @@ export default function MessagesClient() {
                     </div>
                   )}
                   {messagesLoading && (
-                    <div className="rounded-xl border border-slate-600/50 bg-slate-900/70 p-3 text-sm text-gray-300">
+                    <div className="surface-card rounded-xl p-3 text-sm text-muted-safe">
                       {t('Loading messages...', 'ಸಂದೇಶಗಳು ಲೋಡ್ ಆಗುತ್ತಿವೆ...')}
                     </div>
                   )}
                   {!messagesLoading && !messagesError && messages.length === 0 && (
-                    <div className="rounded-xl border border-slate-600/50 bg-slate-900/70 p-3 text-sm text-gray-300">
+                    <div className="surface-card rounded-xl p-3 text-sm text-muted-safe">
                       {t('No messages yet. Start the conversation.', 'ಇನ್ನೂ ಯಾವುದೇ ಸಂದೇಶಗಳಿಲ್ಲ. ಸಂಭಾಷಣೆಯನ್ನು ಪ್ರಾರಂಭಿಸಿ.')}
                     </div>
                   )}
@@ -398,12 +393,12 @@ export default function MessagesClient() {
                             className={`px-4 py-2 rounded-lg ${
                               isOwn
                                 ? 'chat-bubble-own rounded-br-none shadow-lg'
-                                : `${isDark ? 'bg-slate-700 text-gray-100' : 'bg-slate-700 text-gray-100'} rounded-bl-none shadow-sm`
+                                : 'surface-card rounded-bl-none shadow-sm'
                             }`}
                           >
                             <p className="text-sm whitespace-pre-wrap break-words">{message.content}</p>
                           </div>
-                          <p className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-400'} ${isOwn ? 'text-right' : 'text-left'}`}>
+                          <p className={`text-xs mt-1 text-muted-safe ${isOwn ? 'text-right' : 'text-left'}`}>
                             {formatTime(message.createdAt)}
                           </p>
                         </div>
@@ -413,14 +408,14 @@ export default function MessagesClient() {
                   <div ref={messagesEndRef} />
                 </div>
 
-                <form onSubmit={handleSendMessage} className={`p-4 border-t ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-700 bg-slate-900'}`}>
+                <form onSubmit={handleSendMessage} className="surface-card-strong p-4 border-t border-black/10 dark:border-white/10">
                   <div className="flex gap-2">
                     <input
                       type="text"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       placeholder={t('Type a message...', 'ಸಂದೇಶವನ್ನು ಟೈಪ್ ಮಾಡಿ...')}
-                      className={`flex-1 border rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 ${isDark ? 'border-slate-600 bg-slate-800 text-gray-100' : 'border-slate-600 bg-slate-800 text-gray-100'}`}
+                      className="surface-input flex-1 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                     <button
                       type="submit"
@@ -433,13 +428,13 @@ export default function MessagesClient() {
                 </form>
               </>
             ) : (
-              <div className={`flex-1 flex items-center justify-center ${isDark ? 'text-gray-300' : 'text-gray-300'}`}>
+              <div className="flex-1 flex items-center justify-center text-muted-safe">
                 <div className="text-center">
-                  <svg className="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="mx-auto h-12 w-12 text-subtle-safe" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
-                  <p className="mt-4 text-lg font-medium">{t('Select a conversation', 'ಒಂದು ಸಂಭಾಷಣೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ')}</p>
-                  <p className="text-sm">{t('Choose from your conversations to start messaging', 'ಸಂದೇಶ ಆರಂಭಿಸಲು ನಿಮ್ಮ ಸಂಭಾಷಣೆಗಳಿಂದ ಆಯ್ಕೆಮಾಡಿ')}</p>
+                  <p className="mt-4 text-lg font-medium text-card-strong">{t('Select a conversation', 'ಒಂದು ಸಂಭಾಷಣೆಯನ್ನು ಆಯ್ಕೆಮಾಡಿ')}</p>
+                  <p className="text-sm text-muted-safe">{t('Choose from your conversations to start messaging', 'ಸಂದೇಶ ಆರಂಭಿಸಲು ನಿಮ್ಮ ಸಂಭಾಷಣೆಗಳಿಂದ ಆಯ್ಕೆಮಾಡಿ')}</p>
                 </div>
               </div>
             )}

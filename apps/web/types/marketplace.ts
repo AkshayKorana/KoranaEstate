@@ -66,19 +66,47 @@ export interface Product {
   orders?: Order[]
 }
 
+export interface OrderCustomerDetails {
+  fullName: string
+  mobileNumber: string
+  addressLine1: string
+  addressLine2?: string
+  area: string
+  city: string
+  state: string
+  pincode: string
+  landmark?: string
+  orderNote?: string
+}
+
+export type OrderSourceType = 'STORE' | 'RAW_MARKETPLACE'
+export type OrderPaymentMethod = 'COD'
+export type OrderStatus = 'PENDING' | 'PAID' | 'SHIPPED' | 'DELIVERED' | 'CONFIRMED' | 'COMPLETED' | 'CANCELLED'
+
 export interface Order {
   id: string
   buyerId: string
-  productId: string
-  quantity: number
+  sourceType: OrderSourceType
+  paymentMethod: OrderPaymentMethod
+  status: OrderStatus
+  rawProductId?: string | null
   totalPrice: number
-  status: 'PLACED' | 'CONFIRMED' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED'
   shippingAddress: string | null
-  phone: string | null
+  customer: OrderCustomerDetails
+  itemName: string
+  itemCategory: string | null
+  itemImageUrl: string | null
+  sellerName: string | null
+  sellerId: string | null
+  location: string | null
+  unitLabel: string
+  quantity: number
+  unitPrice: number
   createdAt: Date | string
   updatedAt: Date | string
   buyer?: User
   product?: Product
+  listing?: RawListing
 }
 
 // Chat Types
@@ -168,8 +196,13 @@ export interface CreateProductInput {
 export interface CreateOrderInput {
   productId: string
   quantity: number
-  shippingAddress?: string
-  phone?: string
+  customer: OrderCustomerDetails
+}
+
+export interface CreateRawMarketplaceOrderInput {
+  listingId: string
+  quantityKg: number
+  customer: OrderCustomerDetails
 }
 
 export interface CreateConversationInput {

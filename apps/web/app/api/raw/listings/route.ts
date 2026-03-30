@@ -13,6 +13,7 @@ type BackendRawListing = {
   title?: string | null
   commodityName?: string | null
   grade?: string | null
+  location?: string | null
   quantityKg?: number | string | null
   pricePerKg?: number | string | null
   description?: string | null
@@ -36,7 +37,7 @@ function toRawListing(listing: BackendRawListing) {
     grade: listing.grade ?? null,
     quantityKg: Number(listing.quantityKg ?? 0),
     pricePerKg: Number(listing.pricePerKg ?? 0),
-    location: '',
+    location: listing.location ?? '',
     description: listing.description ?? null,
     isActive: listing.isActive ?? true,
     createdAt: listing.createdAt ?? new Date(0).toISOString(),
@@ -139,6 +140,7 @@ export async function POST(request: NextRequest) {
         commodityType: toCommodityType(commodity),
         commodityName: commodity,
         grade,
+        location,
         quantityKg: Number(quantityKg.toFixed(2)),
         pricePerKg: Number(pricePerKg.toFixed(2)),
         description,

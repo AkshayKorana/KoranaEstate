@@ -3,16 +3,32 @@
 import { useEffect, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import type { Product, CreateProductInput, CreateOrderInput } from '@/types/marketplace'
+import type { Product, CreateProductInput, CreateOrderInput, OrderCustomerDetails } from '@/types/marketplace'
 import { useLanguage } from '@/app/language-context'
 import { useEffectiveTheme } from '@/app/theme-context'
 import { sendMarketplaceMessage } from '@/app/lib/send-marketplace-message'
 
 const CATEGORIES = ['Coffee Powder', 'Roasted Beans', 'Pepper Powder', 'Cardamom Powder', 'Ground Spices', 'Gift Packs']
+const STORE_ORDER_REQUIRED_FIELDS: Array<keyof OrderCustomerDetails> = ['fullName', 'mobileNumber', 'addressLine1', 'area', 'city', 'state', 'pincode']
+
+function createEmptyCustomerDetails(fullName = ''): OrderCustomerDetails {
+  return {
+    fullName,
+    mobileNumber: '',
+    addressLine1: '',
+    addressLine2: '',
+    area: '',
+    city: '',
+    state: '',
+    pincode: '',
+    landmark: '',
+    orderNote: '',
+  }
+}
 
 export default function StorePage() {
   const router = useRouter()
-  const { status } = useSession({
+  const { data: session, status } = useSession({
     required: true,
     onUnauthenticated: () => router.replace('/auth'),
   })
@@ -32,7 +48,13 @@ export default function StorePage() {
     price: 0,
     stock: 0
   })
-  const [orderData, setOrderData] = useState<CreateOrderInput>({ productId: '', quantity: 1 })
+  const [orderData, setOrderData] = useState<CreateOrderInput>({
+    productId: '',
+    quantity: 1,
+    customer: createEmptyCustomerDetails(),
+  })
+  const [orderErrors, setOrderErrors] = useState<Partial<Record<keyof OrderCustomerDetails | 'quantity' | 'form', string>>>({})
+  const [submittingOrder, setSubmittingOrder] = useState(false)
 
   function categoryLabel(category: string) {
     const map: Record<string, string> = {
@@ -108,7 +130,34 @@ export default function StorePage() {
 
     if (!selectedProduct) return
 
+    const nextErrors: Partial<Record<keyof OrderCustomerDetails | 'quantity' | 'form', string>> = {}
+    if (orderData.quantity < 1) {
+      nextErrors.quantity = t('Quantity must be at least 1', 'ಪ್ರಮಾಣ ಕನಿಷ್ಠ 1 ಇರಬೇಕು')
+    } else if (orderData.quantity > selectedProduct.stock) {
+      nextErrors.quantity = `${t('Only', 'ಕೇವಲ')} ${selectedProduct.stock} ${t('units available', 'ಯೂನಿಟ್‌ಗಳು ಲಭ್ಯ')}`
+    }
+
+    for (const field of STORE_ORDER_REQUIRED_FIELDS) {
+      if (!orderData.customer[field]?.trim()) {
+        nextErrors[field] = t('This field is required', 'ಈ ಕ್ಷೇತ್ರ ಕಡ್ಡಾಯವಾಗಿದೆ')
+      }
+    }
+
+    if (orderData.customer.mobileNumber && !/^[6-9]\d{9}$/.test(orderData.customer.mobileNumber.trim())) {
+      nextErrors.mobileNumber = t('Enter a valid 10-digit mobile number', 'ಮಾನ್ಯ 10 ಅಂಕೆಯ ಮೊಬೈಲ್ ಸಂಖ್ಯೆ ನಮೂದಿಸಿ')
+    }
+
+    if (orderData.customer.pincode && !/^\d{6}$/.test(orderData.customer.pincode.trim())) {
+      nextErrors.pincode = t('Enter a valid 6-digit pincode', 'ಮಾನ್ಯ 6 ಅಂಕೆಯ ಪಿನ್‌ಕೋಡ್ ನಮೂದಿಸಿ')
+    }
+
+    setOrderErrors(nextErrors)
+    if (Object.keys(nextErrors).length > 0) {
+      return
+    }
+
     try {
+      setSubmittingOrder(true)
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -116,17 +165,31 @@ export default function StorePage() {
       })
 
       if (res.ok) {
+        const data = await res.json()
         setShowOrderModal(false)
-        setOrderData({ productId: '', quantity: 1 })
-        alert(t('Order placed successfully!', 'ಆರ್ಡರ್ ಯಶಸ್ವಿಯಾಗಿ ಮಾಡಲಾಗಿದೆ!'))
-        fetchProducts() // Refresh to show updated stock
+        setOrderData({
+          productId: '',
+          quantity: 1,
+          customer: createEmptyCustomerDetails(session?.user?.name || ''),
+        })
+        setOrderErrors({})
+        fetchProducts()
+        router.push(`/orders/${data.order.id}`)
       } else {
         const error = await res.json()
-        alert(error.error || t('Failed to place order', 'ಆರ್ಡರ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'))
+        setOrderErrors((current) => ({
+          ...current,
+          form: error.error || t('Failed to place COD order', 'COD ಆರ್ಡರ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'),
+        }))
       }
     } catch (error) {
       console.error('Error placing order:', error)
-      alert(t('Failed to place order', 'ಆರ್ಡರ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'))
+      setOrderErrors((current) => ({
+        ...current,
+        form: t('Failed to place COD order', 'COD ಆರ್ಡರ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'),
+      }))
+    } finally {
+      setSubmittingOrder(false)
     }
   }
 
@@ -268,7 +331,7 @@ export default function StorePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                   </svg>
                 </div>
-                <h3 className={`text-2xl font-bold mb-2 ${isDark ? 'text-[#efe4d4]' : 'text-[#1f1f1f]'}`}>{t('No Products Yet', 'ಇನ್ನೂ ಉತ್ಪನ್ನಗಳಿಲ್ಲ')}</h3>
+                <h3 className="text-2xl font-bold mb-2 text-card-strong">{t('No Products Yet', 'ಇನ್ನೂ ಉತ್ಪನ್ನಗಳಿಲ್ಲ')}</h3>
                 <p className={`mb-6 ${isDark ? 'text-[#bbae9a]' : 'text-[#4a4a4a]'}`}>{t('List your first product and start selling!', 'ನಿಮ್ಮ ಮೊದಲ ಉತ್ಪನ್ನವನ್ನು ಲಿಸ್ಟ್ ಮಾಡಿ ಮತ್ತು ಮಾರಾಟ ಪ್ರಾರಂಭಿಸಿ!')}</p>
                 <button
                   onClick={() => status === 'authenticated' ? setShowCreateModal(true) : router.push('/auth')}
@@ -285,7 +348,7 @@ export default function StorePage() {
                 {products.map((product, idx) => (
                   <div 
                     key={product.id} 
-                    className="glass rounded-2xl shadow-lg hover:shadow-2xl transition-all overflow-hidden border border-emerald-200/30 card-hover fade-in"
+                    className="surface-card rounded-2xl shadow-lg hover:shadow-2xl transition-all overflow-hidden card-hover fade-in"
                     style={{ animationDelay: `${idx * 100}ms` }}
                   >
                     {/* Product Image */}
@@ -295,7 +358,7 @@ export default function StorePage() {
                       ) : (
                         <div className="text-center">
                           <span className="text-6xl float-animation">☕</span>
-                          <p className="text-sm text-[#444444] dark:text-[#aaaaaa] mt-2 font-medium">{categoryLabel(product.category)}</p>
+                          <p className="text-sm text-muted-safe mt-2 font-medium">{categoryLabel(product.category)}</p>
                         </div>
                       )}
                       {product.stock === 0 && (
@@ -307,7 +370,7 @@ export default function StorePage() {
 
                     <div className="p-6">
                       <div className="flex justify-between items-start mb-3">
-                        <h3 className="font-bold text-lg text-[#111111] dark:text-[#ffffff] line-clamp-2">{product.name}</h3>
+                        <h3 className="font-bold text-lg text-card-strong line-clamp-2">{product.name}</h3>
                         <span className="gradient-brand-spectrum text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-md whitespace-nowrap ml-2">
                           {categoryLabel(product.category)}
                         </span>
@@ -326,7 +389,7 @@ export default function StorePage() {
                             {product.stock > 0 ? `${product.stock} ${t('units', 'ಯೂನಿಟ್‌ಗಳು')}` : t('Out', 'ಖಾಲಿ')}
                           </span>
                         </div>
-                        <div className="flex items-center space-x-2 text-sm text-[#444444] dark:text-[#aaaaaa]">
+                        <div className="flex items-center space-x-2 text-sm text-muted-safe">
                           <div className="w-7 h-7 rounded-full gradient-coffee-cream flex items-center justify-center text-white font-bold text-xs">
                             {product.seller?.name?.[0]?.toUpperCase() || 'S'}
                           </div>
@@ -335,7 +398,7 @@ export default function StorePage() {
                       </div>
 
                       {product.description && (
-                        <p className="text-sm text-[#444444] dark:text-[#aaaaaa] mb-4 line-clamp-2">{product.description}</p>
+                        <p className="text-sm text-muted-safe mb-4 line-clamp-2">{product.description}</p>
                       )}
 
                       <button
@@ -349,7 +412,12 @@ export default function StorePage() {
                             return
                           }
                           setSelectedProduct(product)
-                          setOrderData({ productId: product.id, quantity: 1 })
+                          setOrderData({
+                            productId: product.id,
+                            quantity: 1,
+                            customer: createEmptyCustomerDetails(session?.user?.name || ''),
+                          })
+                          setOrderErrors({})
                           setShowOrderModal(true)
                         }}
                         disabled={product.stock === 0}
@@ -391,7 +459,7 @@ export default function StorePage() {
       {/* Create Product Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
-          <div className="glass rounded-3xl max-w-lg w-full p-8 shadow-2xl border-2 border-amber-100 slide-in-up max-h-[90vh] overflow-y-auto">
+          <div className="surface-card rounded-3xl max-w-lg w-full p-8 shadow-2xl slide-in-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center space-x-3 mb-6">
               <div className="p-3 rounded-xl gradient-brand-spectrum">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -478,14 +546,14 @@ export default function StorePage() {
                   value={formData.imageUrl || ''}
                   onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
                 />
-                <p className="text-xs text-[#444444] dark:text-[#aaaaaa] mt-1">{t('Enter a direct link to your product image', 'ನಿಮ್ಮ ಉತ್ಪನ್ನದ ಚಿತ್ರಕ್ಕೆ ನೇರ ಲಿಂಕ್ ನಮೂದಿಸಿ')}</p>
+                <p className="text-xs text-muted-safe mt-1">{t('Enter a direct link to your product image', 'ನಿಮ್ಮ ಉತ್ಪನ್ನದ ಚಿತ್ರಕ್ಕೆ ನೇರ ಲಿಂಕ್ ನಮೂದಿಸಿ')}</p>
               </div>
 
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => setShowCreateModal(false)}
-                  className="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all"
+                  className="surface-button-secondary flex-1 py-3 rounded-xl font-semibold transition-all"
                 >
                   {t('Cancel', 'ರದ್ದುಮಾಡಿ')}
                 </button>
@@ -504,7 +572,7 @@ export default function StorePage() {
       {/* Place Order Modal */}
       {showOrderModal && selectedProduct && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
-          <div className="glass rounded-3xl max-w-lg w-full p-8 shadow-2xl border-2 border-emerald-100 slide-in-up">
+          <div className="surface-card rounded-3xl max-w-4xl w-full p-8 shadow-2xl slide-in-up max-h-[92vh] overflow-y-auto">
             <div className="flex items-center space-x-3 mb-4">
               <div className="p-3 rounded-xl gradient-emerald">
                 <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -515,85 +583,239 @@ export default function StorePage() {
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">
                   {t('Place Order', 'ಆರ್ಡರ್ ಮಾಡಿ')}
                 </h2>
-                <p className="text-[#444444] dark:text-[#aaaaaa] text-sm">{selectedProduct.name}</p>
+                <p className="text-muted-safe text-sm">{selectedProduct.name}</p>
               </div>
             </div>
 
-            <form onSubmit={handlePlaceOrder} className="space-y-5">
-              <div className="p-4 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50 border-2 border-amber-200">
-                <p className="text-sm font-medium text-[#444444] mb-1">{t('Unit Price', 'ಯೂನಿಟ್ ಬೆಲೆ')}</p>
-                <p className="text-2xl font-bold text-amber-700">₹{selectedProduct.price.toFixed(2)}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Quantity', 'ಪ್ರಮಾಣ')} *</label>
-                <input
-                  required
-                  type="number"
-                  min="1"
-                  max={selectedProduct.stock}
-                  step="1"
-                  className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all text-lg font-semibold"
-                  value={orderData.quantity}
-                  onChange={(e) => setOrderData({ ...orderData, quantity: parseInt(e.target.value) })}
-                />
-                <p className="text-xs text-[#444444] dark:text-[#aaaaaa] mt-1">{t('Available', 'ಲಭ್ಯ')}: {selectedProduct.stock} {t('units', 'ಯೂನಿಟ್‌ಗಳು')}</p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">📍 {t('Shipping Address', 'ಶಿಪ್ಪಿಂಗ್ ವಿಳಾಸ')}</label>
-                <textarea
-                  className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
-                  rows={3}
-                  placeholder={t('Enter your complete delivery address...', 'ನಿಮ್ಮ ಸಂಪೂರ್ಣ ವಿತರಣಾ ವಿಳಾಸ ನಮೂದಿಸಿ...')}
-                  value={orderData.shippingAddress || ''}
-                  onChange={(e) => setOrderData({ ...orderData, shippingAddress: e.target.value })}
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">📞 {t('Phone Number', 'ಫೋನ್ ಸಂಖ್ಯೆ')}</label>
-                <input
-                  type="tel"
-                  className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all"
-                  placeholder={t('+91 XXXXX XXXXX', '+91 XXXXX XXXXX')}
-                  value={orderData.phone || ''}
-                  onChange={(e) => setOrderData({ ...orderData, phone: e.target.value })}
-                />
-              </div>
-
-              <div className="p-6 rounded-xl gradient-emerald-coffee">
-                <div className="space-y-2 text-white/90 text-sm mb-3">
-                  <div className="flex justify-between">
-                    <span>{t('Price per unit:', 'ಪ್ರತಿ ಯೂನಿಟ್ ಬೆಲೆ:')}</span>
-                    <span>₹{selectedProduct.price.toFixed(2)}</span>
+            <form onSubmit={handlePlaceOrder} className="space-y-6">
+              <section className="surface-app-panel rounded-2xl p-5">
+                <div className="flex flex-col gap-5 md:flex-row md:items-start">
+                  <div className="h-28 w-28 overflow-hidden rounded-2xl bg-gradient-to-br from-amber-100 via-yellow-50 to-emerald-50 flex items-center justify-center">
+                    {selectedProduct.imageUrl ? (
+                      <img src={selectedProduct.imageUrl} alt={selectedProduct.name} className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-5xl">☕</span>
+                    )}
                   </div>
-                  <div className="flex justify-between">
-                    <span>{t('Quantity:', 'ಪ್ರಮಾಣ:')}</span>
-                    <span>{orderData.quantity}</span>
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-xl font-bold text-app-strong">{selectedProduct.name}</h3>
+                      <span className="surface-app-chip rounded-full px-3 py-1 text-xs font-semibold">
+                        {categoryLabel(selectedProduct.category)}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-app-muted">
+                      {selectedProduct.seller?.name ? `${t('Sold by', 'ಮಾರಾಟಗಾರ')}: ${selectedProduct.seller.name}` : t('Sold by Korana Store sellers', 'ಕೊರಾನಾ ಸ್ಟೋರ್ ಮಾರಾಟಗಾರರಿಂದ')}
+                    </p>
+                    <div className="mt-4 grid gap-3 md:grid-cols-3">
+                      <div className="surface-app-panel-soft rounded-xl p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-soft">{t('Unit price', 'ಯೂನಿಟ್ ಬೆಲೆ')}</p>
+                        <p className="mt-2 text-2xl font-bold text-app-strong">₹{selectedProduct.price.toFixed(2)}</p>
+                      </div>
+                      <div className="surface-app-panel-soft rounded-xl p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-soft">{t('Available stock', 'ಲಭ್ಯ ಸ್ಟಾಕ್')}</p>
+                        <p className="mt-2 text-2xl font-bold text-app-strong">{selectedProduct.stock}</p>
+                      </div>
+                      <div className="surface-app-panel-soft rounded-xl p-4">
+                        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-app-soft">{t('Total', 'ಒಟ್ಟು')}</p>
+                        <p className="mt-2 text-2xl font-bold text-app-strong">₹{(selectedProduct.price * orderData.quantity).toFixed(2)}</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <div className="pt-3 border-t-2 border-white/20">
-                  <div className="flex justify-between items-center">
-                    <span className="text-white/80 text-sm">{t('Total Amount', 'ಒಟ್ಟು ಮೊತ್ತ')}</span>
-                    <span className="text-3xl font-bold text-white">₹{(selectedProduct.price * orderData.quantity).toFixed(2)}</span>
+              </section>
+
+              <section className="surface-app-panel rounded-2xl p-5">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div>
+                    <h3 className="text-lg font-bold text-app-strong">{t('Quantity & payment', 'ಪ್ರಮಾಣ ಮತ್ತು ಪಾವತಿ')}</h3>
+                    <p className="mt-1 text-sm text-app-muted">{t('Review your quantity and COD total before placing the order.', 'ಆರ್ಡರ್ ಮಾಡುವ ಮೊದಲು ಪ್ರಮಾಣ ಮತ್ತು COD ಒಟ್ಟು ಮೊತ್ತ ಪರಿಶೀಲಿಸಿ.')}</p>
+                  </div>
+                  <div className="surface-app-chip rounded-full px-4 py-2 text-sm font-semibold">CASH ON DELIVERY</div>
+                </div>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-[220px_1fr]">
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Quantity', 'ಪ್ರಮಾಣ')} *</label>
+                    <input
+                      required
+                      type="number"
+                      min="1"
+                      max={selectedProduct.stock}
+                      step="1"
+                      className="surface-app-input w-full rounded-xl px-4 py-3 text-lg font-semibold transition-all"
+                      value={orderData.quantity}
+                      onChange={(e) => {
+                        const nextQuantity = parseInt(e.target.value || '1', 10)
+                        setOrderData({ ...orderData, quantity: Number.isFinite(nextQuantity) ? nextQuantity : 1 })
+                        setOrderErrors((current) => ({ ...current, quantity: undefined, form: undefined }))
+                      }}
+                    />
+                    <p className="mt-2 text-xs text-app-soft">{t('Available stock', 'ಲಭ್ಯ ಸ್ಟಾಕ್')}: {selectedProduct.stock}</p>
+                    {orderErrors.quantity ? <p className="mt-2 text-sm font-medium text-red-600">{orderErrors.quantity}</p> : null}
+                  </div>
+                  <div className="surface-app-panel-soft rounded-xl p-4">
+                    <p className="text-sm font-semibold text-app-strong">CASH ON DELIVERY</p>
+                    <p className="mt-1 text-sm text-app-muted">{t('Pay in cash when your order is delivered.', 'ನಿಮ್ಮ ಆರ್ಡರ್ ವಿತರಿಸಿದಾಗ ನಗದು ಪಾವತಿಸಿ.')}</p>
+                    <div className="mt-4 space-y-2 text-sm">
+                      <div className="flex justify-between text-app-muted">
+                        <span>{t('Unit price', 'ಯೂನಿಟ್ ಬೆಲೆ')}</span>
+                        <span className="font-semibold text-app-body">₹{selectedProduct.price.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-app-muted">
+                        <span>{t('Quantity', 'ಪ್ರಮಾಣ')}</span>
+                        <span className="font-semibold text-app-body">{orderData.quantity}</span>
+                      </div>
+                      <div className="flex justify-between border-t border-zinc-200/80 pt-3 text-app-body dark:border-white/10">
+                        <span className="font-semibold">{t('Total payable', 'ಪಾವತಿಸಬೇಕಾದ ಒಟ್ಟು')}</span>
+                        <span className="text-xl font-bold">₹{(selectedProduct.price * orderData.quantity).toFixed(2)}</span>
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </section>
+
+              <section className="surface-app-panel rounded-2xl p-5">
+                <h3 className="text-lg font-bold text-app-strong">{t('Delivery details', 'ವಿತರಣಾ ವಿವರಗಳು')}</h3>
+                <p className="mt-1 text-sm text-app-muted">{t('These details are required to confirm and deliver your COD order.', 'ನಿಮ್ಮ COD ಆರ್ಡರ್ ದೃಢೀಕರಿಸಲು ಮತ್ತು ವಿತರಿಸಲು ಈ ವಿವರಗಳು ಅಗತ್ಯವಿದೆ.')}</p>
+
+                <div className="mt-4 grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Full name', 'ಪೂರ್ಣ ಹೆಸರು')} *</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      value={orderData.customer.fullName}
+                      onChange={(e) => {
+                        setOrderData({ ...orderData, customer: { ...orderData.customer, fullName: e.target.value } })
+                        setOrderErrors((current) => ({ ...current, fullName: undefined, form: undefined }))
+                      }}
+                    />
+                    {orderErrors.fullName ? <p className="mt-2 text-sm font-medium text-red-600">{orderErrors.fullName}</p> : null}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Mobile number', 'ಮೊಬೈಲ್ ಸಂಖ್ಯೆ')} *</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      inputMode="numeric"
+                      maxLength={10}
+                      value={orderData.customer.mobileNumber}
+                      onChange={(e) => {
+                        setOrderData({ ...orderData, customer: { ...orderData.customer, mobileNumber: e.target.value.replace(/\D/g, '').slice(0, 10) } })
+                        setOrderErrors((current) => ({ ...current, mobileNumber: undefined, form: undefined }))
+                      }}
+                    />
+                    {orderErrors.mobileNumber ? <p className="mt-2 text-sm font-medium text-red-600">{orderErrors.mobileNumber}</p> : null}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Address line 1', 'ವಿಳಾಸ ಸಾಲು 1')} *</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      value={orderData.customer.addressLine1}
+                      onChange={(e) => {
+                        setOrderData({ ...orderData, customer: { ...orderData.customer, addressLine1: e.target.value } })
+                        setOrderErrors((current) => ({ ...current, addressLine1: undefined, form: undefined }))
+                      }}
+                    />
+                    {orderErrors.addressLine1 ? <p className="mt-2 text-sm font-medium text-red-600">{orderErrors.addressLine1}</p> : null}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Address line 2', 'ವಿಳಾಸ ಸಾಲು 2')}</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      value={orderData.customer.addressLine2 || ''}
+                      onChange={(e) => setOrderData({ ...orderData, customer: { ...orderData.customer, addressLine2: e.target.value } })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Area / locality', 'ಪ್ರದೇಶ / ಲೋಕಾಲಿಟಿ')} *</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      value={orderData.customer.area}
+                      onChange={(e) => {
+                        setOrderData({ ...orderData, customer: { ...orderData.customer, area: e.target.value } })
+                        setOrderErrors((current) => ({ ...current, area: undefined, form: undefined }))
+                      }}
+                    />
+                    {orderErrors.area ? <p className="mt-2 text-sm font-medium text-red-600">{orderErrors.area}</p> : null}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Landmark', 'ಲ್ಯಾಂಡ್‌ಮಾರ್ಕ್')}</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      value={orderData.customer.landmark || ''}
+                      onChange={(e) => setOrderData({ ...orderData, customer: { ...orderData.customer, landmark: e.target.value } })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('City / town', 'ನಗರ / ಪಟ್ಟಣ')} *</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      value={orderData.customer.city}
+                      onChange={(e) => {
+                        setOrderData({ ...orderData, customer: { ...orderData.customer, city: e.target.value } })
+                        setOrderErrors((current) => ({ ...current, city: undefined, form: undefined }))
+                      }}
+                    />
+                    {orderErrors.city ? <p className="mt-2 text-sm font-medium text-red-600">{orderErrors.city}</p> : null}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('State', 'ರಾಜ್ಯ')} *</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      value={orderData.customer.state}
+                      onChange={(e) => {
+                        setOrderData({ ...orderData, customer: { ...orderData.customer, state: e.target.value } })
+                        setOrderErrors((current) => ({ ...current, state: undefined, form: undefined }))
+                      }}
+                    />
+                    {orderErrors.state ? <p className="mt-2 text-sm font-medium text-red-600">{orderErrors.state}</p> : null}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Pincode', 'ಪಿನ್‌ಕೋಡ್')} *</label>
+                    <input
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      inputMode="numeric"
+                      maxLength={6}
+                      value={orderData.customer.pincode}
+                      onChange={(e) => {
+                        setOrderData({ ...orderData, customer: { ...orderData.customer, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) } })
+                        setOrderErrors((current) => ({ ...current, pincode: undefined, form: undefined }))
+                      }}
+                    />
+                    {orderErrors.pincode ? <p className="mt-2 text-sm font-medium text-red-600">{orderErrors.pincode}</p> : null}
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-semibold text-app-body mb-2">{t('Order note', 'ಆರ್ಡರ್ ಟಿಪ್ಪಣಿ')}</label>
+                    <textarea
+                      className="surface-app-input w-full rounded-xl px-4 py-3"
+                      rows={3}
+                      value={orderData.customer.orderNote || ''}
+                      onChange={(e) => setOrderData({ ...orderData, customer: { ...orderData.customer, orderNote: e.target.value } })}
+                    />
+                  </div>
+                </div>
+              </section>
+
+              {orderErrors.form ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
+                  {orderErrors.form}
+                </div>
+              ) : null}
 
               <div className="flex gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowOrderModal(false)}
-                  className="flex-1 border-2 border-gray-300 text-gray-700 py-3 rounded-xl font-semibold hover:bg-gray-50 hover:border-gray-400 transition-all"
+                  onClick={() => !submittingOrder && setShowOrderModal(false)}
+                  className="surface-button-secondary flex-1 py-3 rounded-xl font-semibold transition-all"
                 >
-                  Cancel
+                  {t('Cancel', 'ರದ್ದುಮಾಡಿ')}
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 gradient-emerald text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                  disabled={submittingOrder}
+                  className="flex-1 gradient-emerald text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all disabled:cursor-not-allowed disabled:opacity-70"
                 >
-                  Confirm Order
+                  {submittingOrder ? t('Placing order...', 'ಆರ್ಡರ್ ಮಾಡಲಾಗುತ್ತಿದೆ...') : t('Place COD Order', 'COD ಆರ್ಡರ್ ಮಾಡಿ')}
                 </button>
               </div>
             </form>
