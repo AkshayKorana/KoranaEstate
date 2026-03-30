@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -9,7 +10,11 @@ const API_BASE =
 
 async function getAccessToken() {
   const session = await getServerSession(authOptions)
-  return session?.accessToken ?? null
+  return typeof session?.accessToken === 'string' ? session.accessToken : null
+}
+
+function getApiErrorMessage(payload: unknown, fallback: string) {
+  return extractMessage(payload) || fallback
 }
 
 export async function GET(request: NextRequest) {
@@ -61,7 +66,7 @@ export async function POST(request: NextRequest) {
     })
 
     const text = await upstream.text()
-    const payload = text ? JSON.parse(text) as {
+    const payload = parseJsonSafely<{
       id?: string
       rawProductId?: string
       buyerId?: string
@@ -73,10 +78,10 @@ export async function POST(request: NextRequest) {
       updatedAt?: string
       message?: string
       error?: string
-    } : {}
+    }>(text) ?? {}
 
     if (!upstream.ok) {
-      const error = payload.message || payload.error || 'Failed to create offer'
+      const error = getApiErrorMessage(payload, 'Failed to create offer')
       return NextResponse.json({ error }, { status: upstream.status })
     }
 

@@ -7,6 +7,7 @@ import type { Product, CreateProductInput, CreateOrderInput, OrderCustomerDetail
 import { useLanguage } from '@/app/language-context'
 import { useEffectiveTheme } from '@/app/theme-context'
 import { sendMarketplaceMessage } from '@/app/lib/send-marketplace-message'
+import { extractErrorMessage } from '@/app/lib/api-errors'
 
 const CATEGORIES = ['Coffee Powder', 'Roasted Beans', 'Pepper Powder', 'Cardamom Powder', 'Ground Spices', 'Gift Packs']
 const STORE_ORDER_REQUIRED_FIELDS: Array<keyof OrderCustomerDetails> = ['fullName', 'mobileNumber', 'addressLine1', 'area', 'city', 'state', 'pincode']
@@ -84,6 +85,10 @@ export default function StorePage() {
       if (selectedCategory) params.set('category', selectedCategory)
       
       const res = await fetch(`/api/products?${params}`)
+      if (!res.ok) {
+        console.error('Failed to fetch products:', await extractErrorMessage(res))
+        return
+      }
       const data = await res.json()
       setProducts(data.products || [])
     } catch (error) {
@@ -109,11 +114,10 @@ export default function StorePage() {
 
       if (res.ok) {
         setShowCreateModal(false)
-        setFormData({ name: '', category: CATEGORIES[0], price: 0, stock: 0 })
+        setFormData({ name: '', category: CATEGORIES[0], price: 0, stock: 0, description: '', imageUrl: '' })
         fetchProducts()
       } else {
-        const error = await res.json()
-        alert(error.error || t('Failed to create product', 'ಉತ್ಪನ್ನ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+        alert((await extractErrorMessage(res)) || t('Failed to create product', 'ಉತ್ಪನ್ನ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
       }
     } catch (error) {
       console.error('Error creating product:', error)
@@ -166,6 +170,13 @@ export default function StorePage() {
 
       if (res.ok) {
         const data = await res.json()
+        if (!data?.order?.id) {
+          setOrderErrors((current) => ({
+            ...current,
+            form: t('Order was created but confirmation could not be loaded.', 'ಆರ್ಡರ್ ರಚಿಸಲಾಗಿದೆ ಆದರೆ ದೃಢೀಕರಣವನ್ನು ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ.'),
+          }))
+          return
+        }
         setShowOrderModal(false)
         setOrderData({
           productId: '',
@@ -176,10 +187,11 @@ export default function StorePage() {
         fetchProducts()
         router.push(`/orders/${data.order.id}`)
       } else {
-        const error = await res.json()
+        const errorMessage =
+          (await extractErrorMessage(res)) || t('Failed to place COD order', 'COD ಆರ್ಡರ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ')
         setOrderErrors((current) => ({
           ...current,
-          form: error.error || t('Failed to place COD order', 'COD ಆರ್ಡರ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'),
+          form: errorMessage,
         }))
       }
     } catch (error) {

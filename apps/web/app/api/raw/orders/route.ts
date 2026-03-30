@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,6 +60,10 @@ type BackendOrder = {
 
 async function getSession() {
   return getServerSession(authOptions)
+}
+
+function getApiErrorMessage(payload: unknown, fallback: string) {
+  return extractMessage(payload) || fallback
 }
 
 function normalizeCustomer(body: unknown) {
@@ -151,8 +156,8 @@ function mapOrder(payload: BackendOrder, session: Awaited<ReturnType<typeof getS
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession()
-    const accessToken = session?.accessToken
-    if (!accessToken || !session.user?.id || !session.user?.email) {
+    const accessToken = typeof session?.accessToken === 'string' ? session.accessToken : null
+    if (!accessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -178,10 +183,10 @@ export async function POST(request: NextRequest) {
       cache: 'no-store',
     })
     const listingsText = await listingsUpstream.text()
-    const listingsPayload = listingsText ? (JSON.parse(listingsText) as BackendRawListing[] | { message?: string; error?: string }) : []
+    const listingsPayload = parseJsonSafely<BackendRawListing[] | { message?: string; error?: string }>(listingsText) ?? []
 
     if (!listingsUpstream.ok) {
-      const error = Array.isArray(listingsPayload) ? 'Failed to fetch listings' : (listingsPayload.message || listingsPayload.error || 'Failed to fetch listings')
+      const error = Array.isArray(listingsPayload) ? 'Failed to fetch listings' : getApiErrorMessage(listingsPayload, 'Failed to fetch listings')
       return NextResponse.json({ error }, { status: listingsUpstream.status })
     }
 
@@ -213,10 +218,10 @@ export async function POST(request: NextRequest) {
     })
 
     const text = await upstream.text()
-    const payload = text ? (JSON.parse(text) as BackendOrder) : {}
+    const payload = parseJsonSafely<BackendOrder>(text) ?? {}
 
     if (!upstream.ok) {
-      const error = payload.message || payload.error || 'Failed to create COD order'
+      const error = getApiErrorMessage(payload, 'Failed to create COD order')
       return NextResponse.json({ error }, { status: upstream.status })
     }
 

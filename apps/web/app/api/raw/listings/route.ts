@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -59,7 +60,11 @@ function toCommodityType(commodity: string) {
 
 async function getAccessToken() {
   const session = await getServerSession(authOptions)
-  return session?.accessToken ?? null
+  return typeof session?.accessToken === 'string' ? session.accessToken : null
+}
+
+function getApiErrorMessage(payload: unknown, fallback: string) {
+  return extractMessage(payload) || fallback
 }
 
 export async function GET(request: NextRequest) {
@@ -83,15 +88,15 @@ export async function GET(request: NextRequest) {
     })
 
     const text = await upstream.text()
-    const payload = text ? (JSON.parse(text) as BackendRawListing[] | { message?: string; error?: string }) : []
+    const payload = parseJsonSafely<BackendRawListing[] | { message?: string; error?: string }>(text) ?? []
 
     if (!upstream.ok) {
-      const error = Array.isArray(payload) ? 'Failed to fetch listings' : (payload.message || payload.error || 'Failed to fetch listings')
+      const error = Array.isArray(payload) ? 'Failed to fetch listings' : getApiErrorMessage(payload, 'Failed to fetch listings')
       return NextResponse.json({ error }, { status: upstream.status })
     }
 
     const normalizedLimit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 200) : 50
-    const listings = (payload as BackendRawListing[])
+    const listings = (Array.isArray(payload) ? payload : [])
       .map(toRawListing)
       .filter((listing) => (!commodity || listing.commodity === commodity) && (!location || listing.location.toLowerCase().includes(location.toLowerCase())))
       .slice(0, normalizedLimit)
@@ -149,10 +154,10 @@ export async function POST(request: NextRequest) {
     })
 
     const text = await upstream.text()
-    const payload = text ? (JSON.parse(text) as BackendRawListing | { message?: string; error?: string }) : {}
+    const payload = parseJsonSafely<BackendRawListing | { message?: string; error?: string }>(text) ?? {}
 
     if (!upstream.ok) {
-      const error = (payload as { message?: string; error?: string }).message || (payload as { error?: string }).error || 'Failed to create listing'
+      const error = getApiErrorMessage(payload, 'Failed to create listing')
       return NextResponse.json({ error }, { status: upstream.status })
     }
 

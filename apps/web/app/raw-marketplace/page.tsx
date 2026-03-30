@@ -7,6 +7,7 @@ import type { RawListing, RawListingFilters, CreateRawListingInput, CreateRawMar
 import { useLanguage } from '@/app/language-context'
 import { useEffectiveTheme } from '@/app/theme-context'
 import { sendMarketplaceMessage } from '@/app/lib/send-marketplace-message'
+import { extractErrorMessage, extractMessage } from '@/app/lib/api-errors'
 
 const COMMODITIES = ['Arabica Cherry', 'Arabica Parchment', 'Robusta Cherry', 'Robusta Parchment', 'Cardamom', 'Arecanut', 'Pepper']
 const RAW_ORDER_REQUIRED_FIELDS: Array<keyof OrderCustomerDetails> = ['fullName', 'mobileNumber', 'addressLine1', 'city', 'state', 'pincode']
@@ -75,6 +76,10 @@ export default function RawMarketplacePage() {
       if (filters.location) params.set('location', filters.location)
       
       const res = await fetch(`/api/raw/listings?${params}`)
+      if (!res.ok) {
+        console.error('Failed to fetch listings:', await extractErrorMessage(res))
+        return
+      }
       const data = await res.json()
       setListings(data.listings || [])
     } catch (error) {
@@ -100,11 +105,10 @@ export default function RawMarketplacePage() {
 
       if (res.ok) {
         setShowCreateModal(false)
-        setFormData({ commodity: COMMODITIES[0], quantityKg: 0, pricePerKg: 0, location: '' })
+        setFormData({ commodity: COMMODITIES[0], quantityKg: 0, pricePerKg: 0, location: '', grade: '', description: '' })
         fetchListings()
       } else {
-        const error = await res.json()
-        alert(error.error || t('Failed to create listing', 'ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+        alert((await extractErrorMessage(res)) || t('Failed to create listing', 'ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
       }
     } catch (error) {
       console.error('Error creating listing:', error)
@@ -136,8 +140,7 @@ export default function RawMarketplacePage() {
         setOfferData({ offerPrice: 0, quantity: 0, message: '' })
         alert(t('Offer submitted successfully!', 'ಆಫರ್ ಯಶಸ್ವಿಯಾಗಿ ಸಲ್ಲಿಸಲಾಗಿದೆ!'))
       } else {
-        const error = await res.json()
-        alert(error.error || t('Failed to create offer', 'ಆಫರ್ ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+        alert((await extractErrorMessage(res)) || t('Failed to create offer', 'ಆಫರ್ ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ'))
       }
     } catch (error) {
       console.error('Error creating offer:', error)
@@ -191,7 +194,15 @@ export default function RawMarketplacePage() {
       if (!res.ok) {
         setCodErrors((current) => ({
           ...current,
-          form: data.error || t('Failed to place COD request', 'COD ವಿನಂತಿಯನ್ನು ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ'),
+          form: extractMessage(data) || t('Failed to place COD request', 'COD ವಿನಂತಿಯನ್ನು ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ'),
+        }))
+        return
+      }
+
+      if (!data?.order?.id) {
+        setCodErrors((current) => ({
+          ...current,
+          form: t('Order was created but confirmation could not be loaded.', 'ಆರ್ಡರ್ ರಚಿಸಲಾಗಿದೆ ಆದರೆ ದೃಢೀಕರಣವನ್ನು ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ.'),
         }))
         return
       }

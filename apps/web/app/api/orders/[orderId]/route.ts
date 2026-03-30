@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,6 +73,10 @@ async function getSession() {
   return getServerSession(authOptions)
 }
 
+function getApiErrorMessage(payload: unknown, fallback: string) {
+  return extractMessage(payload) || fallback
+}
+
 function mapOrder(payload: BackendOrder) {
   const fallbackItem = payload.items?.[0]
   const fallbackProduct = fallbackItem?.retailProduct
@@ -118,7 +123,7 @@ function mapOrder(payload: BackendOrder) {
 export async function GET(_request: NextRequest, context: { params: Promise<{ orderId: string }> }) {
   try {
     const session = await getSession()
-    const accessToken = session?.accessToken
+    const accessToken = typeof session?.accessToken === 'string' ? session.accessToken : null
     if (!accessToken) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -133,10 +138,10 @@ export async function GET(_request: NextRequest, context: { params: Promise<{ or
     })
 
     const text = await upstream.text()
-    const payload = text ? (JSON.parse(text) as BackendOrder) : {}
+    const payload = parseJsonSafely<BackendOrder>(text) ?? {}
 
     if (!upstream.ok) {
-      const error = payload.message || payload.error || 'Failed to fetch order'
+      const error = getApiErrorMessage(payload, 'Failed to fetch order')
       return NextResponse.json({ error }, { status: upstream.status })
     }
 

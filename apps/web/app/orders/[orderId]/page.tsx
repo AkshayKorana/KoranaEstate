@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffectiveTheme } from '@/app/theme-context'
 import type { Order } from '@/types/marketplace'
+import { extractErrorMessage } from '@/app/lib/api-errors'
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('en-IN', {
@@ -52,11 +53,11 @@ export default function OrderConfirmationPage() {
         setLoading(true)
         setError(null)
         const res = await fetch(`/api/orders/${orderId}`, { cache: 'no-store' })
-        const data = await res.json()
         if (!res.ok) {
-          setError(data.error || 'Failed to load order')
+          setError((await extractErrorMessage(res)) || 'Failed to load order')
           return
         }
+        const data = await res.json()
         setOrder(data.order ?? null)
       } catch (loadError) {
         console.error('Failed to load order confirmation', loadError)

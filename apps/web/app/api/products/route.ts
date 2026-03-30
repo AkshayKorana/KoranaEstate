@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,7 +51,11 @@ function toProduct(product: BackendStoreProduct) {
 
 async function getAccessToken() {
   const session = await getServerSession(authOptions)
-  return session?.accessToken ?? null
+  return typeof session?.accessToken === 'string' ? session.accessToken : null
+}
+
+function getApiErrorMessage(payload: unknown, fallback: string) {
+  return extractMessage(payload) || fallback
 }
 
 export async function GET(request: NextRequest) {
@@ -73,14 +78,14 @@ export async function GET(request: NextRequest) {
     })
 
     const text = await upstream.text()
-    const payload = text ? (JSON.parse(text) as BackendStoreProduct[]) : []
+    const payload = parseJsonSafely<BackendStoreProduct[] | { message?: string; error?: string }>(text) ?? []
 
     if (!upstream.ok) {
-      const error = Array.isArray(payload) ? 'Failed to fetch products' : ((payload as { message?: string; error?: string }).message || (payload as { error?: string }).error || 'Failed to fetch products')
+      const error = Array.isArray(payload) ? 'Failed to fetch products' : getApiErrorMessage(payload, 'Failed to fetch products')
       return NextResponse.json({ error }, { status: upstream.status })
     }
 
-    const filteredProducts = payload
+    const filteredProducts = (Array.isArray(payload) ? payload : [])
       .map(toProduct)
       .filter((product) => !category || product.category === category)
     const normalizedLimit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 200) : 50
@@ -146,10 +151,10 @@ export async function POST(request: NextRequest) {
     })
 
     const text = await upstream.text()
-    const payload = text ? (JSON.parse(text) as BackendStoreProduct | { message?: string; error?: string }) : {}
+    const payload = parseJsonSafely<BackendStoreProduct | { message?: string; error?: string }>(text) ?? {}
 
     if (!upstream.ok) {
-      const error = (payload as { message?: string; error?: string }).message || (payload as { error?: string }).error || 'Failed to create product'
+      const error = getApiErrorMessage(payload, 'Failed to create product')
       return NextResponse.json({ error }, { status: upstream.status })
     }
 
