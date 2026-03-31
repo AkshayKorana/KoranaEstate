@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
-import { getAccessTokenFromRequest } from '@/app/api/_lib/auth'
+import { attachRefreshedSession, fetchWithAuthRetry } from '@/app/api/_lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -89,7 +89,7 @@ function normalizeCustomer(body: unknown) {
 }
 
 function validateCustomer(customer: ReturnType<typeof normalizeCustomer>) {
-  const missing = ['fullName', 'mobileNumber', 'addressLine1', 'area', 'city', 'state', 'pincode'].filter(
+  const missing = ['fullName', 'mobileNumber', 'addressLine1', 'city', 'state', 'pincode'].filter(
     (field) => !customer[field as keyof typeof customer],
   )
 
@@ -157,10 +157,6 @@ function mapOrder(payload: BackendOrder, session: Awaited<ReturnType<typeof getS
 export async function POST(request: NextRequest) {
   try {
     const session = await getSession()
-    const accessToken = await getAccessTokenFromRequest(request)
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
 
     const body = await request.json()
     const listingId = typeof body?.listingId === 'string' ? body.listingId : ''
@@ -176,19 +172,22 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: customerError }, { status: 400 })
     }
 
-    const listingsUpstream = await fetch(`${API_BASE}/marketplace/listings`, {
+    const listingsResult = await fetchWithAuthRetry({
+      request,
+      url: `${API_BASE}/marketplace/listings`,
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: 'no-store',
     })
-    const listingsText = await listingsUpstream.text()
+    if ('errorResponse' in listingsResult) {
+      return listingsResult.errorResponse
+    }
+
+    const listingsText = await listingsResult.upstream.text()
     const listingsPayload = parseJsonSafely<BackendRawListing[] | { message?: string; error?: string }>(listingsText) ?? []
 
-    if (!listingsUpstream.ok) {
+    if (!listingsResult.upstream.ok) {
       const error = Array.isArray(listingsPayload) ? 'Failed to fetch listings' : getApiErrorMessage(listingsPayload, 'Failed to fetch listings')
-      return NextResponse.json({ error }, { status: listingsUpstream.status })
+      const response = NextResponse.json({ error }, { status: listingsResult.upstream.status })
+      return attachRefreshedSession(request, response, listingsResult.authToken, listingsResult.refreshed)
     }
 
     const listing = (listingsPayload as BackendRawListing[]).find((item) => item.id === listingId)
@@ -204,10 +203,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: `Available quantity is ${availableQuantity} kg` }, { status: 400 })
     }
 
-    const upstream = await fetch(`${API_BASE}/orders/raw-marketplace`, {
+    const upstreamResult = await fetchWithAuthRetry({
+      request,
+      url: `${API_BASE}/orders/raw-marketplace`,
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -215,18 +215,22 @@ export async function POST(request: NextRequest) {
         quantityKg: Number(quantityKg.toFixed(2)),
         customer,
       }),
-      cache: 'no-store',
     })
-
-    const text = await upstream.text()
-    const payload = parseJsonSafely<BackendOrder>(text) ?? {}
-
-    if (!upstream.ok) {
-      const error = getApiErrorMessage(payload, 'Failed to create COD order')
-      return NextResponse.json({ error }, { status: upstream.status })
+    if ('errorResponse' in upstreamResult) {
+      return upstreamResult.errorResponse
     }
 
-    return NextResponse.json({ order: mapOrder(payload, session) }, { status: 201 })
+    const text = await upstreamResult.upstream.text()
+    const payload = parseJsonSafely<BackendOrder>(text) ?? {}
+
+    if (!upstreamResult.upstream.ok) {
+      const error = getApiErrorMessage(payload, 'Failed to create COD order')
+      const response = NextResponse.json({ error }, { status: upstreamResult.upstream.status })
+      return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
+    }
+
+    const response = NextResponse.json({ order: mapOrder(payload, session) }, { status: 201 })
+    return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
   } catch (error) {
     console.error('apps/web raw orders POST failed', error)
     return NextResponse.json({ error: 'Failed to create COD order' }, { status: 500 })

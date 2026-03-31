@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
-import { getAccessTokenFromRequest } from '@/app/api/_lib/auth'
+import { attachRefreshedSession, fetchWithAuthRetry } from '@/app/api/_lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,7 +26,11 @@ type BackendRawListing = {
   } | null
 }
 
-function toRawListing(listing: BackendRawListing) {
+function toRawListing(listing: BackendRawListing | null | undefined) {
+  if (!listing?.id) {
+    return null
+  }
+
   const commodity = listing.commodityName ?? listing.title ?? ''
   const sellerName = listing.seller?.fullName ?? null
 
@@ -63,39 +67,38 @@ function getApiErrorMessage(payload: unknown, fallback: string) {
 
 export async function GET(request: NextRequest) {
   try {
-    const accessToken = await getAccessTokenFromRequest(request)
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(request.url)
     const commodity = searchParams.get('commodity')
     const location = searchParams.get('location')
     const limit = parseInt(searchParams.get('limit') || '50', 10)
 
-    const upstream = await fetch(`${API_BASE}/marketplace/listings`, {
+    const upstreamResult = await fetchWithAuthRetry({
+      request,
+      url: `${API_BASE}/marketplace/listings`,
       method: 'GET',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: 'no-store',
     })
+    if ('errorResponse' in upstreamResult) {
+      return upstreamResult.errorResponse
+    }
 
-    const text = await upstream.text()
+    const text = await upstreamResult.upstream.text()
     const payload = parseJsonSafely<BackendRawListing[] | { message?: string; error?: string }>(text) ?? []
 
-    if (!upstream.ok) {
+    if (!upstreamResult.upstream.ok) {
       const error = Array.isArray(payload) ? 'Failed to fetch listings' : getApiErrorMessage(payload, 'Failed to fetch listings')
-      return NextResponse.json({ error }, { status: upstream.status })
+      const response = NextResponse.json({ error }, { status: upstreamResult.upstream.status })
+      return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
     }
 
     const normalizedLimit = Number.isFinite(limit) ? Math.min(Math.max(limit, 1), 200) : 50
     const listings = (Array.isArray(payload) ? payload : [])
       .map(toRawListing)
+      .filter((listing): listing is NonNullable<ReturnType<typeof toRawListing>> => Boolean(listing))
       .filter((listing) => (!commodity || listing.commodity === commodity) && (!location || listing.location.toLowerCase().includes(location.toLowerCase())))
       .slice(0, normalizedLimit)
 
-    return NextResponse.json({ listings })
+    const response = NextResponse.json({ listings })
+    return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
   } catch (error) {
     console.error('apps/web raw listings GET failed', error)
     return NextResponse.json({ error: 'Failed to fetch listings' }, { status: 500 })
@@ -104,11 +107,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const accessToken = await getAccessTokenFromRequest(request)
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const body = await request.json()
     const commodity = typeof body?.commodity === 'string' ? body.commodity.trim() : ''
     const grade = typeof body?.grade === 'string' ? body.grade.trim() : null
@@ -128,10 +126,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Quantity and price must be positive' }, { status: 400 })
     }
 
-    const upstream = await fetch(`${API_BASE}/marketplace/listings`, {
+    const upstreamResult = await fetchWithAuthRetry({
+      request,
+      url: `${API_BASE}/marketplace/listings`,
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -144,18 +143,30 @@ export async function POST(request: NextRequest) {
         pricePerKg: Number(pricePerKg.toFixed(2)),
         description,
       }),
-      cache: 'no-store',
     })
-
-    const text = await upstream.text()
-    const payload = parseJsonSafely<BackendRawListing | { message?: string; error?: string }>(text) ?? {}
-
-    if (!upstream.ok) {
-      const error = getApiErrorMessage(payload, 'Failed to create listing')
-      return NextResponse.json({ error }, { status: upstream.status })
+    if ('errorResponse' in upstreamResult) {
+      return upstreamResult.errorResponse
     }
 
-    return NextResponse.json({ listing: toRawListing(payload as BackendRawListing) }, { status: 201 })
+    const text = await upstreamResult.upstream.text()
+    const payload = parseJsonSafely<BackendRawListing | { message?: string; error?: string }>(text) ?? {}
+
+    if (!upstreamResult.upstream.ok) {
+      const error = upstreamResult.upstream.status === 403
+        ? 'Only seller accounts can create raw marketplace listings.'
+        : getApiErrorMessage(payload, 'Failed to create listing')
+      const response = NextResponse.json({ error }, { status: upstreamResult.upstream.status })
+      return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
+    }
+
+    const listing = toRawListing(payload as BackendRawListing)
+    if (!listing) {
+      const response = NextResponse.json({ error: 'Created listing response was incomplete' }, { status: 502 })
+      return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
+    }
+
+    const response = NextResponse.json({ listing }, { status: 201 })
+    return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
   } catch (error) {
     console.error('apps/web raw listings POST failed', error)
     return NextResponse.json({ error: 'Failed to create listing' }, { status: 500 })

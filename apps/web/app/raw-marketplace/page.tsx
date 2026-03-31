@@ -37,6 +37,7 @@ export default function RawMarketplacePage() {
   const { isDark } = useEffectiveTheme()
   const [listings, setListings] = useState<RawListing[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showOfferModal, setShowOfferModal] = useState(false)
   const [showCodModal, setShowCodModal] = useState(false)
@@ -58,6 +59,8 @@ export default function RawMarketplacePage() {
   })
   const [codErrors, setCodErrors] = useState<Partial<Record<keyof OrderCustomerDetails | 'quantityKg' | 'form', string>>>({})
   const [submittingCod, setSubmittingCod] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const isSellerOrAdmin = session?.user?.role === 'SELLER' || session?.user?.role === 'ADMIN'
 
   useEffect(() => {
     if (status !== 'authenticated') return
@@ -71,13 +74,16 @@ export default function RawMarketplacePage() {
   async function fetchListings() {
     try {
       setLoading(true)
+      setLoadError(null)
       const params = new URLSearchParams()
       if (filters.commodity) params.set('commodity', filters.commodity)
       if (filters.location) params.set('location', filters.location)
       
       const res = await fetch(`/api/raw/listings?${params}`)
       if (!res.ok) {
-        console.error('Failed to fetch listings:', await extractErrorMessage(res))
+        const message = (await extractErrorMessage(res)) || t('Failed to load listings', 'ಲಿಸ್ಟಿಂಗ್‌ಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ')
+        console.error('Failed to fetch listings:', message)
+        setLoadError(message)
         return
       }
       const data = await res.json()
@@ -95,8 +101,13 @@ export default function RawMarketplacePage() {
       router.push('/auth')
       return
     }
+    if (!isSellerOrAdmin) {
+      setCreateError(t('A seller account is required to create raw marketplace listings.', 'ರಾ ಮಾರುಕಟ್ಟೆ ಲಿಸ್ಟಿಂಗ್‌ಗಳನ್ನು ರಚಿಸಲು ಮಾರಾಟಗಾರ ಖಾತೆ ಅಗತ್ಯವಿದೆ.'))
+      return
+    }
 
     try {
+      setCreateError(null)
       const res = await fetch('/api/raw/listings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -105,14 +116,19 @@ export default function RawMarketplacePage() {
 
       if (res.ok) {
         setShowCreateModal(false)
+        setCreateError(null)
         setFormData({ commodity: COMMODITIES[0], quantityKg: 0, pricePerKg: 0, location: '', grade: '', description: '' })
         fetchListings()
       } else {
-        alert((await extractErrorMessage(res)) || t('Failed to create listing', 'ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+        const message =
+          res.status === 403
+            ? t('Only seller accounts can create raw marketplace listings.', 'ಮಾರಾಟಗಾರ ಖಾತೆಗಳಷ್ಟೇ ರಾ ಮಾರುಕಟ್ಟೆ ಲಿಸ್ಟಿಂಗ್‌ಗಳನ್ನು ರಚಿಸಬಹುದು.')
+            : (await extractErrorMessage(res)) || t('Failed to create listing', 'ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ')
+        setCreateError(message)
       }
     } catch (error) {
       console.error('Error creating listing:', error)
-      alert(t('Failed to create listing', 'ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+      setCreateError(t('Failed to create listing', 'ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
     }
   }
 
@@ -340,6 +356,11 @@ export default function RawMarketplacePage() {
                   if (status !== 'authenticated') {
                     router.push('/auth')
                   } else {
+                    setCreateError(
+                      isSellerOrAdmin
+                        ? null
+                        : t('A seller account is required to create raw marketplace listings.', 'ರಾ ಮಾರುಕಟ್ಟೆ ಲಿಸ್ಟಿಂಗ್‌ಗಳನ್ನು ರಚಿಸಲು ಮಾರಾಟಗಾರ ಖಾತೆ ಅಗತ್ಯವಿದೆ.'),
+                    )
                     setShowCreateModal(true)
                   }
                 }}
@@ -360,6 +381,16 @@ export default function RawMarketplacePage() {
                   <div className="w-3 h-3 bg-emerald-700 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                 </div>
                 <p className={`font-medium ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Loading marketplace...', 'ಮಾರುಕಟ್ಟೆ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
+              </div>
+            ) : loadError ? (
+              <div className="text-center py-12 glass rounded-2xl shadow-xl fade-in">
+                <p className="text-lg font-semibold text-red-600">{loadError}</p>
+                <button
+                  onClick={() => fetchListings()}
+                  className="mt-4 surface-app-button-secondary rounded-xl px-5 py-3 font-semibold"
+                >
+                  {t('Retry', 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ')}
+                </button>
               </div>
             ) : listings.length === 0 ? (
               <div className="text-center py-20 glass rounded-2xl shadow-xl fade-in">
@@ -493,6 +524,12 @@ export default function RawMarketplacePage() {
             </div>
 
             <form onSubmit={handleCreateListing} className="space-y-5">
+              {createError ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                  {createError}
+                </div>
+              ) : null}
+
               <div>
                 <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Commodity', 'ವಸ್ತು')} *</label>
                 <select
@@ -579,6 +616,7 @@ export default function RawMarketplacePage() {
                 </button>
                 <button
                   type="submit"
+                  disabled={!isSellerOrAdmin}
                   className="flex-1 gradient-emerald text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                 >
                   {t('Create Listing', 'ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಿ')}

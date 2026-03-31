@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
-import { getAccessTokenFromRequest } from '@/app/api/_lib/auth'
+import { attachRefreshedSession, fetchWithAuthRetry } from '@/app/api/_lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,12 +13,17 @@ function getApiErrorMessage(payload: unknown, fallback: string) {
 
 export async function GET(request: NextRequest) {
   try {
-    const accessToken = await getAccessTokenFromRequest(request)
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const upstreamResult = await fetchWithAuthRetry({
+      request,
+      url: `${API_BASE}/marketplace/listings`,
+      method: 'GET',
+    })
+    if ('errorResponse' in upstreamResult) {
+      return upstreamResult.errorResponse
     }
 
-    return NextResponse.json({ offers: [] })
+    const response = NextResponse.json({ offers: [] })
+    return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
   } catch (error) {
     console.error('apps/web raw offers GET failed', error)
     return NextResponse.json({ error: 'Failed to fetch offers' }, { status: 500 })
@@ -27,11 +32,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const accessToken = await getAccessTokenFromRequest(request)
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const body = await request.json()
     const listingId = typeof body?.listingId === 'string' ? body.listingId : ''
     const offerPrice = Number(body?.offerPrice)
@@ -45,10 +45,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const upstream = await fetch(`${API_BASE}/marketplace/listings/${encodeURIComponent(listingId)}/bids`, {
+    const upstreamResult = await fetchWithAuthRetry({
+      request,
+      url: `${API_BASE}/marketplace/listings/${encodeURIComponent(listingId)}/bids`,
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${accessToken}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
@@ -56,10 +57,12 @@ export async function POST(request: NextRequest) {
         quantityKg: Number(quantity.toFixed(2)),
         note: message,
       }),
-      cache: 'no-store',
     })
+    if ('errorResponse' in upstreamResult) {
+      return upstreamResult.errorResponse
+    }
 
-    const text = await upstream.text()
+    const text = await upstreamResult.upstream.text()
     const payload = parseJsonSafely<{
       id?: string
       rawProductId?: string
@@ -74,9 +77,10 @@ export async function POST(request: NextRequest) {
       error?: string
     }>(text) ?? {}
 
-    if (!upstream.ok) {
+    if (!upstreamResult.upstream.ok) {
       const error = getApiErrorMessage(payload, 'Failed to create offer')
-      return NextResponse.json({ error }, { status: upstream.status })
+      const response = NextResponse.json({ error }, { status: upstreamResult.upstream.status })
+      return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
     }
 
     const offer = {
@@ -93,7 +97,8 @@ export async function POST(request: NextRequest) {
       buyer: undefined,
     }
 
-    return NextResponse.json({ offer }, { status: 201 })
+    const response = NextResponse.json({ offer }, { status: 201 })
+    return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
   } catch (error) {
     console.error('apps/web raw offers POST failed', error)
     return NextResponse.json({ error: 'Failed to create offer' }, { status: 500 })

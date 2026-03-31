@@ -37,6 +37,7 @@ export default function StorePage() {
   const { isDark } = useEffectiveTheme()
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showOrderModal, setShowOrderModal] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
@@ -56,6 +57,8 @@ export default function StorePage() {
   })
   const [orderErrors, setOrderErrors] = useState<Partial<Record<keyof OrderCustomerDetails | 'quantity' | 'form', string>>>({})
   const [submittingOrder, setSubmittingOrder] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
+  const isSellerOrAdmin = session?.user?.role === 'SELLER' || session?.user?.role === 'ADMIN'
 
   function categoryLabel(category: string) {
     const map: Record<string, string> = {
@@ -81,12 +84,15 @@ export default function StorePage() {
   async function fetchProducts() {
     try {
       setLoading(true)
+      setLoadError(null)
       const params = new URLSearchParams()
       if (selectedCategory) params.set('category', selectedCategory)
       
       const res = await fetch(`/api/products?${params}`)
       if (!res.ok) {
-        console.error('Failed to fetch products:', await extractErrorMessage(res))
+        const message = (await extractErrorMessage(res)) || t('Failed to load products', 'ಉತ್ಪನ್ನಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ')
+        console.error('Failed to fetch products:', message)
+        setLoadError(message)
         return
       }
       const data = await res.json()
@@ -104,8 +110,13 @@ export default function StorePage() {
       router.push('/auth')
       return
     }
+    if (!isSellerOrAdmin) {
+      setCreateError(t('A seller account is required to add store products.', 'ಸ್ಟೋರ್ ಉತ್ಪನ್ನಗಳನ್ನು ಸೇರಿಸಲು ಮಾರಾಟಗಾರ ಖಾತೆ ಅಗತ್ಯವಿದೆ.'))
+      return
+    }
 
     try {
+      setCreateError(null)
       const res = await fetch('/api/products', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -114,14 +125,19 @@ export default function StorePage() {
 
       if (res.ok) {
         setShowCreateModal(false)
+        setCreateError(null)
         setFormData({ name: '', category: CATEGORIES[0], price: 0, stock: 0, description: '', imageUrl: '' })
         fetchProducts()
       } else {
-        alert((await extractErrorMessage(res)) || t('Failed to create product', 'ಉತ್ಪನ್ನ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+        const message =
+          res.status === 403
+            ? t('Only seller accounts can add store products.', 'ಮಾರಾಟಗಾರ ಖಾತೆಗಳಷ್ಟೇ ಸ್ಟೋರ್ ಉತ್ಪನ್ನಗಳನ್ನು ಸೇರಿಸಬಹುದು.')
+            : (await extractErrorMessage(res)) || t('Failed to create product', 'ಉತ್ಪನ್ನ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ')
+        setCreateError(message)
       }
     } catch (error) {
       console.error('Error creating product:', error)
-      alert(t('Failed to create product', 'ಉತ್ಪನ್ನ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+      setCreateError(t('Failed to create product', 'ಉತ್ಪನ್ನ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
     }
   }
 
@@ -315,6 +331,11 @@ export default function StorePage() {
                   if (status !== 'authenticated') {
                     router.push('/auth')
                   } else {
+                    setCreateError(
+                      isSellerOrAdmin
+                        ? null
+                        : t('A seller account is required to add store products.', 'ಸ್ಟೋರ್ ಉತ್ಪನ್ನಗಳನ್ನು ಸೇರಿಸಲು ಮಾರಾಟಗಾರ ಖಾತೆ ಅಗತ್ಯವಿದೆ.'),
+                    )
                     setShowCreateModal(true)
                   }
                 }}
@@ -335,6 +356,16 @@ export default function StorePage() {
                   <div className="w-3 h-3 bg-amber-800 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
                 </div>
                 <p className={`font-medium ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Loading store...', 'ಸ್ಟೋರ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
+              </div>
+            ) : loadError ? (
+              <div className="text-center py-12 glass rounded-2xl shadow-xl fade-in">
+                <p className="text-lg font-semibold text-red-600">{loadError}</p>
+                <button
+                  onClick={() => fetchProducts()}
+                  className="mt-4 surface-app-button-secondary rounded-xl px-5 py-3 font-semibold"
+                >
+                  {t('Retry', 'ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ')}
+                </button>
               </div>
             ) : products.length === 0 ? (
               <div className="text-center py-20 glass rounded-2xl shadow-xl fade-in">
@@ -484,6 +515,12 @@ export default function StorePage() {
             </div>
 
             <form onSubmit={handleCreateProduct} className="space-y-5">
+              {createError ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                  {createError}
+                </div>
+              ) : null}
+
               <div>
                 <label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Product Name', 'ಉತ್ಪನ್ನದ ಹೆಸರು')} *</label>
                 <input
@@ -571,6 +608,7 @@ export default function StorePage() {
                 </button>
                 <button
                   type="submit"
+                  disabled={!isSellerOrAdmin}
                   className="flex-1 gradient-coffee-cream text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all"
                 >
                   {t('Add Product', 'ಉತ್ಪನ್ನ ಸೇರಿಸಿ')}

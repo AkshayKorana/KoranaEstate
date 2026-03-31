@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
-import { getAccessTokenFromRequest } from '@/app/api/_lib/auth'
+import { attachRefreshedSession, fetchWithAuthRetry } from '@/app/api/_lib/auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -72,42 +72,43 @@ function getApiErrorMessage(payload: unknown, fallback: string) {
   return extractMessage(payload) || fallback
 }
 
-function mapOrder(payload: BackendOrder) {
-  const fallbackItem = payload.items?.[0]
+function mapOrder(payload: BackendOrder | null | undefined) {
+  const safePayload = payload ?? {}
+  const fallbackItem = safePayload.items?.[0]
   const fallbackProduct = fallbackItem?.retailProduct
-  const quantity = Number(payload.quantitySnapshot ?? fallbackItem?.quantity ?? 0)
-  const unitPrice = Number(payload.unitPriceSnapshot ?? fallbackItem?.unitPrice ?? fallbackProduct?.price ?? 0)
-  const createdAt = payload.createdAt ?? new Date().toISOString()
-  const updatedAt = payload.updatedAt ?? createdAt
+  const quantity = Number(safePayload.quantitySnapshot ?? fallbackItem?.quantity ?? 0)
+  const unitPrice = Number(safePayload.unitPriceSnapshot ?? fallbackItem?.unitPrice ?? fallbackProduct?.price ?? 0)
+  const createdAt = safePayload.createdAt ?? new Date().toISOString()
+  const updatedAt = safePayload.updatedAt ?? createdAt
 
   return {
-    id: payload.id ?? '',
-    buyerId: payload.buyerId ?? '',
-    sourceType: payload.sourceType ?? 'STORE',
-    paymentMethod: payload.paymentMethod ?? 'COD',
-    status: payload.status ?? 'PENDING',
-    rawProductId: payload.rawProductId ?? null,
-    totalPrice: Number(payload.totalAmount ?? quantity * unitPrice),
-    shippingAddress: payload.shippingAddress ?? null,
+    id: safePayload.id ?? '',
+    buyerId: safePayload.buyerId ?? '',
+    sourceType: safePayload.sourceType ?? 'STORE',
+    paymentMethod: safePayload.paymentMethod ?? 'COD',
+    status: safePayload.status ?? 'PENDING',
+    rawProductId: safePayload.rawProductId ?? null,
+    totalPrice: Number(safePayload.totalAmount ?? quantity * unitPrice),
+    shippingAddress: safePayload.shippingAddress ?? null,
     customer: {
-      fullName: payload.customerName ?? '',
-      mobileNumber: payload.phone ?? '',
-      addressLine1: payload.addressLine1 ?? '',
-      addressLine2: payload.addressLine2 ?? '',
-      area: payload.area ?? '',
-      city: payload.city ?? '',
-      state: payload.state ?? '',
-      pincode: payload.pincode ?? '',
-      landmark: payload.landmark ?? '',
-      orderNote: payload.orderNote ?? '',
+      fullName: safePayload.customerName ?? '',
+      mobileNumber: safePayload.phone ?? '',
+      addressLine1: safePayload.addressLine1 ?? '',
+      addressLine2: safePayload.addressLine2 ?? '',
+      area: safePayload.area ?? '',
+      city: safePayload.city ?? '',
+      state: safePayload.state ?? '',
+      pincode: safePayload.pincode ?? '',
+      landmark: safePayload.landmark ?? '',
+      orderNote: safePayload.orderNote ?? '',
     },
-    itemName: payload.itemNameSnapshot ?? fallbackProduct?.title ?? '',
-    itemCategory: payload.itemCategorySnapshot ?? fallbackProduct?.category ?? null,
-    itemImageUrl: payload.itemImageUrlSnapshot ?? fallbackProduct?.imageUrl ?? null,
-    sellerName: payload.sellerNameSnapshot ?? fallbackProduct?.seller?.fullName ?? null,
-    sellerId: payload.sellerIdSnapshot ?? fallbackProduct?.sellerId ?? fallbackProduct?.seller?.id ?? null,
-    location: payload.locationSnapshot ?? null,
-    unitLabel: payload.unitLabelSnapshot ?? 'unit',
+    itemName: safePayload.itemNameSnapshot ?? fallbackProduct?.title ?? '',
+    itemCategory: safePayload.itemCategorySnapshot ?? fallbackProduct?.category ?? null,
+    itemImageUrl: safePayload.itemImageUrlSnapshot ?? fallbackProduct?.imageUrl ?? null,
+    sellerName: safePayload.sellerNameSnapshot ?? fallbackProduct?.seller?.fullName ?? null,
+    sellerId: safePayload.sellerIdSnapshot ?? fallbackProduct?.sellerId ?? fallbackProduct?.seller?.id ?? null,
+    location: safePayload.locationSnapshot ?? null,
+    unitLabel: safePayload.unitLabelSnapshot ?? 'unit',
     quantity,
     unitPrice,
     createdAt,
@@ -117,29 +118,27 @@ function mapOrder(payload: BackendOrder) {
 
 export async function GET(_request: NextRequest, context: { params: Promise<{ orderId: string }> }) {
   try {
-    const accessToken = await getAccessTokenFromRequest(_request)
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    const { orderId } = await context.params
+    const upstreamResult = await fetchWithAuthRetry({
+      request: _request,
+      url: `${API_BASE}/orders/${orderId}`,
+      method: 'GET',
+    })
+    if ('errorResponse' in upstreamResult) {
+      return upstreamResult.errorResponse
     }
 
-    const { orderId } = await context.params
-    const upstream = await fetch(`${API_BASE}/orders/${orderId}`, {
-      method: 'GET',
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-      cache: 'no-store',
-    })
-
-    const text = await upstream.text()
+    const text = await upstreamResult.upstream.text()
     const payload = parseJsonSafely<BackendOrder>(text) ?? {}
 
-    if (!upstream.ok) {
+    if (!upstreamResult.upstream.ok) {
       const error = getApiErrorMessage(payload, 'Failed to fetch order')
-      return NextResponse.json({ error }, { status: upstream.status })
+      const response = NextResponse.json({ error }, { status: upstreamResult.upstream.status })
+      return attachRefreshedSession(_request, response, upstreamResult.authToken, upstreamResult.refreshed)
     }
 
-    return NextResponse.json({ order: mapOrder(payload) })
+    const response = NextResponse.json({ order: mapOrder(payload) })
+    return attachRefreshedSession(_request, response, upstreamResult.authToken, upstreamResult.refreshed)
   } catch (error) {
     console.error('apps/web orders/[orderId] GET failed', error)
     return NextResponse.json({ error: 'Failed to fetch order' }, { status: 500 })
