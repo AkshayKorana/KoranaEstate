@@ -29,6 +29,7 @@ const navItems = [
   { href: '/estate-marketplace', label: { en: 'Estate Essentials', kn: 'ಎಸ್ಟೇಟ್ ಅವಶ್ಯಕತೆಗಳು' }, icon: '🚜' },
   { href: '/raw-marketplace', label: { en: 'Raw Marketplace', kn: 'ರಾ ಮಾರುಕಟ್ಟೆ' }, icon: '🌱' },
   { href: '/messages', label: { en: 'Messages', kn: 'ಸಂದೇಶಗಳು' }, icon: '💬' },
+  { href: '/orders', label: { en: 'Orders', kn: 'ಆರ್ಡರ್‌ಗಳು' }, icon: '📦' },
   { href: '/home-stays', label: { en: 'Home Stays', kn: 'ಹೋಂ ಸ್ಟೇಸ್' }, icon: '🏡' },
 ]
 

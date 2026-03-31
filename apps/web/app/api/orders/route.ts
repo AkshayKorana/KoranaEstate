@@ -276,3 +276,35 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
   }
 }
+
+export async function GET(request: NextRequest) {
+  try {
+    const session = await getSession()
+    const accessToken = await getAccessTokenFromRequest(request)
+    if (!accessToken) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
+    const upstream = await fetch(`${API_BASE}/orders/me`, {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+      cache: 'no-store',
+    })
+
+    const text = await upstream.text()
+    const payload = parseJsonSafely<BackendOrder[] | { message?: string; error?: string }>(text) ?? []
+
+    if (!upstream.ok) {
+      const error = Array.isArray(payload) ? 'Failed to fetch orders' : getApiErrorMessage(payload, 'Failed to fetch orders')
+      return NextResponse.json({ error }, { status: upstream.status })
+    }
+
+    const orders = (Array.isArray(payload) ? payload : []).map((order) => mapOrder(order, session))
+    return NextResponse.json({ orders })
+  } catch (error) {
+    console.error('apps/web orders GET failed', error)
+    return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 })
+  }
+}

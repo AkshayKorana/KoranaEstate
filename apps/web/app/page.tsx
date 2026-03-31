@@ -615,30 +615,48 @@ export default function HomePage() {
       setLatestError(null)
 
       try {
-        const productsRes = await fetch('/api/prices/products', { cache: 'no-store' })
-
-        if (!productsRes.ok) {
-          const payload = await productsRes.json().catch(() => ({}))
-          throw new Error(payload?.message || `Products request failed (${productsRes.status})`)
-        }
-
-        const productsPayload: PricesProductsResponse = await productsRes.json()
+        const [productsRes, latestRes] = await Promise.allSettled([
+          fetch('/api/prices/products', { cache: 'no-store' }),
+          fetch('/api/prices/latest', { cache: 'no-store' }),
+        ])
 
         if (!mounted) return
 
-        setProducts(productsPayload.products)
+        if (productsRes.status === 'fulfilled') {
+          if (!productsRes.value.ok) {
+            const payload = await productsRes.value.json().catch(() => ({}))
+            setProductsError(payload?.message || `Products request failed (${productsRes.value.status})`)
+          } else {
+            const productsPayload: PricesProductsResponse = await productsRes.value.json()
+            setProducts(productsPayload.products)
 
-        const visibleProducts = productsPayload.products.filter((product) => isCoffeeCommodity(product))
-        if (visibleProducts.length > 0) {
-          setSelectedKey((current) => current || visibleProducts[0].productKey)
+            const visibleProducts = productsPayload.products.filter((product) => isCoffeeCommodity(product))
+            if (visibleProducts.length > 0) {
+              setSelectedKey((current) => current || visibleProducts[0].productKey)
+            }
+            setProductsError(null)
+          }
+        } else {
+          setProductsError(productsRes.reason instanceof Error ? productsRes.reason.message : 'Failed to load price dashboard data.')
         }
 
-        await loadLatestData()
+        if (latestRes.status === 'fulfilled') {
+          if (!latestRes.value.ok) {
+            const payload = await latestRes.value.json().catch(() => ({}))
+            setLatestError(payload?.message || `Latest request failed (${latestRes.value.status})`)
+          } else {
+            const latestPayload: PricesLatestResponse = await latestRes.value.json()
+            setLatest(latestPayload)
+            setLatestError(null)
+          }
+        } else {
+          setLatestError(latestRes.reason instanceof Error ? latestRes.reason.message : 'Failed to refresh latest prices.')
+        }
       } catch (error) {
         if (!mounted) return
         const message = error instanceof Error ? error.message : 'Failed to load price dashboard data.'
-        setProductsError(message)
-        setLatestError(message)
+        setProductsError((current) => current || message)
+        setLatestError((current) => current || message)
       } finally {
         if (!mounted) return
         setLoadingProducts(false)

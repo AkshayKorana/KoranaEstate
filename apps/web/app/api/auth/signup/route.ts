@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
@@ -13,8 +14,7 @@ export async function POST(request: NextRequest) {
     const fullName = typeof body?.name === 'string' ? body.name.trim() : ''
     const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
     const password = typeof body?.password === 'string' ? body.password : ''
-
-    console.log('Signup API:', `${API_BASE}/auth/signup`)
+    const role = body?.role === 'SELLER' ? 'SELLER' : 'BUYER'
 
     const upstream = await fetch(`${API_BASE}/auth/signup`, {
       method: 'POST',
@@ -23,29 +23,20 @@ export async function POST(request: NextRequest) {
         email,
         password,
         fullName,
-        role: 'BUYER',
+        role,
       }),
       cache: 'no-store',
     })
 
     const text = await upstream.text()
-    let payload: unknown = {}
-
-    try {
-      payload = text ? JSON.parse(text) : {}
-    } catch {
-      payload = {}
-    }
+    const payload = parseJsonSafely<{ user?: unknown; message?: unknown; error?: unknown }>(text) ?? {}
 
     if (!upstream.ok) {
-      const error =
-        (payload as { message?: string; error?: string })?.message ||
-        (payload as { error?: string })?.error ||
-        'Signup failed.'
+      const error = extractMessage(payload) || 'Signup failed.'
       return NextResponse.json({ error }, { status: upstream.status })
     }
 
-    const user = (payload as { user?: unknown })?.user
+    const user = payload.user
     return NextResponse.json({ user }, { status: 201 })
   } catch (error) {
     console.error('apps/web signup proxy failed', error)

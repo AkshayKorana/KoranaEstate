@@ -39,7 +39,8 @@ export default function LoginForm({ onForgotPassword }: LoginFormProps) {
         return
       }
 
-      router.push(result.url || callbackUrl)
+      router.replace(result.url || callbackUrl)
+      router.refresh()
     } catch {
       setIsLoading(false)
       setError(t('Sign in failed. Please try again.', 'ಸೈನ್ ಇನ್ ವಿಫಲವಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.'))

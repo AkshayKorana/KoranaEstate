@@ -4,9 +4,7 @@ import { FormEvent, useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useLanguage } from '@/app/language-context'
-
-const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
+import { extractErrorMessage } from '@/app/lib/api-errors'
 
 export default function SignUpForm() {
   const { t } = useLanguage()
@@ -15,6 +13,7 @@ export default function SignUpForm() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [role, setRole] = useState<'BUYER' | 'SELLER'>('BUYER')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [isDuplicateEmailError, setIsDuplicateEmailError] = useState(false)
@@ -29,41 +28,19 @@ export default function SignUpForm() {
     const fullName = name.trim()
 
     try {
-      if (!API_BASE) {
-        setError(t('Signup is unavailable right now. Please try again later.', 'ಸೈನ್ ಅಪ್ ಈಗ ಲಭ್ಯವಿಲ್ಲ. ದಯವಿಟ್ಟು ನಂತರ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.'))
-        setIsLoading(false)
-        return
-      }
-
-      console.log('Signup API:', `${API_BASE}/auth/signup`)
-
-      const registerRes = await fetch(`${API_BASE}/auth/signup`, {
+      const registerRes = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          fullName,
+          name: fullName,
           email: normalizedEmail,
           password,
+          role,
         }),
       })
 
-      const registerText = await registerRes.text()
-      let registerData: Record<string, unknown> = {}
-
-      try {
-        registerData = registerText ? JSON.parse(registerText) : {}
-      } catch {
-        registerData = {}
-      }
-
       if (!registerRes.ok) {
-        const backendMessage = (
-          Array.isArray(registerData?.message)
-            ? registerData.message.join(', ')
-            : registerData?.message || registerData?.error || registerText
-        )
-          ?.toString()
-          .trim()
+        const backendMessage = await extractErrorMessage(registerRes)
 
         const duplicateEmail =
           registerRes.status === 409 ||
@@ -105,7 +82,8 @@ export default function SignUpForm() {
       }
 
       setIsLoading(false)
-      router.push(loginResult.url || '/')
+      router.replace(loginResult.url || '/')
+      router.refresh()
     } catch {
       setIsLoading(false)
       setError(t('Signup failed. Please try again.', 'ಸೈನ್ ಅಪ್ ವಿಫಲವಾಗಿದೆ. ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.'))
@@ -130,6 +108,24 @@ export default function SignUpForm() {
           className="lux-input mt-1 w-full rounded-xl px-3 py-2 text-sm"
           placeholder={t('Akshay Korana', 'ಅಕ್ಷಯ್ ಕೊರಾನಾ')}
         />
+      </div>
+
+      <div>
+        <label
+          htmlFor="signup-role"
+          className="block text-sm font-medium text-[#2f2f2f] dark:text-[#dbcdbb]"
+        >
+          {t('Account Type', 'ಖಾತೆ ಪ್ರಕಾರ')}
+        </label>
+        <select
+          id="signup-role"
+          value={role}
+          onChange={(e) => setRole((e.target.value as 'BUYER' | 'SELLER') || 'BUYER')}
+          className="lux-input mt-1 w-full rounded-xl px-3 py-2 text-sm"
+        >
+          <option value="BUYER">{t('Buyer', 'ಖರೀದಿದಾರ')}</option>
+          <option value="SELLER">{t('Seller', 'ಮಾರಾಟಗಾರ')}</option>
+        </select>
       </div>
 
       <div>
