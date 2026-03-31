@@ -409,6 +409,7 @@ export class PricesService {
   assertCronAuthorized(request: Request) {
     const secret = process.env.CRON_SECRET
     if (!secret) {
+      this.logger.error('Price pipeline authorization failed because CRON_SECRET is not configured on server.')
       throw new UnauthorizedException('CRON_SECRET is not configured on server.')
     }
 
@@ -420,6 +421,9 @@ export class PricesService {
     const cronHeader = Array.isArray(rawHeader) ? rawHeader[0] : rawHeader
 
     if (bearerToken !== secret && cronHeader !== secret) {
+      this.logger.warn(
+        `Price pipeline authorization failed for ip=${request.ip || 'unknown'} userAgent=${request.get('user-agent') || 'unknown'}`,
+      )
       throw new UnauthorizedException('Invalid CRON secret.')
     }
   }
@@ -841,6 +845,10 @@ export class PricesService {
       throw new BadRequestException('runAt must be a valid ISO date-time string.')
     }
 
+    this.logger.log(
+      `Starting prices ingest trigger=${trigger} runAt=${runAt.toISOString()} results=${dto.results.length} errors=${dto.errors?.length ?? 0}`,
+    )
+
     const ingestMetadata = this.asRecord(dto.metadata)
     const carryForwardProductKeys = new Set(this.asStringArray(ingestMetadata?.carryForwardProductKeys) || [])
     const products = await this.getEnabledProducts()
@@ -1064,6 +1072,10 @@ export class PricesService {
         },
       })
     })
+
+    this.logger.log(
+      `Price DB write completed runId=${run.id} status=${run.status} success=${run.successfulCount} failed=${run.failedCount} carryForward=${carryForwardProductKeys.size}`,
+    )
 
     const sortedObservations = [...run.observations].sort(
       (a, b) => a.product.displayOrder - b.product.displayOrder || a.product.productKey.localeCompare(b.product.productKey)

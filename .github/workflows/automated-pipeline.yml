@@ -5,19 +5,17 @@ on:
     - cron: '30 3 * * *'
   workflow_dispatch:
 
+env:
+  PRODUCTION_BACKEND_URL: https://koranaestate.onrender.com
+
 jobs:
   run-pipeline:
     runs-on: ubuntu-latest
     steps:
-      - name: Validate required secrets
+      - name: Validate required scheduler secret
         env:
-          BACKEND_URL: ${{ secrets.BACKEND_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          if [ -z "$BACKEND_URL" ]; then
-            echo "Missing required secret: BACKEND_URL"
-            exit 1
-          fi
           if [ -z "$CRON_SECRET" ]; then
             echo "Missing required secret: CRON_SECRET"
             exit 1
@@ -25,11 +23,15 @@ jobs:
 
       - name: Trigger production pipeline API
         env:
-          BACKEND_URL: ${{ secrets.BACKEND_URL }}
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
-          BACKEND_BASE="${BACKEND_URL%/}"
+          BACKEND_BASE="${PRODUCTION_BACKEND_URL%/}"
+          TARGET_URL="$BACKEND_BASE/api/v1/jobs/prices/run"
+          echo "Triggering daily pipeline at $TARGET_URL"
           curl --fail --show-error --silent \
-            -X POST "$BACKEND_BASE/api/v1/jobs/prices/run" \
+            --retry 2 \
+            --retry-delay 5 \
+            --max-time 300 \
+            -X POST "$TARGET_URL" \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" | tee /tmp/pipeline.json

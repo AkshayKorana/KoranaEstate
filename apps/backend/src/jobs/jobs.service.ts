@@ -52,6 +52,14 @@ const PRICES_SCHEDULE_CRON = process.env.PRICES_SCHEDULE_CRON || '0 9 * * *'
 export class JobsService {
   private readonly logger = new Logger(JobsService.name)
   private activeRun: Promise<unknown> | null = null
+  private readonly internalSchedulerEnabled = (() => {
+    const raw = process.env.PRICES_INTERNAL_SCHEDULER_ENABLED
+    if (typeof raw === 'string') {
+      return raw.toLowerCase() === 'true'
+    }
+
+    return process.env.NODE_ENV !== 'production'
+  })()
 
   constructor(
     private readonly pricesService: PricesService,
@@ -264,8 +272,18 @@ export class JobsService {
     timeZone: PRICES_SCHEDULE_TIMEZONE,
   })
   async handleDailyPriceRun() {
+    if (!this.internalSchedulerEnabled) {
+      this.logger.log(
+        'Skipping internal prices cron because PRICES_INTERNAL_SCHEDULER_ENABLED is false. Production should use the external scheduler hitting /api/v1/jobs/prices/run.',
+      )
+      return
+    }
+
     const scheduledRunAt = this.scheduleRunAt()
     try {
+      this.logger.log(
+        `Internal daily price scheduler triggered runAt=${scheduledRunAt.toISOString()} cron=${PRICES_SCHEDULE_CRON} timezone=${PRICES_SCHEDULE_TIMEZONE}`,
+      )
       await this.runPriceScraper({
         trigger: 'daily-scheduler',
         runAtOverride: scheduledRunAt,
@@ -287,6 +305,10 @@ export class JobsService {
     const startedAt = new Date()
     const effectiveRunAt = options.runAtOverride ?? startedAt
     const deadlineAt = startedAt.getTime() + config.maxTotalDurationMs
+
+    this.logger.log(
+      `Starting price pipeline trigger=${trigger} dryRun=${dryRun} runAt=${effectiveRunAt.toISOString()} internalSchedulerEnabled=${this.internalSchedulerEnabled}`,
+    )
 
     if (this.activeRun) {
       return {
@@ -454,6 +476,21 @@ export class JobsService {
           },
           trigger,
           dryRun,
+        )
+
+        const ingestRunId =
+          ingest && typeof ingest === 'object' && 'run' in ingest && ingest.run && typeof ingest.run === 'object' && 'id' in ingest.run
+            ? String(ingest.run.id)
+            : null
+        const ingestRunStatus =
+          ingest && typeof ingest === 'object' && 'run' in ingest && ingest.run && typeof ingest.run === 'object' && 'status' in ingest.run
+            ? String(ingest.run.status)
+            : dryRun
+              ? 'DRY_RUN'
+              : null
+
+        this.logger.log(
+          `Ingest completed trigger=${trigger} dryRun=${dryRun} runId=${ingestRunId ?? 'n/a'} runStatus=${ingestRunStatus ?? 'n/a'}`,
         )
 
         this.logger.log(

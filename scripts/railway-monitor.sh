@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DOMAIN="${RAILWAY_BACKEND_DOMAIN:-https://koranaestate-production.up.railway.app}"
+DOMAIN="${RAILWAY_BACKEND_DOMAIN:-https://koranaestate.onrender.com}"
 HEALTH_URL="${DOMAIN%/}/api/v1/health"
 MODE="${1:-both}"
 
