@@ -27,6 +27,14 @@ function createEmptyCustomerDetails(fullName = ''): OrderCustomerDetails {
   }
 }
 
+function extractOrderResponse(payload: unknown) {
+  if (!payload || typeof payload !== 'object') {
+    return null
+  }
+
+  return (payload as { order?: { id?: string } }).order ?? null
+}
+
 export default function StorePage() {
   const router = useRouter()
   const { data: session, status } = useSession({
@@ -148,7 +156,12 @@ export default function StorePage() {
       return
     }
 
-    if (!selectedProduct) return
+    if (!selectedProduct) {
+      setOrderErrors({
+        form: t('Please reopen the order modal and try again.', 'ದಯವಿಟ್ಟು ಆರ್ಡರ್ ಮೋಡಲ್ ಅನ್ನು ಮತ್ತೆ ತೆರೆಯಿರಿ ಮತ್ತು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.'),
+      })
+      return
+    }
 
     const nextErrors: Partial<Record<keyof OrderCustomerDetails | 'quantity' | 'form', string>> = {}
     if (orderData.quantity < 1) {
@@ -171,6 +184,10 @@ export default function StorePage() {
       nextErrors.pincode = t('Enter a valid 6-digit pincode', 'ಮಾನ್ಯ 6 ಅಂಕೆಯ ಪಿನ್‌ಕೋಡ್ ನಮೂದಿಸಿ')
     }
 
+    if (Object.keys(nextErrors).length > 0) {
+      nextErrors.form = t('Please correct the highlighted fields before placing your order.', 'ನಿಮ್ಮ ಆರ್ಡರ್ ಮಾಡುವ ಮೊದಲು ಗುರುತಿಸಿದ ಕ್ಷೇತ್ರಗಳನ್ನು ಸರಿಪಡಿಸಿ.')
+    }
+
     setOrderErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) {
       return
@@ -178,15 +195,22 @@ export default function StorePage() {
 
     try {
       setSubmittingOrder(true)
+      setOrderErrors({})
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData)
+        body: JSON.stringify({
+          productId: selectedProduct.id,
+          quantity: orderData.quantity,
+          customer: orderData.customer,
+        })
       })
 
+      const payload = await res.json().catch(() => null)
+
       if (res.ok) {
-        const data = await res.json()
-        if (!data?.order?.id) {
+        const order = extractOrderResponse(payload)
+        if (!order?.id) {
           setOrderErrors((current) => ({
             ...current,
             form: t('Order was created but confirmation could not be loaded.', 'ಆರ್ಡರ್ ರಚಿಸಲಾಗಿದೆ ಆದರೆ ದೃಢೀಕರಣವನ್ನು ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ.'),
@@ -201,10 +225,12 @@ export default function StorePage() {
         })
         setOrderErrors({})
         fetchProducts()
-        router.push(`/orders/${data.order.id}`)
+        router.push(`/orders/${order.id}`)
       } else {
         const errorMessage =
-          (await extractErrorMessage(res)) || t('Failed to place COD order', 'COD ಆರ್ಡರ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ')
+          (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string' ? payload.error : null) ||
+          (payload && typeof payload === 'object' && 'message' in payload && typeof payload.message === 'string' ? payload.message : null) ||
+          t('Failed to place COD order', 'COD ಆರ್ಡರ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ')
         setOrderErrors((current) => ({
           ...current,
           form: errorMessage,
@@ -637,7 +663,7 @@ export default function StorePage() {
               </div>
             </div>
 
-            <form onSubmit={handlePlaceOrder} className="space-y-6">
+            <form noValidate onSubmit={handlePlaceOrder} className="space-y-6">
               <section className="surface-app-panel rounded-2xl p-5">
                 <div className="flex flex-col gap-5 md:flex-row md:items-start">
                   <div className="h-28 w-28 overflow-hidden rounded-2xl bg-gradient-to-br from-amber-100 via-yellow-50 to-emerald-50 flex items-center justify-center">

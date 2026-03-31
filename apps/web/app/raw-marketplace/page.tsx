@@ -27,6 +27,14 @@ function createEmptyCustomerDetails(fullName = ''): OrderCustomerDetails {
   }
 }
 
+function extractOrderResponse(payload: unknown) {
+  if (!payload || typeof payload !== 'object') {
+    return null
+  }
+
+  return (payload as { order?: { id?: string } }).order ?? null
+}
+
 export default function RawMarketplacePage() {
   const router = useRouter()
   const { data: session, status } = useSession({
@@ -171,7 +179,12 @@ export default function RawMarketplacePage() {
       return
     }
 
-    if (!selectedListing) return
+    if (!selectedListing) {
+      setCodErrors({
+        form: t('Please reopen the COD modal and try again.', 'ದಯವಿಟ್ಟು COD ಮೋಡಲ್ ಅನ್ನು ಮತ್ತೆ ತೆರೆಯಿರಿ ಮತ್ತು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.'),
+      })
+      return
+    }
 
     const nextErrors: Partial<Record<keyof OrderCustomerDetails | 'quantityKg' | 'form', string>> = {}
     if (codOrderData.quantityKg <= 0) {
@@ -193,6 +206,10 @@ export default function RawMarketplacePage() {
       nextErrors.pincode = t('Enter a valid 6-digit pincode', 'ಮಾನ್ಯ 6 ಅಂಕೆಯ ಪಿನ್‌ಕೋಡ್ ನಮೂದಿಸಿ')
     }
 
+    if (Object.keys(nextErrors).length > 0) {
+      nextErrors.form = t('Please correct the highlighted fields before placing your COD order.', 'ನಿಮ್ಮ COD ಆರ್ಡರ್ ಮಾಡುವ ಮೊದಲು ಗುರುತಿಸಿದ ಕ್ಷೇತ್ರಗಳನ್ನು ಸರಿಪಡಿಸಿ.')
+    }
+
     setCodErrors(nextErrors)
     if (Object.keys(nextErrors).length > 0) {
       return
@@ -200,22 +217,28 @@ export default function RawMarketplacePage() {
 
     try {
       setSubmittingCod(true)
+      setCodErrors({})
       const res = await fetch('/api/raw/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(codOrderData),
+        body: JSON.stringify({
+          listingId: selectedListing.id,
+          quantityKg: codOrderData.quantityKg,
+          customer: codOrderData.customer,
+        }),
       })
-      const data = await res.json()
+      const payload = await res.json().catch(() => null)
 
       if (!res.ok) {
         setCodErrors((current) => ({
           ...current,
-          form: extractMessage(data) || t('Failed to place COD request', 'COD ವಿನಂತಿಯನ್ನು ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ'),
+          form: extractMessage(payload) || t('Failed to place COD request', 'COD ವಿನಂತಿಯನ್ನು ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ'),
         }))
         return
       }
 
-      if (!data?.order?.id) {
+      const order = extractOrderResponse(payload)
+      if (!order?.id) {
         setCodErrors((current) => ({
           ...current,
           form: t('Order was created but confirmation could not be loaded.', 'ಆರ್ಡರ್ ರಚಿಸಲಾಗಿದೆ ಆದರೆ ದೃಢೀಕರಣವನ್ನು ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ.'),
@@ -230,7 +253,7 @@ export default function RawMarketplacePage() {
         customer: createEmptyCustomerDetails(session?.user?.name || ''),
       })
       setCodErrors({})
-      router.push(`/orders/${data.order.id}`)
+      router.push(`/orders/${order.id}`)
     } catch (error) {
       console.error('Error placing COD request:', error)
       setCodErrors((current) => ({
@@ -732,7 +755,7 @@ export default function RawMarketplacePage() {
               </div>
             </div>
 
-            <form onSubmit={handlePlaceCodOrder} className="space-y-6">
+            <form noValidate onSubmit={handlePlaceCodOrder} className="space-y-6">
               <section className="surface-app-panel rounded-2xl p-5">
                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                   <div>
