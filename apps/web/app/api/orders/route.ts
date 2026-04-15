@@ -205,28 +205,38 @@ function mapOrder(payload: BackendOrder | null | undefined, session: Awaited<Ret
 
 export async function POST(request: NextRequest) {
   try {
+    console.log('═══════════════════════════════════════')
+    console.log('[STORE API] POST /api/orders RECEIVED')
+    
     const session = await getSession()
+    console.log('[STORE API] Session user:', session?.user?.email)
 
     const body = await request.json()
+    console.log('[STORE API] Request body:', { productId: body?.productId, quantity: body?.quantity })
+    
     const productId = typeof body?.productId === 'string' ? body.productId : ''
     const quantity = typeof body?.quantity === 'number' ? Math.floor(body.quantity) : parseInt(String(body?.quantity || ''), 10)
     const customer = normalizeCustomer(body?.customer)
 
     if (!productId || !Number.isFinite(quantity) || quantity <= 0) {
+      console.log('[STORE API] Validation failed: missing/invalid fields')
       return NextResponse.json({ error: 'Missing required fields: productId, quantity' }, { status: 400 })
     }
 
     const customerError = validateCustomer(customer)
     if (customerError) {
+      console.log('[STORE API] Customer validation failed:', customerError)
       return NextResponse.json({ error: customerError }, { status: 400 })
     }
 
+    console.log('[STORE API] Fetching products from backend...')
     const productsResult = await fetchWithAuthRetry({
       request,
       url: `${API_BASE}/store/products`,
       method: 'GET',
     })
     if ('errorResponse' in productsResult) {
+      console.log('[STORE API] Failed to fetch products')
       return productsResult.errorResponse
     }
 
@@ -235,23 +245,30 @@ export async function POST(request: NextRequest) {
 
     if (!productsResult.upstream.ok) {
       const error = Array.isArray(productsPayload) ? 'Failed to fetch products' : getApiErrorMessage(productsPayload, 'Failed to fetch products')
+      console.log('[STORE API] Products fetch returned error:', error)
       const response = NextResponse.json({ error }, { status: productsResult.upstream.status })
       return attachRefreshedSession(request, response, productsResult.authToken, productsResult.refreshed)
     }
 
     const product = (productsPayload as BackendStoreProduct[]).find((item) => item.id === productId)
     if (!product) {
+      console.log('[STORE API] Product not found:', productId)
       return NextResponse.json({ error: 'Product not found' }, { status: 404 })
     }
     if (product.isActive === false) {
+      console.log('[STORE API] Product inactive:', productId)
       return NextResponse.json({ error: 'This product is no longer available' }, { status: 400 })
     }
 
     const stock = Number(product.stock ?? 0)
     if (quantity > stock) {
+      console.log('[STORE API] Insufficient stock:', { requested: quantity, available: stock })
       return NextResponse.json({ error: `Insufficient stock. Available: ${stock}` }, { status: 400 })
     }
 
+    console.log('[STORE API] Calling backend POST /api/v1/orders...')
+    console.log('[STORE API] Payload:', { items: [{ productId, quantity }], customer })
+    
     const upstreamResult = await fetchWithAuthRetry({
       request,
       url: `${API_BASE}/orders`,
@@ -265,28 +282,39 @@ export async function POST(request: NextRequest) {
       }),
     })
     if ('errorResponse' in upstreamResult) {
+      console.log('[STORE API] Backend call failed - errorResponse')
       return upstreamResult.errorResponse
     }
 
     const text = await upstreamResult.upstream.text()
+    console.log('[STORE API] Backend response status:', upstreamResult.upstream.status)
+    console.log('[STORE API] Backend response body:', text.substring(0, 500))
+    
     const payload = parseJsonSafely<BackendOrder>(text) ?? {}
 
     if (!upstreamResult.upstream.ok) {
       const error = getApiErrorMessage(payload, 'Failed to create order')
+      console.log('[STORE API] Backend returned error:', error)
       const response = NextResponse.json({ error }, { status: upstreamResult.upstream.status })
       return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
     }
 
     const order = mapOrder(payload, session)
     if (!order) {
+      console.log('[STORE API] Failed to map order response')
       const response = NextResponse.json({ error: 'Created order response was incomplete' }, { status: 502 })
       return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
     }
 
+    console.log('[STORE API] ✅ Order created successfully:', order.id)
+    console.log('═══════════════════════════════════════')
+    
     const response = NextResponse.json({ order }, { status: 201 })
     return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
   } catch (error) {
-    console.error('apps/web orders POST failed', error)
+    console.error('═══════════════════════════════════════')
+    console.error('[STORE API] ❌ CRASH:', error)
+    console.error('═══════════════════════════════════════')
     return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
   }
 }
