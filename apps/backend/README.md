@@ -157,3 +157,159 @@ npm run prisma:generate
 npm run prisma:migrate
 npm run dev
 ```
+
+## COD Order Notifications
+
+### Overview
+
+When a COD (Cash on Delivery) order is successfully created, the system triggers non-blocking notifications:
+
+1. **Email**: Admin notification via SMTP (Gmail or custom)
+2. **Google Sheets**: Automatic CRM logging to Google Sheets
+
+Both notifications are **completely optional** and **non-blocking**. If either fails, the order still succeeds.
+
+### Email Notification
+
+#### Configuration
+
+Add to `.env`:
+
+```bash
+# SMTP Configuration (Gmail example)
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_USER=your-email@gmail.com
+EMAIL_PASS=your-app-password
+ADMIN_EMAIL=admin@example.com
+```
+
+**Gmail Setup:**
+
+1. Enable 2-factor authentication on your Google account
+2. Go to https://myaccount.google.com/apppasswords
+3. Generate an app-specific password
+4. Use that as `EMAIL_PASS` (16 characters, no spaces)
+
+**Self-hosted SMTP:**
+
+Replace `EMAIL_HOST` and `EMAIL_PORT` with your SMTP server details.
+
+**Default behavior:**
+
+- If `EMAIL_HOST` is not set, defaults to `smtp.gmail.com` on port 587
+- If any credential is missing, email notifications are skipped (logged as warning)
+
+#### What gets sent
+
+Email includes:
+
+```
+Order ID
+Product / Listing ID
+Quantity
+Customer Name
+Phone Number
+Full Address (City, State, Pincode)
+Order Notes (if any)
+```
+
+Subject: `🛒 New COD Order Received - <Order ID>`
+
+### Google Sheets Logging
+
+#### Configuration
+
+Add to `.env`:
+
+```bash
+GOOGLE_SHEETS_ID=your-spreadsheet-id
+GOOGLE_SERVICE_ACCOUNT_EMAIL=your-service-account@project.iam.gserviceaccount.com
+GOOGLE_PRIVATE_KEY=-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n
+```
+
+**Setup (one-time):**
+
+1. Create a Google Cloud project
+2. Create a service account
+3. Generate a JSON key
+4. Share the Google Sheet with the service account email (Editor role)
+5. Extract `GOOGLE_SHEETS_ID` from the sheet URL
+6. Copy `client_email` and `private_key` from the JSON key to `.env`
+
+**Note:** Newlines in the private key should be represented as `\n` in the `.env` file. The system automatically converts them at runtime.
+
+**Default behavior:**
+
+- If any credential is missing, sheet logging is skipped (logged as warning)
+- Failures never block order creation
+
+#### Sheet Columns
+
+The system appends rows with columns in this order:
+
+1. **Timestamp** - ISO 8601 format
+2. **Order ID**
+3. **Product / Listing ID**
+4. **Quantity** (units or kg)
+5. **Customer Name**
+6. **Phone**
+7. **Full Address**
+8. **City**
+9. **State**
+10. **Pincode**
+11. **Order Note**
+
+### Debugging
+
+All notification events are logged to stdout with the prefix `[Notification]`:
+
+```
+[Notification] Triggered for orderId=12345
+[Notification] Sending email for orderId=12345 to admin@example.com
+[Notification] Email sent successfully for orderId=12345
+[Notification] Appending to Google Sheets for orderId=12345
+[Notification] Google Sheets updated successfully for orderId=12345
+```
+
+**Error logs:**
+
+```
+[Notification] EMAIL_PASS not configured. Skipping email for orderId=12345
+[Notification] Email failed for orderId=12345: <error message>
+[Notification] Google Sheets update failed for orderId=12345: <error message>
+```
+
+### Testing
+
+#### Without configuration
+
+Place an order with no email/sheets env vars → Order succeeds, notifications skipped (warnings logged)
+
+#### With email only
+
+Place an order → Email received, sheet skipped (warning logged)
+
+#### With both
+
+Place an order → Email + sheet updated instantly
+
+#### Failure mode
+
+Break email config intentionally → Order succeeds, email fails (error logged), sheet still appends
+
+### Non-blocking Guarantee
+
+The notification layer uses `Promise.allSettled()`:
+
+```javascript
+void this.notificationService.notifyOrderCreated(order)
+```
+
+This means:
+
+- Notifications run in the background
+- Order returns to user immediately
+- Failures never block the main flow
+- Both email and sheets are attempted simultaneously
+

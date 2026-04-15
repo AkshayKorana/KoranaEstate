@@ -1,6 +1,7 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { DisputeStatus, OrderPaymentMethod, OrderSourceType, OrderStatus, PayoutStatus } from '@prisma/client'
 import { PrismaService } from '../prisma/prisma.service'
+import { NotificationService } from '../notifications/notification.service'
 import { CreateRawMarketplaceOrderDto } from './dto/create-raw-marketplace-order.dto'
 import { CreateDisputeDto } from './dto/create-dispute.dto'
 import { CreateOrderDto } from './dto/create-order.dto'
@@ -10,7 +11,10 @@ import { UpdateCommissionRateDto } from './dto/update-commission-rate.dto'
 
 @Injectable()
 export class OrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationService: NotificationService,
+  ) {}
 
   private orderInclude = {
     buyer: { select: { id: true, fullName: true, email: true } },
@@ -118,7 +122,7 @@ export class OrdersService {
     const sellerPayout = totalAmount - platformFee
     const primaryItem = normalizedItems[0]
 
-    return this.prisma.order.create({
+    const order = await this.prisma.order.create({
       data: {
         buyerId,
         sourceType: OrderSourceType.STORE,
@@ -149,6 +153,9 @@ export class OrdersService {
       },
       include: this.orderInclude,
     })
+
+    void this.notificationService.notifyOrderCreated(order)
+    return order
   }
 
   async createRawMarketplaceOrder(buyerId: string, dto: CreateRawMarketplaceOrderDto) {
@@ -178,7 +185,7 @@ export class OrdersService {
     const platformFee = totalAmount * commissionRate
     const sellerPayout = totalAmount - platformFee
 
-    return this.prisma.order.create({
+    const order = await this.prisma.order.create({
       data: {
         buyerId,
         sourceType: OrderSourceType.RAW_MARKETPLACE,
@@ -202,6 +209,9 @@ export class OrdersService {
       },
       include: this.orderInclude,
     })
+
+    void this.notificationService.notifyOrderCreated(order)
+    return order
   }
 
   listBuyerOrders(buyerId: string) {
