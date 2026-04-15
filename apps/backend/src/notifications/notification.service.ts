@@ -188,6 +188,15 @@ export class NotificationService {
   }
 
   async notifyOrderCreated(order: OrderNotificationPayload) {
+    console.log('🚀 [Notification] ENTERED notifyOrderCreated')
+    console.log('[Notification] Order ID:', order?.id)
+    
+    console.log('[Notification Config]', {
+      ADMIN_EMAIL: process.env.ADMIN_EMAIL,
+      EMAIL_USER: process.env.EMAIL_USER,
+      EMAIL_PASS: process.env.EMAIL_PASS ? 'SET' : 'MISSING',
+    })
+
     const startTime = Date.now()
     const customer = (order as any).customer || {}
 
@@ -210,8 +219,10 @@ export class NotificationService {
 
       console.log(`[Notification] Email notification ${emailResult.status === 'fulfilled' ? '✓ fulfilled' : '✗ rejected'} for orderId=${order.id}`)
       console.log(`[Notification] Sheets notification ${sheetsResult.status === 'fulfilled' ? '✓ fulfilled' : '✗ rejected'} for orderId=${order.id}`)
+      console.log('[Notification] DONE')
       console.log(`[Notification] Completed for orderId=${order.id} in ${Date.now() - startTime}ms`)
     } catch (error) {
+      console.error(`[Notification] CRASHED:`, error)
       console.error(`[Notification] Unexpected error in notifyOrderCreated for orderId=${order.id}:`, error)
       this.logger.error(`Notification failed for order=${order.id}: ${error instanceof Error ? error.message : String(error)}`)
       console.log(`[Notification] Completed for orderId=${order.id} in ${Date.now() - startTime}ms`)

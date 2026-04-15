@@ -154,7 +154,21 @@ export class OrdersService {
       include: this.orderInclude,
     })
 
-    void this.notificationService.notifyOrderCreated(order)
+    console.log('==============================')
+    console.log('[ORDER FLOW START]')
+    console.log('[Order] ID:', order.id)
+    console.log('[Order] Triggering notification...')
+    
+    try {
+      void this.notificationService.notifyOrderCreated(order)
+      console.log('[Order] Notification function CALLED')
+    } catch (err) {
+      console.error('[Order] Notification FAILED TO CALL', err)
+    }
+    
+    console.log('[ORDER FLOW END]')
+    console.log('==============================')
+    
     return order
   }
 
@@ -210,7 +224,21 @@ export class OrdersService {
       include: this.orderInclude,
     })
 
-    void this.notificationService.notifyOrderCreated(order)
+    console.log('==============================')
+    console.log('[ORDER FLOW START]')
+    console.log('[Order] ID:', order.id)
+    console.log('[Order] Triggering notification...')
+    
+    try {
+      void this.notificationService.notifyOrderCreated(order)
+      console.log('[Order] Notification function CALLED')
+    } catch (err) {
+      console.error('[Order] Notification FAILED TO CALL', err)
+    }
+    
+    console.log('[ORDER FLOW END]')
+    console.log('==============================')
+    
     return order
   }
 
