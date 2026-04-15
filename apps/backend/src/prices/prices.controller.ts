@@ -25,7 +25,7 @@ export class PricesController {
 
   @Get('latest')
   @Header('Cache-Control', 'no-store')
-  @ApiOperation({ summary: 'Get latest run and per-product latest values.' })
+  @ApiOperation({ summary: 'Get latest run and per-product latest values from DB only.' })
   @ApiOkResponse({ description: 'Latest run payload returned.' })
   latest() {
     return this.pricesService.latest()

@@ -39,7 +39,8 @@ RUN npm install
 RUN npx prisma generate
 RUN npm run build
 
-RUN /app/services/price-collector/setup.sh
+RUN python3 -m pip install --no-cache-dir -r /app/services/price-collector/requirements.txt
+RUN python3 -m playwright install
 EXPOSE 4000
 
 CMD ["node", "dist/src/main.js"]

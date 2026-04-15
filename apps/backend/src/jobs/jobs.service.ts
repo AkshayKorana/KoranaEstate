@@ -47,6 +47,12 @@ type RunPriceScraperOptions = {
 
 const PRICES_SCHEDULE_TIMEZONE = process.env.PRICES_SCHEDULE_TIMEZONE || 'Asia/Kolkata'
 const PRICES_SCHEDULE_CRON = process.env.PRICES_SCHEDULE_CRON || '0 9 * * *'
+const COFFEE_PRODUCT_KEYS = new Set([
+  'arabica_parchment',
+  'arabica_cherry',
+  'robusta_parchment',
+  'robusta_cherry',
+])
 
 @Injectable()
 export class JobsService {
@@ -117,6 +123,78 @@ export class JobsService {
 
   private tail(text: string, maxChars = 2000) {
     return text.length > maxChars ? text.slice(-maxChars) : text
+  }
+
+  private emitScraperMilestones(stderr: string) {
+    const lines = stderr
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter(Boolean)
+
+    for (const line of lines) {
+      if (line === 'PDF downloaded') {
+        this.logger.log('PDF downloaded')
+      } else if (line === 'PDF parsed') {
+        this.logger.log('PDF parsed')
+      } else if (line.includes('Prices extracted:')) {
+        this.logger.log(line)
+      }
+    }
+  }
+
+  private async buildCoffeeBoardFailurePayload(runAt: Date, reason: string): Promise<ScraperOutput> {
+    const products = await this.pricesService.getEnabledProducts()
+
+    return {
+      source: 'Coffee Board India',
+      fetchedAt: runAt.toISOString(),
+      items: products.map((product) => ({
+        productKey: product.productKey,
+        displayName: product.displayName,
+        value: null,
+        unit: 'INR/kg',
+        status: 'FAILED',
+        reason: COFFEE_PRODUCT_KEYS.has(product.productKey)
+          ? 'COFFEE_BOARD_REPORT_FETCH_FAILED'
+          : 'UNSUPPORTED_SOURCE',
+        source: 'Coffee Board India',
+        sourceUrl: 'https://coffeeboard.gov.in/Market_Info.aspx',
+        rawText: null,
+        confidence: null,
+        error: COFFEE_PRODUCT_KEYS.has(product.productKey)
+          ? reason
+          : 'Commodity pipeline is restricted to Coffee Board India only.',
+        metadata: {
+          reportSourceLabel: 'Coffee Board India',
+          reportSourceUrl: 'https://coffeeboard.gov.in/Market_Info.aspx',
+          reportStatus: 'FETCH_FAILED',
+          lastCheckedAt: runAt.toISOString(),
+          carryingForwardPreviousReport: false,
+          valuesAlreadyNormalized: true,
+        },
+      })),
+      errors: products.map((product) => ({
+        productKey: product.productKey,
+        error: COFFEE_PRODUCT_KEYS.has(product.productKey)
+          ? reason
+          : 'Commodity pipeline is restricted to Coffee Board India only.',
+        sourceUrl: 'https://coffeeboard.gov.in/Market_Info.aspx',
+        source: 'Coffee Board India',
+        capturedAt: runAt.toISOString(),
+      })),
+      metadata: {
+        coffeeBoard: {
+          reportStatus: 'FETCH_FAILED',
+          reportFound: false,
+          newReportDetected: false,
+          usedPreviousSnapshot: true,
+          checkedAt: runAt.toISOString(),
+          reportSourceLabel: 'Coffee Board India',
+          reportSourceUrl: 'https://coffeeboard.gov.in/Market_Info.aspx',
+          reason,
+        },
+      },
+    }
   }
 
   private terminateProcessGroup(pid: number | undefined, signal: NodeJS.Signals) {
@@ -392,6 +470,7 @@ export class JobsService {
           const result = await this.runPythonScript(config, attemptNumber, attemptTimeoutMs)
           if (result.ok) {
             execution = result
+            this.emitScraperMilestones(result.stderr)
             this.logger.log(
               `Scraper attempt ${attemptNumber} succeeded in ${result.durationMs}ms with ${result.payload.items?.length ?? 0} items.`,
             )
@@ -424,26 +503,65 @@ export class JobsService {
         )
 
         if (!dryRun) {
-          await this.pricesService.recordExecutionFailure({
-            runAt: effectiveRunAt,
-            trigger,
-            totalProducts: (await this.pricesService.getEnabledProducts()).length,
-            error: lastError?.error || 'Unknown scraper execution failure.',
-            scraper: {
-              attempt: lastError?.attempt ?? config.retries + 1,
-              retries: config.retries,
-              timeoutMs: config.timeoutMs,
-              maxTotalDurationMs: config.maxTotalDurationMs,
-              timedOut: lastError?.timedOut ?? false,
-              exitCode: lastError?.exitCode ?? null,
-              signal: lastError?.signal ?? null,
-              durationMs: lastError?.durationMs ?? 0,
-            },
-            logs: {
-              stdout: lastError?.stdoutTail ?? '',
-              stderr: lastError?.stderrTail ?? '',
-            },
-          })
+          try {
+            const fallbackPayload = await this.buildCoffeeBoardFailurePayload(
+              effectiveRunAt,
+              lastError?.error || 'Unknown scraper execution failure.',
+            )
+            const ingest = await this.pricesIngestService.ingestScraperOutput(
+              fallbackPayload,
+              trigger,
+              false,
+            )
+            this.logger.log(
+              `DB write completed after scraper failure via carry-forward trigger=${trigger} runStatus=${String((ingest as { run?: { status?: string } })?.run?.status ?? 'n/a')}`,
+            )
+            return {
+              ok: true,
+              mode: 'ingest',
+              carriedForward: true,
+              startedAt: startedAt.toISOString(),
+              finishedAt: new Date().toISOString(),
+              scraper: {
+                attempt: lastError?.attempt ?? config.retries + 1,
+                retries: config.retries,
+                timeoutMs: config.timeoutMs,
+                maxTotalDurationMs: config.maxTotalDurationMs,
+                timedOut: lastError?.timedOut ?? false,
+                exitCode: lastError?.exitCode ?? null,
+                signal: lastError?.signal ?? null,
+                durationMs: lastError?.durationMs ?? 0,
+              },
+              ingest,
+              logs: {
+                stdout: lastError?.stdoutTail ?? '',
+                stderr: lastError?.stderrTail ?? '',
+              },
+            }
+          } catch (carryForwardError) {
+            const err = carryForwardError instanceof Error ? carryForwardError : new Error(String(carryForwardError))
+            this.logger.error(`Carry-forward ingest failed after scraper failure: ${err.message}`, err.stack)
+            await this.pricesService.recordExecutionFailure({
+              runAt: effectiveRunAt,
+              trigger,
+              totalProducts: (await this.pricesService.getEnabledProducts()).length,
+              error: lastError?.error || 'Unknown scraper execution failure.',
+              scraper: {
+                attempt: lastError?.attempt ?? config.retries + 1,
+                retries: config.retries,
+                timeoutMs: config.timeoutMs,
+                maxTotalDurationMs: config.maxTotalDurationMs,
+                timedOut: lastError?.timedOut ?? false,
+                exitCode: lastError?.exitCode ?? null,
+                signal: lastError?.signal ?? null,
+                durationMs: lastError?.durationMs ?? 0,
+              },
+              logs: {
+                stdout: lastError?.stdoutTail ?? '',
+                stderr: lastError?.stderrTail ?? '',
+              },
+            })
+          }
         }
 
         return {

@@ -125,6 +125,50 @@ type PricesLatestResponse = {
   products: PriceLatestCard[]
 }
 
+const DEFAULT_COFFEE_PRODUCTS: PriceProduct[] = [
+  {
+    productKey: 'arabica_cherry',
+    displayName: 'Arabica Cherry',
+    unit: 'INR/kg',
+    defaultSource: 'Coffee Board India',
+    sourceUrl: 'https://coffeeboard.gov.in/Market_Info.aspx',
+    displayOrder: 1,
+    enabled: true,
+  },
+  {
+    productKey: 'arabica_parchment',
+    displayName: 'Arabica Parchment',
+    unit: 'INR/kg',
+    defaultSource: 'Coffee Board India',
+    sourceUrl: 'https://coffeeboard.gov.in/Market_Info.aspx',
+    displayOrder: 2,
+    enabled: true,
+  },
+  {
+    productKey: 'robusta_cherry',
+    displayName: 'Robusta Cherry',
+    unit: 'INR/kg',
+    defaultSource: 'Coffee Board India',
+    sourceUrl: 'https://coffeeboard.gov.in/Market_Info.aspx',
+    displayOrder: 3,
+    enabled: true,
+  },
+  {
+    productKey: 'robusta_parchment',
+    displayName: 'Robusta Parchment',
+    unit: 'INR/kg',
+    defaultSource: 'Coffee Board India',
+    sourceUrl: 'https://coffeeboard.gov.in/Market_Info.aspx',
+    displayOrder: 4,
+    enabled: true,
+  },
+]
+
+const LAST_KNOWN_PRICES_KEY = 'korana:last-known-prices'
+const DIRECT_PRICES_LATEST_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
+  ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')}/prices/latest`
+  : '/api/v1/prices/latest'
+
 type PriceHistoryPoint = {
   capturedAt: string
   status: ProductStatus
@@ -197,6 +241,27 @@ function formatDateTime(value: string | null | undefined) {
     dateStyle: 'medium',
     timeStyle: 'short',
   }).format(date)
+}
+
+async function fetchJsonWithTimeout<T>(url: string, timeoutMs: number) {
+  const controller = new AbortController()
+  const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs)
+
+  try {
+    const response = await fetch(url, {
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({} as { message?: string }))
+      throw new Error((payload as { message?: string })?.message || `Request failed (${response.status})`)
+    }
+
+    return await response.json() as T
+  } finally {
+    window.clearTimeout(timeoutId)
+  }
 }
 
 function getStatusTone(status: PipelineRunStatus) {
@@ -570,12 +635,12 @@ export default function HomePage() {
   const { t } = useLanguage()
   const { isDark } = useEffectiveTheme()
 
-  const [products, setProducts] = useState<PriceProduct[]>([])
+  const [products, setProducts] = useState<PriceProduct[]>(DEFAULT_COFFEE_PRODUCTS)
   const [latest, setLatest] = useState<PricesLatestResponse | null>(null)
-  const [selectedKey, setSelectedKey] = useState<string>('')
+  const [selectedKey, setSelectedKey] = useState<string>(DEFAULT_COFFEE_PRODUCTS[0]?.productKey || '')
   const [history, setHistory] = useState<PricesHistoryResponse | null>(null)
 
-  const [loadingProducts, setLoadingProducts] = useState(true)
+  const [loadingProducts, setLoadingProducts] = useState(false)
   const [loadingLatest, setLoadingLatest] = useState(true)
   const [loadingHistory, setLoadingHistory] = useState(false)
 
@@ -586,21 +651,32 @@ export default function HomePage() {
   useEffect(() => {
     let mounted = true
 
+    try {
+      const cached = window.localStorage.getItem(LAST_KNOWN_PRICES_KEY)
+      if (cached) {
+        const parsed = JSON.parse(cached) as PricesLatestResponse
+        if (parsed?.products?.length) {
+          setLatest(parsed)
+        }
+      }
+    } catch {
+      // Ignore stale local cache and continue with a live refresh.
+    }
+
     async function loadLatestData() {
       try {
-        const latestRes = await fetch('/api/prices/latest', { cache: 'no-store' })
-        if (!latestRes.ok) {
-          const payload = await latestRes.json().catch(() => ({}))
-          throw new Error(payload?.message || `Latest request failed (${latestRes.status})`)
-        }
-
-        const latestPayload: PricesLatestResponse = await latestRes.json()
+        const latestPayload = await fetchJsonWithTimeout<PricesLatestResponse>(DIRECT_PRICES_LATEST_URL, 3_000)
         if (!mounted) return
         setLatest(latestPayload)
         setLatestError(null)
+        window.localStorage.setItem(LAST_KNOWN_PRICES_KEY, JSON.stringify(latestPayload))
       } catch (error) {
         if (!mounted) return
-        const message = error instanceof Error ? error.message : 'Failed to refresh latest prices.'
+        const message = error instanceof Error && error.name === 'AbortError'
+          ? 'Latest prices request timed out after 3 seconds.'
+          : error instanceof Error
+            ? error.message
+            : 'Failed to refresh latest prices.'
         setLatestError(message)
       } finally {
         if (!mounted) return
@@ -608,64 +684,38 @@ export default function HomePage() {
       }
     }
 
-    async function load() {
+    async function loadProducts() {
       setLoadingProducts(true)
-      setLoadingLatest(true)
       setProductsError(null)
-      setLatestError(null)
 
       try {
-        const [productsRes, latestRes] = await Promise.allSettled([
-          fetch('/api/prices/products', { cache: 'no-store' }),
-          fetch('/api/prices/latest', { cache: 'no-store' }),
-        ])
-
+        const productsPayload = await fetchJsonWithTimeout<PricesProductsResponse>('/api/prices/products', 3_000)
         if (!mounted) return
-
-        if (productsRes.status === 'fulfilled') {
-          if (!productsRes.value.ok) {
-            const payload = await productsRes.value.json().catch(() => ({}))
-            setProductsError(payload?.message || `Products request failed (${productsRes.value.status})`)
-          } else {
-            const productsPayload: PricesProductsResponse = await productsRes.value.json()
-            setProducts(productsPayload.products)
-
-            const visibleProducts = productsPayload.products.filter((product) => isCoffeeCommodity(product))
-            if (visibleProducts.length > 0) {
-              setSelectedKey((current) => current || visibleProducts[0].productKey)
-            }
-            setProductsError(null)
-          }
-        } else {
-          setProductsError(productsRes.reason instanceof Error ? productsRes.reason.message : 'Failed to load price dashboard data.')
+        const coffeeProducts = productsPayload.products.filter((product) => isCoffeeCommodity(product))
+        if (coffeeProducts.length > 0) {
+          setProducts(coffeeProducts)
+          setSelectedKey((current) => current || coffeeProducts[0].productKey)
         }
-
-        if (latestRes.status === 'fulfilled') {
-          if (!latestRes.value.ok) {
-            const payload = await latestRes.value.json().catch(() => ({}))
-            setLatestError(payload?.message || `Latest request failed (${latestRes.value.status})`)
-          } else {
-            const latestPayload: PricesLatestResponse = await latestRes.value.json()
-            setLatest(latestPayload)
-            setLatestError(null)
-          }
-        } else {
-          setLatestError(latestRes.reason instanceof Error ? latestRes.reason.message : 'Failed to refresh latest prices.')
-        }
+        setProductsError(null)
       } catch (error) {
         if (!mounted) return
-        const message = error instanceof Error ? error.message : 'Failed to load price dashboard data.'
-        setProductsError((current) => current || message)
-        setLatestError((current) => current || message)
+        const message = error instanceof Error && error.name === 'AbortError'
+          ? 'Product list request timed out after 3 seconds.'
+          : error instanceof Error
+            ? error.message
+            : 'Failed to load price dashboard data.'
+        setProductsError(message)
       } finally {
         if (!mounted) return
         setLoadingProducts(false)
-        setLoadingLatest(false)
       }
     }
 
-    load()
+    setLoadingLatest(true)
+    void loadProducts()
+    void loadLatestData()
     const intervalId = window.setInterval(() => {
+      setLoadingLatest(true)
       void loadLatestData()
     }, 30_000)
 
@@ -888,6 +938,9 @@ export default function HomePage() {
     const card = latestByKey.get(product.productKey)
     return Boolean(card && isCoffeeBoardSource(card) && (card.currentPrice != null || card.value != null))
   }).length
+  const hasLatestData = coffeeCards.length > 0
+  const showPriceSkeleton = loadingLatest && !hasLatestData
+  const freshnessLabel = lastUpdated ? formatTimeAgo(lastUpdated) : 'Not available'
   const coffeeDashboardStatus = visibleProducts.length > 0 && coffeeAvailableCount === visibleProducts.length
     ? (coffeeCards.some((card) => isCoffeeBoardSource(card) && getMetadataString(card.metadata, 'reportStatus') === 'LIVE_REPORT') ? 'LIVE' : 'VERIFIED')
     : coffeeAvailableCount > 0
@@ -918,14 +971,21 @@ export default function HomePage() {
                 )}
               </p>
             </div>
-            <p className={`text-xs ${isDark ? 'text-[#d5c4b2]' : 'text-muted-safe'}`}>
-              {t('Last updated', 'ಕೊನೆಯ ನವೀಕರಣ')}: {lastUpdated ? new Date(lastUpdated).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}
-            </p>
+            <div className={`text-xs text-right ${isDark ? 'text-[#d5c4b2]' : 'text-muted-safe'}`}>
+              <p>{t('Last updated', 'ಕೊನೆಯ ನವೀಕರಣ')}: {freshnessLabel}</p>
+              <p>{lastUpdated ? new Date(lastUpdated).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '-'}</p>
+            </div>
           </div>
 
           {latest?.runHealth?.stale && (
             <div className="rounded-2xl border border-amber-300/40 bg-amber-950/25 px-4 py-3 text-sm text-amber-100">
               <span className="font-semibold">Stale data:</span> {latest.runHealth.staleReason || 'Latest successful commodity run is not fresh.'}
+            </div>
+          )}
+
+          {latest?.runHealth?.stale && (
+            <div className="rounded-2xl border border-amber-300/30 bg-amber-950/15 px-4 py-3 text-sm text-amber-100">
+              <span className="font-semibold">Using last available data.</span>
             </div>
           )}
 
@@ -935,9 +995,9 @@ export default function HomePage() {
             </div>
           )}
 
-          {(loadingProducts || loadingLatest) && (
+          {loadingLatest && !hasLatestData && (
             <div className="lux-stat rounded-xl px-4 py-3 text-sm text-[#d8e8dc]">
-              {t('Loading commodity intelligence...', 'ವಸ್ತು ಮಾಹಿತಿಯನ್ನು ಲೋಡ್ ಮಾಡಲಾಗುತ್ತಿದೆ...')}
+              {t('Refreshing coffee prices in the background...', 'ಕಾಫಿ ಬೆಲೆಗಳನ್ನು ಹಿನ್ನಲೆಯಲ್ಲಿ ರಿಫ್ರೆಶ್ ಮಾಡಲಾಗುತ್ತಿದೆ...')}
             </div>
           )}
 
@@ -947,13 +1007,13 @@ export default function HomePage() {
             </div>
           )}
 
-          {!loadingProducts && !loadingLatest && !productsError && !latestError && visibleProducts.length === 0 && (
+          {!loadingProducts && !productsError && !latestError && visibleProducts.length === 0 && (
             <div className="rounded-xl border border-amber-300/35 bg-amber-950/25 px-4 py-3 text-sm text-amber-200">
               {t('No enabled coffee commodities found. Seed products in backend first.', 'ಸಕ್ರಿಯ ಕಾಫಿ ವಸ್ತುಗಳು ಸಿಗಲಿಲ್ಲ. ಮೊದಲು ಬ್ಯಾಕೆಂಡ್‌ನಲ್ಲಿ ಸೀಡ್ ಮಾಡಿ.')}
             </div>
           )}
 
-          {!loadingProducts && !loadingLatest && !productsError && !latestError && visibleProducts.length > 0 && (
+          {!productsError && visibleProducts.length > 0 && (
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 <PipelineStatusCard
@@ -993,7 +1053,7 @@ export default function HomePage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                 {visibleProducts.map((product) => {
                   const card = latestByKey.get(product.productKey)
-                  const status = card?.status || 'FAILED'
+                  const status = !card && showPriceSkeleton ? 'LOADING' : card?.status || 'FAILED'
 
                   return (
                     <button
@@ -1024,16 +1084,25 @@ export default function HomePage() {
                           {status}
                         </span>
                       </div>
-                      <p className={`mt-2 text-2xl font-bold ${isDark ? 'text-[#f4ead9]' : 'text-card-strong'}`}>
-                        {isCoffeeCommodity(product)
-                          ? (getMetadataString(card?.metadata, 'currentRangeOriginal') || formatPrimaryCoffeePrice(card?.currentPrice ?? card?.value))
-                          : formatPrice(card?.currentPrice ?? card?.value)}
-                      </p>
-                      <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-muted-safe'}`}>
-                        {isCoffeeCommodity(product)
-                          ? (getMetadataString(card?.metadata, 'currentRangeInrPerKg') || (card?.currentPrice != null || card?.value != null ? `≈ ${formatPrice((card?.currentPrice ?? card?.value ?? 0))}/kg` : 'Not available'))
-                          : product.unit}
-                      </p>
+                      {showPriceSkeleton ? (
+                        <>
+                          <div className={`mt-3 h-8 w-36 animate-pulse rounded-lg ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
+                          <div className={`mt-2 h-4 w-24 animate-pulse rounded ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
+                        </>
+                      ) : (
+                        <>
+                          <p className={`mt-2 text-2xl font-bold ${isDark ? 'text-[#f4ead9]' : 'text-card-strong'}`}>
+                            {isCoffeeCommodity(product)
+                              ? (getMetadataString(card?.metadata, 'currentRangeOriginal') || formatPrimaryCoffeePrice(card?.currentPrice ?? card?.value))
+                              : formatPrice(card?.currentPrice ?? card?.value)}
+                          </p>
+                          <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-muted-safe'}`}>
+                            {isCoffeeCommodity(product)
+                              ? (getMetadataString(card?.metadata, 'currentRangeInrPerKg') || (card?.currentPrice != null || card?.value != null ? `≈ ${formatPrice((card?.currentPrice ?? card?.value ?? 0))}/kg` : 'Not available'))
+                              : product.unit}
+                          </p>
+                        </>
+                      )}
                       {card?.trend && <p className={`mt-1 text-xs ${isDark ? 'text-emerald-300' : 'text-emerald-700'}`}>{card.trend}</p>}
                       {card?.error && <p className={`mt-1 text-xs ${isDark ? 'text-red-300' : 'text-red-700'}`}>{card.error}</p>}
                     </button>
@@ -1070,15 +1139,33 @@ export default function HomePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
                   <div className="surface-app-panel rounded-xl p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-app-soft">{t('Current', 'ಪ್ರಸ್ತುತ')}</p>
-                    <p className="mt-2 text-3xl font-bold text-app-strong">{currentCoffeePrimaryDisplay}</p>
-                    <p className="mt-1 text-xs text-app-muted">
-                      {currentCoffeeSecondaryDisplay}
-                    </p>
+                    {showPriceSkeleton ? (
+                      <>
+                        <div className={`mt-3 h-9 w-40 animate-pulse rounded-lg ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
+                        <div className={`mt-2 h-4 w-28 animate-pulse rounded ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
+                      </>
+                    ) : (
+                      <>
+                        <p className="mt-2 text-3xl font-bold text-app-strong">{currentCoffeePrimaryDisplay}</p>
+                        <p className="mt-1 text-xs text-app-muted">
+                          {currentCoffeeSecondaryDisplay}
+                        </p>
+                      </>
+                    )}
                   </div>
                   <div className="surface-app-panel rounded-xl p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-app-soft">Midpoint</p>
-                    <p className="mt-2 text-3xl font-bold text-app-strong">{coffeeMidpointDisplay}</p>
-                    <p className="mt-1 text-xs text-app-muted">Used for continuity in charts and history</p>
+                    {showPriceSkeleton ? (
+                      <>
+                        <div className={`mt-3 h-9 w-32 animate-pulse rounded-lg ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
+                        <div className={`mt-2 h-4 w-36 animate-pulse rounded ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
+                      </>
+                    ) : (
+                      <>
+                        <p className="mt-2 text-3xl font-bold text-app-strong">{coffeeMidpointDisplay}</p>
+                        <p className="mt-1 text-xs text-app-muted">Used for continuity in charts and history</p>
+                      </>
+                    )}
                   </div>
                   <div className="surface-app-panel rounded-xl p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-app-soft">Report Status</p>

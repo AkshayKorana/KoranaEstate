@@ -124,6 +124,8 @@ export type PricesIngestResponse = {
   ok: true
   run: LatestRunResponse
   products: LatestPriceCard[]
+  skipped?: boolean
+  reason?: string
 }
 
 type IngestRow = {
@@ -153,7 +155,7 @@ export class PricesService {
   private readonly logger = new Logger(PricesService.name)
   private readonly scheduleTimezone = process.env.PRICES_SCHEDULE_TIMEZONE || 'Asia/Kolkata'
   private readonly scheduleTimeLocal = process.env.PRICES_SCHEDULE_TIME_LOCAL || '09:00'
-  private readonly staleAfterHours = Number(process.env.PRICES_STALE_AFTER_HOURS || 30)
+  private readonly staleAfterHours = Number(process.env.PRICES_STALE_AFTER_HOURS || 24)
   private readonly coffeeProductKeys = new Set([
     'arabica_parchment',
     'arabica_cherry',
@@ -386,9 +388,9 @@ export class PricesService {
 
     let staleReason: string | null = null
     if (!lastSuccessfulRunAt) {
-      staleReason = 'No successful price run has been stored yet.'
+      staleReason = 'NO_RECENT_SUCCESSFUL_RUN'
     } else if (freshnessHours != null && freshnessHours > this.staleAfterHours) {
-      staleReason = `Last successful run is older than ${this.staleAfterHours} hours.`
+      staleReason = 'NO_RECENT_SUCCESSFUL_RUN'
     } else if (latestRun?.status === PriceRunStatus.FAILED) {
       staleReason = 'Latest scheduled run failed. Dashboard may be showing older observations.'
     }
@@ -850,9 +852,35 @@ export class PricesService {
     )
 
     const ingestMetadata = this.asRecord(dto.metadata)
+    const coffeeBoardMetadata = this.asRecord(ingestMetadata?.coffeeBoard)
+    const incomingReportDateIso = this.asString(coffeeBoardMetadata?.reportDateIso)
     const carryForwardProductKeys = new Set(this.asStringArray(ingestMetadata?.carryForwardProductKeys) || [])
     const products = await this.getEnabledProducts()
     const productMap = new Map(products.map((product) => [product.productKey, product]))
+
+    if (incomingReportDateIso) {
+      const lastRun = await this.prisma.priceIngestionRun.findFirst({
+        where: {
+          status: { in: [PriceRunStatus.SUCCESS, PriceRunStatus.PARTIAL] },
+        },
+        orderBy: [{ runAt: 'desc' }, { createdAt: 'desc' }],
+      })
+      const lastPayload = this.asRecord(lastRun?.rawPayload)
+      const lastMetadata = this.asRecord(lastPayload?.metadata)
+      const lastCoffeeBoard = this.asRecord(lastMetadata?.coffeeBoard)
+      const lastReportDateIso = this.asString(lastCoffeeBoard?.reportDateIso)
+
+      if (lastRun && lastReportDateIso === incomingReportDateIso) {
+        this.logger.log(`Skipping ingest: same report date ${incomingReportDateIso} already processed`)
+        return {
+          ok: true,
+          skipped: true,
+          reason: 'Same Coffee Board report date already processed.',
+          run: this.toRunResponse(lastRun),
+          products: [],
+        }
+      }
+    }
 
     const normalizedResults = dto.results.flatMap((result) => {
       const metadata = this.asRecord(result.metadata)

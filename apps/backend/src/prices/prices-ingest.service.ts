@@ -345,7 +345,7 @@ export class PricesIngestService {
       }
       effectiveCoffeeBoardMetadata = {
         ...(effectiveCoffeeBoardMetadata || {}),
-        reportStatus: 'TEMPORARILY_USING_LAST_VERIFIED_REPORT',
+        reportStatus: 'PREVIOUS_REPORT_CARRIED_FORWARD',
         reportFound: false,
         newReportDetected: false,
         usedPreviousSnapshot: true,
@@ -355,7 +355,7 @@ export class PricesIngestService {
         carryingForwardPreviousReport: true,
       }
       this.logger.warn(
-        `Coffee Board decision=TEMPORARILY_USING_LAST_VERIFIED_REPORT storedReportDate=${latestReportDate ?? 'unknown'} reusedPreviousSnapshot=true reason=${this.asString(payloadCoffeeBoard?.reason) ?? 'unknown'}`,
+        `Coffee Board decision=PREVIOUS_REPORT_CARRIED_FORWARD storedReportDate=${latestReportDate ?? 'unknown'} reusedPreviousSnapshot=true reason=${this.asString(payloadCoffeeBoard?.reason) ?? 'unknown'}`,
       )
     } else if (payloadCoffeeBoard) {
       effectiveCoffeeBoardMetadata = {
