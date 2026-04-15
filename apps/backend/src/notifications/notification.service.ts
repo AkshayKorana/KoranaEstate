@@ -188,44 +188,28 @@ export class NotificationService {
   }
 
   async notifyOrderCreated(order: OrderNotificationPayload) {
-    console.log('🚀 [Notification] ENTERED notifyOrderCreated')
-    console.log('[Notification] Order ID:', order?.id)
+    console.log(`[Notification] Processing order ${order.id}`)
     
-    console.log('[Notification Config]', {
-      ADMIN_EMAIL: process.env.ADMIN_EMAIL,
-      EMAIL_USER: process.env.EMAIL_USER,
-      EMAIL_PASS: process.env.EMAIL_PASS ? 'SET' : 'MISSING',
-    })
+    const results = await Promise.allSettled([
+      this.sendOrderEmail(order),
+      this.appendOrderToSheet(order),
+    ])
 
-    const startTime = Date.now()
-    const customer = (order as any).customer || {}
+    const emailResult = results[0]
+    const sheetsResult = results[1]
 
-    try {
-      console.log(`[Notification] Triggered for orderId=${order.id}`)
-      console.log(`[Notification] Snapshot`, {
-        orderId: order.id,
-        productId: (order as any).productId || (order as any).listingId || 'unknown',
-        quantity: (order as any).quantity || (order as any).quantityKg || 'unknown',
-        customerName: customer.fullName || 'N/A',
-      })
-
-      const results = await Promise.allSettled([
-        this.sendOrderEmail(order),
-        this.appendOrderToSheet(order),
-      ])
-
-      const emailResult = results[0]
-      const sheetsResult = results[1]
-
-      console.log(`[Notification] Email notification ${emailResult.status === 'fulfilled' ? '✓ fulfilled' : '✗ rejected'} for orderId=${order.id}`)
-      console.log(`[Notification] Sheets notification ${sheetsResult.status === 'fulfilled' ? '✓ fulfilled' : '✗ rejected'} for orderId=${order.id}`)
-      console.log('[Notification] DONE')
-      console.log(`[Notification] Completed for orderId=${order.id} in ${Date.now() - startTime}ms`)
-    } catch (error) {
-      console.error(`[Notification] CRASHED:`, error)
-      console.error(`[Notification] Unexpected error in notifyOrderCreated for orderId=${order.id}:`, error)
-      this.logger.error(`Notification failed for order=${order.id}: ${error instanceof Error ? error.message : String(error)}`)
-      console.log(`[Notification] Completed for orderId=${order.id} in ${Date.now() - startTime}ms`)
+    if (emailResult.status === 'rejected') {
+      console.error(`[Notification] Email failed for order ${order.id}:`, emailResult.reason)
+    } else {
+      console.log(`[Notification] Email sent for order ${order.id}`)
     }
+
+    if (sheetsResult.status === 'rejected') {
+      console.error(`[Notification] Sheets failed for order ${order.id}:`, sheetsResult.reason)
+    } else {
+      console.log(`[Notification] Sheets updated for order ${order.id}`)
+    }
+
+    console.log(`[Notification] Order ${order.id} processing complete`)
   }
 }
