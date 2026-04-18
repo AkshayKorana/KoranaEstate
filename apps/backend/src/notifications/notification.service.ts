@@ -190,26 +190,9 @@ export class NotificationService {
   async notifyOrderCreated(order: OrderNotificationPayload) {
     console.log(`[Notification] Processing order ${order.id}`)
     
-    const results = await Promise.allSettled([
-      this.sendOrderEmail(order),
-      this.appendOrderToSheet(order),
-    ])
-
-    const emailResult = results[0]
-    const sheetsResult = results[1]
-
-    if (emailResult.status === 'rejected') {
-      console.error(`[Notification] Email failed for order ${order.id}:`, emailResult.reason)
-    } else {
-      console.log(`[Notification] Email sent for order ${order.id}`)
-    }
-
-    if (sheetsResult.status === 'rejected') {
-      console.error(`[Notification] Sheets failed for order ${order.id}:`, sheetsResult.reason)
-    } else {
-      console.log(`[Notification] Sheets updated for order ${order.id}`)
-    }
-
+    // Email only (Sheets disabled until config added)
+    await this.sendOrderEmail(order)
+    
     console.log(`[Notification] Order ${order.id} processing complete`)
   }
 }
