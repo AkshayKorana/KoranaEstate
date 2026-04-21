@@ -4,6 +4,7 @@ import { spawn } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { setTimeout as sleep } from 'node:timers/promises'
+import { NotificationService } from '../notifications/notification.service'
 import { PricesIngestService, type ScraperOutput } from '../prices/prices-ingest.service'
 import { PricesService } from '../prices/prices.service'
 
@@ -70,6 +71,7 @@ export class JobsService {
   constructor(
     private readonly pricesService: PricesService,
     private readonly pricesIngestService: PricesIngestService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   private scheduleRunAt(now = new Date()) {
@@ -515,7 +517,7 @@ export class JobsService {
               stderr: lastError?.stderrTail ?? '',
               stdout: lastError?.stdoutTail ?? '',
             },
-          ).catch((err) => {
+          ).catch((err: unknown) => {
             this.logger.error(`Failed to send failure alert: ${err instanceof Error ? err.message : String(err)}`)
           })
         }
@@ -604,6 +606,8 @@ export class JobsService {
         }
       }
 
+      const executionSnapshot = execution
+
       try {
         // PRODUCTION CHECK: Validate scraper output completeness
         // If any coffee price is missing/null → use fallback instead of DB corruption
@@ -690,18 +694,18 @@ export class JobsService {
             totalProducts: (await this.pricesService.getEnabledProducts()).length,
             error: `Scraper completed but ingest failed: ${err.message}`,
             scraper: {
-              attempt: execution.attempt,
+              attempt: executionSnapshot.attempt,
               retries: config.retries,
               timeoutMs: config.timeoutMs,
               maxTotalDurationMs: config.maxTotalDurationMs,
-              durationMs: execution.durationMs,
-              observations: execution.payload.items?.filter((item) => Number.isFinite(item.value)).length || 0,
-              errors: execution.payload.items?.filter((item) => !Number.isFinite(item.value)).length || 0,
-              payloadFetchedAt: execution.payload.fetchedAt,
+              durationMs: executionSnapshot.durationMs,
+              observations: executionSnapshot.payload.items?.filter((item) => Number.isFinite(item.value)).length || 0,
+              errors: executionSnapshot.payload.items?.filter((item) => !Number.isFinite(item.value)).length || 0,
+              payloadFetchedAt: executionSnapshot.payload.fetchedAt,
             },
             logs: {
-              stdout: this.tail(execution.stdout),
-              stderr: this.tail(execution.stderr),
+              stdout: this.tail(executionSnapshot.stdout),
+              stderr: this.tail(executionSnapshot.stderr),
             },
           })
         }
@@ -712,19 +716,19 @@ export class JobsService {
           finishedAt: new Date().toISOString(),
           error: `Scraper completed but ingest failed: ${err.message}`,
           scraper: {
-            attempt: execution.attempt,
+            attempt: executionSnapshot.attempt,
             retries: config.retries,
             timeoutMs: config.timeoutMs,
             maxTotalDurationMs: config.maxTotalDurationMs,
-            durationMs: execution.durationMs,
-            observations: execution.payload.items?.filter((item) => Number.isFinite(item.value)).length || 0,
-            errors: execution.payload.items?.filter((item) => !Number.isFinite(item.value)).length || 0,
+            durationMs: executionSnapshot.durationMs,
+            observations: executionSnapshot.payload.items?.filter((item) => Number.isFinite(item.value)).length || 0,
+            errors: executionSnapshot.payload.items?.filter((item) => !Number.isFinite(item.value)).length || 0,
             runAt: effectiveRunAt.toISOString(),
-            payloadFetchedAt: execution.payload.fetchedAt,
+            payloadFetchedAt: executionSnapshot.payload.fetchedAt,
           },
           logs: {
-            stdout: this.tail(execution.stdout),
-            stderr: this.tail(execution.stderr),
+            stdout: this.tail(executionSnapshot.stdout),
+            stderr: this.tail(executionSnapshot.stderr),
           },
         }
       }
