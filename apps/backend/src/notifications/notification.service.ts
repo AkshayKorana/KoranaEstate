@@ -187,6 +187,78 @@ export class NotificationService {
     }
   }
 
+  async sendScraperFailureAlert(error: string, details: {
+    trigger: string
+    runAt: string
+    attempts: number
+    durationMs: number
+    stderr: string
+    stdout: string
+  }) {
+    const adminEmail = this.getAdminEmail()
+    const emailUser = process.env.EMAIL_USER?.trim()
+    const emailPass = process.env.EMAIL_PASS?.trim()
+    const emailHost = process.env.EMAIL_HOST?.trim() || 'smtp.gmail.com'
+    const emailPort = Number(process.env.EMAIL_PORT || 587)
+
+    if (!adminEmail) {
+      console.warn(`[Notification] ADMIN_EMAIL not configured. Skipping scraper failure alert`)
+      return
+    }
+
+    if (!emailUser || !emailPass) {
+      console.warn(`[Notification] EMAIL_USER or EMAIL_PASS not configured. Skipping scraper failure alert`)
+      return
+    }
+
+    try {
+      console.log(`[Notification] Sending scraper failure alert`)
+      const nodemailer = require('nodemailer')
+      const transporter = nodemailer.createTransport({
+        host: emailHost,
+        port: emailPort,
+        secure: false,
+        auth: {
+          user: emailUser,
+          pass: emailPass,
+        },
+      })
+
+      await transporter.sendMail({
+        from: emailUser,
+        to: adminEmail,
+        subject: `🚨 Coffee Board Scraper Failed - ${details.trigger}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px;">
+            <h2 style="color: #dc2626;">Coffee Board Scraper Failure Alert</h2>
+            <hr />
+            <p><strong>Trigger:</strong> ${details.trigger}</p>
+            <p><strong>Scheduled Run At:</strong> ${details.runAt}</p>
+            <p><strong>Attempts:</strong> ${details.attempts}</p>
+            <p><strong>Duration:</strong> ${(details.durationMs / 1000).toFixed(1)}s</p>
+            <hr />
+            <h3>Error Details</h3>
+            <p><strong>Error:</strong> ${error}</p>
+            <hr />
+            <h3>Debug Output</h3>
+            <h4>STDERR:</h4>
+            <pre style="background: #f5f5f5; padding: 10px; font-size: 12px; overflow-x: auto; max-height: 300px;">${details.stderr || 'No stderr'}</pre>
+            <hr />
+            <p style="font-size: 12px; color: #666;">
+              Alert sent at ${new Date().toISOString()}
+            </p>
+          </div>
+        `,
+      })
+      console.log(`[Notification] Scraper failure alert sent successfully`)
+    } catch (alertError) {
+      console.error(`[Notification] Scraper failure alert failed:`, alertError)
+      this.logger.error(
+        `Scraper failure alert failed: ${alertError instanceof Error ? alertError.message : String(alertError)}`,
+      )
+    }
+  }
+
   async notifyOrderCreated(order: OrderNotificationPayload) {
     console.log(`[Notification] Processing order ${order.id}`)
     

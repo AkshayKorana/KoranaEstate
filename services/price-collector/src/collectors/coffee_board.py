@@ -54,6 +54,14 @@ RANGE_PATTERN = re.compile(
     r"(?:₹|rs\.?|inr)?\s*(\d{3,6}(?:,\d{3})*(?:\.\d+)?)\s*(?:-|–|—|to)\s*(?:₹|rs\.?|inr)?\s*(\d{3,6}(?:,\d{3})*(?:\.\d+)?)",
     re.IGNORECASE,
 )
+RAW_COFFEE_TABLE_PATTERN = re.compile(
+    r"Raw\s+Coffee\s+Price.*?Ar\.?\s*Pmt\s+Ar\.?\s*Chy\s+Rob\.?\s*Pmt\s+Rob\.?\s*Chy\s+"
+    r"(\d{3,6}(?:,\d{3})?)\s*(?:-|–|—|to)\s*(\d{3,6}(?:,\d{3})?)\s+"
+    r"(\d{3,6}(?:,\d{3})?)\s*(?:-|–|—|to)\s*(\d{3,6}(?:,\d{3})?)\s+"
+    r"(\d{3,6}(?:,\d{3})?)\s*(?:-|–|—|to)\s*(\d{3,6}(?:,\d{3})?)\s+"
+    r"(\d{3,6}(?:,\d{3})?)\s*(?:-|–|—|to)\s*(\d{3,6}(?:,\d{3})?)",
+    re.IGNORECASE | re.DOTALL,
+)
 
 PRODUCT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
     "arabica_cherry": (
@@ -187,12 +195,39 @@ def extract_section(text: str) -> str:
     return match.group(1) if match else text
 
 
+def extract_raw_coffee_table_prices(pdf_text: str) -> dict[str, tuple[float, str]]:
+    match = RAW_COFFEE_TABLE_PATTERN.search(pdf_text)
+    if not match:
+        return {}
+
+    product_keys = [
+        "arabica_parchment",
+        "arabica_cherry",
+        "robusta_parchment",
+        "robusta_cherry",
+    ]
+    values = [parse_number(match.group(index)) for index in range(1, 9)]
+    parsed: dict[str, tuple[float, str]] = {}
+
+    for offset, product_key in enumerate(product_keys):
+        low = values[offset * 2]
+        high = values[offset * 2 + 1]
+        midpoint = round(((low + high) / 2.0) / 50.0, 2)
+        parsed[product_key] = (
+            midpoint,
+            f"₹{low:,.0f}–₹{high:,.0f} per 50 kg",
+        )
+
+    return parsed
+
+
 def parse_products_from_pdf_text(pdf_text: str) -> dict[str, Any]:
     try:
         if not pdf_text or len(pdf_text.strip()) < 100:
             raise RuntimeError("PDF content too small or corrupted")
         normalized_pdf_text = normalize_pdf_text(pdf_text)
         section_text = normalize_pdf_text(extract_section(pdf_text))
+        table_prices = extract_raw_coffee_table_prices(pdf_text)
         products: list[dict[str, Any]] = []
         failures: dict[str, str] = {}
 
@@ -202,9 +237,14 @@ def parse_products_from_pdf_text(pdf_text: str) -> dict[str, Any]:
             "robusta_cherry",
             "robusta_parchment",
         ):
-            value, range_display, failure_reason = extract_nearest_value(section_text, product_key)
-            if value is None:
-                value, range_display, failure_reason = extract_nearest_value(normalized_pdf_text, product_key)
+            failure_reason = None
+            table_match = table_prices.get(product_key)
+            if table_match:
+                value, range_display = table_match
+            else:
+                value, range_display, failure_reason = extract_nearest_value(section_text, product_key)
+                if value is None:
+                    value, range_display, failure_reason = extract_nearest_value(normalized_pdf_text, product_key)
 
             if value is None and failure_reason:
                 failures[product_key] = failure_reason
@@ -266,6 +306,14 @@ def parse_products_from_pdf_text(pdf_text: str) -> dict[str, Any]:
 
 
 def download_report_pdf() -> dict[str, Any]:
+    """
+    Download Coffee Board report PDF.
+    Strategy:
+    1. Extract PDF URL directly from page HTML (most reliable)
+    2. Fall back to clicking button if URL extraction fails
+    """
+    import urllib.request
+    import urllib.error
     last_error: Exception | None = None
 
     for attempt in range(MAX_RETRIES + 1):
@@ -276,13 +324,65 @@ def download_report_pdf() -> dict[str, Any]:
                 context = browser.new_context(accept_downloads=True, locale="en-IN", timezone_id="Asia/Kolkata")
                 page = context.new_page()
                 try:
-                    log("Opening Coffee Board page")
+                    log("[COFFEE_BOARD] Opening Coffee Board page")
                     page.goto(REPORT_PAGE_URL, wait_until="domcontentloaded", timeout=PAGE_LOAD_TIMEOUT_MS)
                     page_text = page.locator("body").inner_text(timeout=5_000)
                     if REPORT_TITLE.lower() not in page_text.lower():
                         raise RuntimeError("Failed to detect Daily Coffee Market Report")
                     report_date_str, report_date_iso = extract_page_report_date(page_text)
 
+                    # STRATEGY 1: Extract PDF URL directly from page HTML
+                    log("[COFFEE_BOARD] Attempting direct PDF URL extraction")
+                    page_html = page.content()
+                    pdf_url = None
+                    
+                    # Look for common PDF link patterns
+                    pdf_patterns = [
+                        r'href=["\']([^"\']*\.pdf[^"\']*)["\']',
+                        r'src=["\']([^"\']*\.pdf[^"\']*)["\']',
+                        r'url\s*[:\(]\s*["\']?([^"\')\s]+\.pdf[^"\')\s]*)',
+                    ]
+                    
+                    for pattern in pdf_patterns:
+                        matches = re.findall(pattern, page_html, re.IGNORECASE)
+                        if matches:
+                            pdf_url = matches[0]
+                            break
+                    
+                    # Normalize PDF URL
+                    if pdf_url:
+                        if not pdf_url.startswith("http"):
+                            pdf_url = "https://coffeeboard.gov.in" + (pdf_url if pdf_url.startswith("/") else "/" + pdf_url)
+                        log(f"[COFFEE_BOARD] Extracted PDF URL: {pdf_url}")
+                        
+                        # Download PDF directly
+                        try:
+                            log("[COFFEE_BOARD] Downloading PDF from extracted URL")
+                            with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
+                                temp_path = temp_file.name
+                            urllib.request.urlretrieve(pdf_url, temp_path)
+                            log("[COFFEE_BOARD] PDF downloaded successfully via direct URL")
+                            
+                            return {
+                                "downloadPath": temp_path,
+                                "pageText": page_text,
+                                "reportDate": report_date_str,
+                                "reportDateIso": report_date_iso,
+                                "pdfUrl": pdf_url,
+                                "suggestedFileName": "coffee-board-report.pdf",
+                                "fetchedAt": now_iso(),
+                            }
+                        except (urllib.error.URLError, urllib.error.HTTPError) as e:
+                            log(f"[COFFEE_BOARD] Direct URL download failed: {e}. Falling back to button click.")
+                            if temp_path and os.path.exists(temp_path):
+                                try:
+                                    os.unlink(temp_path)
+                                except OSError:
+                                    pass
+                            temp_path = ""
+
+                    # STRATEGY 2: Fall back to clicking the button
+                    log("[COFFEE_BOARD] Using fallback: clicking download button")
                     download = None
                     for selector in PDF_SELECTORS:
                         try:
@@ -292,11 +392,11 @@ def download_report_pdf() -> dict[str, Any]:
                             download = download_info.value
                             break
                         except Exception as error:  # noqa: BLE001
-                            log(f"[COFFEE_BOARD] selector failed selector={selector} reason={error}")
+                            log(f"[COFFEE_BOARD] Selector failed: {selector}, reason: {error}")
                             continue
 
                     if not download:
-                        log("CRITICAL: Coffee Board PDF button not found")
+                        log("[COFFEE_BOARD] CRITICAL: Coffee Board PDF button not found")
                         raise RuntimeError("PDF download trigger failed")
 
                     pdf_path = download.path()
@@ -305,7 +405,7 @@ def download_report_pdf() -> dict[str, Any]:
                     with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
                         temp_path = temp_file.name
                     shutil.copyfile(pdf_path, temp_path)
-                    log("PDF downloaded")
+                    log("[COFFEE_BOARD] PDF downloaded via button click")
 
                     pdf_url = download.url or REPORT_PAGE_URL
                     suggested_filename = download.suggested_filename or "coffee-board-report.pdf"
@@ -331,7 +431,7 @@ def download_report_pdf() -> dict[str, Any]:
                     pass
             if attempt < MAX_RETRIES:
                 backoff_seconds = attempt + 1
-                log(f"[COFFEE_BOARD] retry attempt={attempt + 1} reason={error}")
+                log(f"[COFFEE_BOARD] Retry attempt {attempt + 1}/{MAX_RETRIES + 1}, reason: {error}")
                 time.sleep(backoff_seconds)
 
     raise RuntimeError(str(last_error) if last_error else "Unable to download Coffee Board PDF.")

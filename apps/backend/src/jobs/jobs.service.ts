@@ -498,9 +498,27 @@ export class JobsService {
       }
 
       if (!execution) {
+        const errorMsg = lastError?.error ?? 'Unknown scraper execution failure.'
         this.logger.error(
-          `Price scraper failed after ${config.retries + 1} attempt(s). finalError=${lastError?.error ?? 'Unknown scraper execution failure.'}`,
+          `Price scraper failed after ${config.retries + 1} attempt(s). finalError=${errorMsg}`,
         )
+
+        // Send failure alert
+        if (!dryRun) {
+          await this.notificationService.sendScraperFailureAlert(
+            errorMsg,
+            {
+              trigger,
+              runAt: effectiveRunAt.toISOString(),
+              attempts: config.retries + 1,
+              durationMs: Date.now() - startedAt.getTime(),
+              stderr: lastError?.stderrTail ?? '',
+              stdout: lastError?.stdoutTail ?? '',
+            },
+          ).catch((err) => {
+            this.logger.error(`Failed to send failure alert: ${err instanceof Error ? err.message : String(err)}`)
+          })
+        }
 
         if (!dryRun) {
           try {
@@ -513,12 +531,12 @@ export class JobsService {
               trigger,
               false,
             )
-            this.logger.log(
-              `DB write completed after scraper failure via carry-forward trigger=${trigger} runStatus=${String((ingest as { run?: { status?: string } })?.run?.status ?? 'n/a')}`,
+            this.logger.warn(
+              `[SCRAPER] Using fallback data for date: ${new Date().toISOString()} trigger=${trigger} runStatus=${String((ingest as { run?: { status?: string } })?.run?.status ?? 'n/a')}`,
             )
             return {
               ok: true,
-              mode: 'ingest',
+              mode: 'DEGRADED',
               carriedForward: true,
               startedAt: startedAt.toISOString(),
               finishedAt: new Date().toISOString(),
@@ -587,6 +605,27 @@ export class JobsService {
       }
 
       try {
+        // PRODUCTION CHECK: Validate scraper output completeness
+        // If any coffee price is missing/null → use fallback instead of DB corruption
+        if (!dryRun) {
+          const coffeeProductKeys = ['arabica_parchment', 'arabica_cherry', 'robusta_parchment', 'robusta_cherry']
+          const coffeePrices = execution.payload.items?.filter((item) => coffeeProductKeys.includes(item.productKey)) || []
+          const coffeeWithValues = coffeePrices.filter((item) => Number.isFinite(item.value))
+          
+          if (coffeeWithValues.length < coffeeProductKeys.length) {
+            this.logger.warn(
+              `[SCRAPER] INCOMPLETE SCRAPE DETECTED: Got ${coffeeWithValues.length}/${coffeeProductKeys.length} coffee prices. Using fallback to prevent DB corruption. date=${new Date().toISOString()}`,
+            )
+            // Mark as incomplete and trigger DEGRADED fallback path
+            execution = null
+          }
+        }
+
+        // If execution was invalidated by incomplete check, proceed to fallback (below)
+        if (!execution) {
+          throw new Error('Scraper output validation failed: incomplete coffee prices (fallback triggered)')
+        }
+
         const ingest = await this.pricesIngestService.ingestScraperOutput(
           {
             ...execution.payload,
@@ -613,6 +652,9 @@ export class JobsService {
 
         this.logger.log(
           `Price scraper job completed successfully in ${Date.now() - startedAt.getTime()}ms mode=${dryRun ? 'dry-run' : 'ingest'} trigger=${trigger}.`,
+        )
+        this.logger.log(
+          `[CRON] Run at ${new Date().toISOString()} | trigger=${trigger} | status=${ingestRunStatus ?? 'n/a'} | observations=${execution.payload.items?.filter((i) => Number.isFinite(i.value)).length ?? 0} | carriedForward=false`,
         )
 
         return {

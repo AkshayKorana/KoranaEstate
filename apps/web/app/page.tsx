@@ -979,19 +979,21 @@ export default function HomePage() {
 
           {latest?.runHealth?.stale && (
             <div className="rounded-2xl border border-amber-300/40 bg-amber-950/25 px-4 py-3 text-sm text-amber-100">
-              <span className="font-semibold">Stale data:</span> {latest.runHealth.staleReason || 'Latest successful commodity run is not fresh.'}
+              <span className="font-semibold">⚠️ Using yesterday&apos;s data.</span>{' '}
+              {latest.runHealth.staleReason || 'Today\u2019s pipeline run has not completed yet.'}
             </div>
           )}
 
-          {latest?.runHealth?.stale && (
+          {!latest?.runHealth?.stale && coffeeDashboardStatus === 'DEGRADED' && (
             <div className="rounded-2xl border border-amber-300/30 bg-amber-950/15 px-4 py-3 text-sm text-amber-100">
-              <span className="font-semibold">Using last available data.</span>
+              <span className="font-semibold">⚠️ Partial data.</span>{' '}Some prices are using the last available values.
             </div>
           )}
 
           {latest?.run?.status === 'FAILED' && (
             <div className="rounded-2xl border border-red-300/40 bg-red-950/25 px-4 py-3 text-sm text-red-100">
-              <span className="font-semibold">Latest run failed:</span> {lastUpdated ? `the most recent pipeline attempt was recorded on ${new Date(lastUpdated).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}.` : 'the latest prices run did not complete successfully.'}
+              <span className="font-semibold">❌ Data unavailable.</span>{' '}
+              {lastUpdated ? `Last successful update: ${new Date(lastUpdated).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' })}.` : 'The latest prices run did not complete successfully.'}
             </div>
           )}
 
