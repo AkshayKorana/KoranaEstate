@@ -165,9 +165,8 @@ const DEFAULT_COFFEE_PRODUCTS: PriceProduct[] = [
 ]
 
 const LAST_KNOWN_PRICES_KEY = 'korana:last-known-prices'
-const DIRECT_PRICES_LATEST_URL = process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
-  ? `${process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, '')}/prices/latest`
-  : '/api/v1/prices/latest'
+// Always use the Next.js proxy — avoids CORS and browser-side cold-start timeouts
+const DIRECT_PRICES_LATEST_URL = '/api/prices/latest'
 
 type PriceHistoryPoint = {
   capturedAt: string
@@ -665,7 +664,7 @@ export default function HomePage() {
 
     async function loadLatestData() {
       try {
-        const latestPayload = await fetchJsonWithTimeout<PricesLatestResponse>(DIRECT_PRICES_LATEST_URL, 3_000)
+        const latestPayload = await fetchJsonWithTimeout<PricesLatestResponse>(DIRECT_PRICES_LATEST_URL, 15_000)
         if (!mounted) return
         setLatest(latestPayload)
         setLatestError(null)
@@ -673,7 +672,7 @@ export default function HomePage() {
       } catch (error) {
         if (!mounted) return
         const message = error instanceof Error && error.name === 'AbortError'
-          ? 'Latest prices request timed out after 3 seconds.'
+          ? 'Prices request timed out — backend may be starting up. Showing cached data.'
           : error instanceof Error
             ? error.message
             : 'Failed to refresh latest prices.'
@@ -689,7 +688,7 @@ export default function HomePage() {
       setProductsError(null)
 
       try {
-        const productsPayload = await fetchJsonWithTimeout<PricesProductsResponse>('/api/prices/products', 3_000)
+        const productsPayload = await fetchJsonWithTimeout<PricesProductsResponse>('/api/prices/products', 15_000)
         if (!mounted) return
         const coffeeProducts = productsPayload.products.filter((product) => isCoffeeCommodity(product))
         if (coffeeProducts.length > 0) {
