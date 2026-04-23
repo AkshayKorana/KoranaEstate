@@ -30,8 +30,8 @@ export class ChatController {
   @Get('conversations/:id/messages')
   @ApiOperation({ summary: 'List messages in a conversation' })
   @ApiOkResponse({ description: 'Messages retrieved' })
-  messages(@Param('id') id: string) {
-    return this.chatService.listMessages(id)
+  messages(@Req() req: { user: { userId: string } }, @Param('id') id: string) {
+    return this.chatService.listMessages(id, req.user.userId)
   }
 
   @Post('messages')

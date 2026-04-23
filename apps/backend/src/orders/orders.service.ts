@@ -313,11 +313,24 @@ export class OrdersService {
     if (order.buyerId !== userId) throw new ForbiddenException('Only buyer can review this order')
 
     const sellerTotals = new Map<string, number>()
-    for (const item of order.items) {
-      const sellerId = item.retailProduct.sellerId
-      const line = Number(item.lineTotal)
-      sellerTotals.set(sellerId, (sellerTotals.get(sellerId) ?? 0) + line)
+
+    // RAW_MARKETPLACE orders have no items — derive seller from rawProduct via DB lookup
+    if (order.sourceType === OrderSourceType.RAW_MARKETPLACE) {
+      if (!order.rawProductId) throw new BadRequestException('No seller found on this order')
+      const rawProduct = await this.prisma.rawProduct.findUnique({
+        where: { id: order.rawProductId },
+        select: { sellerId: true },
+      })
+      if (!rawProduct) throw new BadRequestException('No seller found on this order')
+      sellerTotals.set(rawProduct.sellerId, Number(order.totalAmount))
+    } else {
+      for (const item of order.items) {
+        const sellerId = item.retailProduct.sellerId
+        const line = Number(item.lineTotal)
+        sellerTotals.set(sellerId, (sellerTotals.get(sellerId) ?? 0) + line)
+      }
     }
+
     const sellerIds = [...sellerTotals.keys()]
     if (!sellerIds.length) throw new BadRequestException('No seller found on this order')
 

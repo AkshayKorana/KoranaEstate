@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common'
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { ChatGateway } from './chat.gateway'
 import { CreateConversationDto } from './dto/create-conversation.dto'
@@ -23,6 +23,8 @@ export class ChatService {
   }
 
   async createConversation(userId: string, dto: CreateConversationDto) {
+    const participant = await this.prisma.user.findUnique({ where: { id: dto.participantId } })
+    if (!participant) throw new NotFoundException('Participant user not found')
     return this.prisma.conversation.create({
       data: {
         participants: {
@@ -34,6 +36,14 @@ export class ChatService {
   }
 
   async sendMessage(userId: string, dto: SendMessageDto) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: dto.conversationId },
+      include: { participants: { select: { userId: true } } },
+    })
+    if (!conversation) throw new NotFoundException('Conversation not found')
+    if (!conversation.participants.some((p) => p.userId === userId)) {
+      throw new ForbiddenException('You are not a participant in this conversation')
+    }
     const message = await this.prisma.message.create({
       data: {
         conversationId: dto.conversationId,
@@ -47,7 +57,15 @@ export class ChatService {
     return message
   }
 
-  listMessages(conversationId: string) {
+  async listMessages(conversationId: string, userId: string) {
+    const conversation = await this.prisma.conversation.findUnique({
+      where: { id: conversationId },
+      include: { participants: { select: { userId: true } } },
+    })
+    if (!conversation) throw new NotFoundException('Conversation not found')
+    if (!conversation.participants.some((p) => p.userId === userId)) {
+      throw new ForbiddenException('You are not a participant in this conversation')
+    }
     return this.prisma.message.findMany({
       where: { conversationId },
       orderBy: { createdAt: 'asc' },

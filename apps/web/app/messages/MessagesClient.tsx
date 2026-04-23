@@ -234,13 +234,17 @@ export default function MessagesClient() {
     return conversation.participants?.find((participant) => participant.user?.id !== currentUserId) ?? null
   }
 
-  function formatTime(date: string | Date) {
+  function formatTime(date: string | Date | null | undefined) {
+    if (!date) return ''
     const d = new Date(date)
+    if (isNaN(d.getTime())) return ''
     return d.toLocaleTimeString(lang === 'kn' ? 'kn-IN' : 'en-US', { hour: '2-digit', minute: '2-digit' })
   }
 
-  function formatDate(date: string | Date) {
+  function formatDate(date: string | Date | null | undefined) {
+    if (!date) return ''
     const d = new Date(date)
+    if (isNaN(d.getTime())) return ''
     const today = new Date()
     const yesterday = new Date(today)
     yesterday.setDate(yesterday.getDate() - 1)

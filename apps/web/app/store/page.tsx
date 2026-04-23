@@ -197,12 +197,6 @@ export default function StorePage() {
       setSubmittingOrder(true)
       setOrderErrors({})
       
-      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
-      console.log('[STORE PAGE] Submitting order...')
-      console.log('[STORE PAGE] Product:', selectedProduct.id)
-      console.log('[STORE PAGE] Quantity:', orderData.quantity)
-      console.log('[STORE PAGE] Customer:', orderData.customer.fullName)
-      
       const res = await fetch('/api/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -215,21 +209,15 @@ export default function StorePage() {
 
       const payload = await res.json().catch(() => null)
 
-      console.log('[STORE PAGE] Response status:', res.status)
-      console.log('[STORE PAGE] Response payload:', payload)
-
       if (res.ok) {
         const order = extractOrderResponse(payload)
         if (!order?.id) {
-          console.log('[STORE PAGE] ❌ Order created but no ID in response')
           setOrderErrors((current) => ({
             ...current,
             form: t('Order was created but confirmation could not be loaded.', 'ಆರ್ಡರ್ ರಚಿಸಲಾಗಿದೆ ಆದರೆ ದೃಢೀಕರಣವನ್ನು ಲೋಡ್ ಮಾಡಲಾಗಲಿಲ್ಲ.'),
           }))
           return
         }
-        console.log('[STORE PAGE] ✅ Order created:', order.id)
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
         setShowOrderModal(false)
         setOrderData({
           productId: '',
@@ -244,8 +232,6 @@ export default function StorePage() {
           (payload && typeof payload === 'object' && 'error' in payload && typeof payload.error === 'string' ? payload.error : null) ||
           (payload && typeof payload === 'object' && 'message' in payload && typeof payload.message === 'string' ? payload.message : null) ||
           t('Failed to place COD order', 'COD ಆರ್ಡರ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ')
-        console.log('[STORE PAGE] ❌ Order failed:', errorMessage)
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
         setOrderErrors((current) => ({
           ...current,
           form: errorMessage,
