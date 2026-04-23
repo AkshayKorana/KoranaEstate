@@ -66,7 +66,7 @@ export default function EstateMarketplacePage() {
                     : 'border-black/10 bg-[#fffdf9] shadow-[0_8px_24px_rgba(0,0,0,0.08)] hover:-translate-y-1 hover:shadow-[0_12px_28px_rgba(0,0,0,0.12)]'
                 }`}
               >
-                <div className={`relative aspect-[16/9] overflow-hidden rounded-2xl ${isDark ? 'bg-gradient-to-br from-emerald-50 via-white to-blue-50' : 'bg-gradient-to-br from-[#f8f3ea] via-white to-[#eef5f0]'}`}>
+                <div className={`relative aspect-[16/9] overflow-hidden rounded-2xl ${isDark ? 'bg-gradient-to-br from-emerald-900/40 via-emerald-800/20 to-emerald-900/30' : 'bg-gradient-to-br from-[#f8f3ea] via-white to-[#eef5f0]'}`}>
                   <Image
                     src={block.image}
                     alt={block.title}
@@ -80,7 +80,7 @@ export default function EstateMarketplacePage() {
                 <div className="mt-3 px-1">
                   <p className={`text-base font-bold ${isDark ? 'text-gray-100' : 'text-[#1f2b24]'}`}>{t(block.title, block.titleKn)}</p>
                   <p className={`text-sm mt-1 ${isDark ? 'text-gray-300' : 'text-[#4a4a4a]'}`}>{t(block.subtitle, block.subtitleKn)}</p>
-                  <div className="mt-3 inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800">
+                  <div className="mt-3 inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 dark:border-emerald-500/30">
                     {count} {t('active listings', 'ಸಕ್ರಿಯ ಪಟ್ಟಿಗಳು')}
                   </div>
                 </div>

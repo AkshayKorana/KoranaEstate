@@ -598,6 +598,16 @@ html {
   box-shadow: 0 0 0 3px color-mix(in oklab, var(--lux-accent) 28%, transparent);
 }
 
+/* Auto dark mode for bare form elements (inputs without explicit bg/color) */
+html.dark input:not([type=checkbox]):not([type=radio]):not([type=submit]):not([type=button]):not([type=range]),
+html.dark select,
+html.dark textarea {
+  background-color: color-mix(in oklab, var(--lux-panel-2) 90%, black 10%);
+  color: var(--lux-text);
+  border-color: color-mix(in oklab, var(--lux-border) 80%, transparent);
+  color-scheme: dark;
+}
+
 .lux-chip {
   border: 1px solid color-mix(in oklab, var(--lux-border) 75%, transparent);
   background: linear-gradient(145deg, color-mix(in oklab, var(--lux-panel) 84%, black 16%), color-mix(in oklab, var(--lux-panel-2) 82%, var(--lux-accent) 18%));

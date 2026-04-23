@@ -456,8 +456,8 @@ export default function StorePage() {
                       </div>
                       
                       <div className="space-y-2 mb-4">
-                        <div className="flex items-center justify-between py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50">
-                          <span className="text-sm font-medium text-[#444444]">📦 {t('Stock', 'ಸ್ಟಾಕ್')}</span>
+                        <div className={`flex items-center justify-between py-2 px-3 rounded-xl ${isDark ? 'bg-white/10' : 'bg-gradient-to-r from-emerald-50 to-green-50'}`}>
+                          <span className="text-sm font-medium text-app-muted">📦 {t('Stock', 'ಸ್ಟಾಕ್')}</span>
                           <span className={`text-sm font-bold ${product.stock > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
                             {product.stock > 0 ? `${product.stock} ${t('units', 'ಯೂನಿಟ್‌ಗಳು')}` : t('Out', 'ಖಾಲಿ')}
                           </span>
@@ -546,7 +546,7 @@ export default function StorePage() {
 
             <form onSubmit={handleCreateProduct} className="space-y-5">
               {createError ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
                   {createError}
                 </div>
               ) : null}

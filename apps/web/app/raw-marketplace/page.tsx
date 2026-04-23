@@ -456,13 +456,13 @@ export default function RawMarketplacePage() {
                     </div>
                     
                     <div className="space-y-3 mb-5">
-                      <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50">
-                        <span className={`text-sm font-medium ${isDark ? 'text-[#e0e0e0]' : 'text-[#444444]'}`}>{t('Price', 'ಬೆಲೆ')}</span>
-                        <span className={`text-lg font-bold ${isDark ? 'text-white' : 'text-emerald-600'}`}>₹{listing.pricePerKg}/kg</span>
+                      <div className={`flex items-center justify-between py-3 px-4 rounded-xl ${isDark ? 'bg-white/10' : 'bg-gradient-to-r from-emerald-50 to-green-50'}`}>
+                        <span className="text-sm font-medium text-app-muted">{t('Price', 'ಬೆಲೆ')}</span>
+                        <span className={`text-lg font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-600'}`}>₹{listing.pricePerKg}/kg</span>
                       </div>
-                      <div className="flex items-center justify-between py-3 px-4 rounded-xl bg-gradient-to-r from-amber-50 to-yellow-50">
-                        <span className={`text-sm font-medium ${isDark ? 'text-[#e0e0e0]' : 'text-[#444444]'}`}>{t('Quantity', 'ಪ್ರಮಾಣ')}</span>
-                        <span className={`text-lg font-bold ${isDark ? 'text-white' : 'text-amber-700'}`}>{listing.quantityKg} kg</span>
+                      <div className={`flex items-center justify-between py-3 px-4 rounded-xl ${isDark ? 'bg-white/10' : 'bg-gradient-to-r from-amber-50 to-yellow-50'}`}>
+                        <span className="text-sm font-medium text-app-muted">{t('Quantity', 'ಪ್ರಮಾಣ')}</span>
+                        <span className={`text-lg font-bold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>{listing.quantityKg} kg</span>
                       </div>
                       <div className="flex items-center space-x-2 text-sm text-muted-safe">
                         <div className="w-8 h-8 rounded-full gradient-coffee-cream flex items-center justify-center text-white font-bold text-xs">
@@ -549,7 +549,7 @@ export default function RawMarketplacePage() {
 
             <form onSubmit={handleCreateListing} className="space-y-5">
               {createError ? (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">
                   {createError}
                 </div>
               ) : null}
@@ -670,9 +670,9 @@ export default function RawMarketplacePage() {
             </div>
 
             <form onSubmit={handleMakeOffer} className="space-y-5">
-              <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-green-50 border-2 border-emerald-200">
+              <div className={`p-4 rounded-xl border-2 ${isDark ? 'bg-white/10 border-emerald-500/30' : 'bg-gradient-to-r from-emerald-50 to-green-50 border-emerald-200'}`}>
                 <p className="text-sm font-medium text-muted-safe mb-1">{t("Seller's Asking Price", 'ಮಾರಾಟಗಾರರ ಕೇಳುವ ಬೆಲೆ')}</p>
-                <p className="text-2xl font-bold text-emerald-600">₹{selectedListing.pricePerKg}/kg</p>
+                <p className={`text-2xl font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-600'}`}>₹{selectedListing.pricePerKg}/kg</p>
               </div>
 
               <div>
