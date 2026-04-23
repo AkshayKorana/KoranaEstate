@@ -3,13 +3,13 @@ name: Coffee Board Daily Scraper
 on:
   schedule:
     - cron: '30 3 * * *'   # 9:00 AM IST (primary run)
-    - cron: '30 4 * * *'   # 10:00 AM IST (backup run — fixes cold start / late PDF)
+    - cron: '30 4 * * *'   # 10:00 AM IST (backup run — late PDF)
   workflow_dispatch:
 
 jobs:
-  scrape-coffee-prices:
+  scrape-and-ingest:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Validate secrets
@@ -20,67 +20,160 @@ jobs:
           fi
           echo "[OK] Secrets configured"
 
-      - name: Wake up backend (3x ping for Render cold start)
-        run: |
-          BACKEND_URL="${{ secrets.BACKEND_URL }}"
-          echo "[WARM-UP] Ping 1/3..."
-          curl -s --max-time 30 "$BACKEND_URL/api/v1/health" && echo " OK" || echo " (no response yet)"
-          sleep 10
-          echo "[WARM-UP] Ping 2/3..."
-          curl -s --max-time 30 "$BACKEND_URL/api/v1/health" && echo " OK" || echo " (waking up...)"
-          sleep 10
-          echo "[WARM-UP] Ping 3/3..."
-          curl -s --max-time 30 "$BACKEND_URL/api/v1/health" && echo " OK" || echo " (slow start)"
-          sleep 10
-          echo "[WARM-UP] Done — backend should be ready"
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          cache-dependency-path: services/price-collector/requirements.txt
+
+      - name: Install Python dependencies
+        working-directory: services/price-collector
+        run: pip install -r requirements.txt
+
+      - name: Install Playwright browsers
+        working-directory: services/price-collector
+        run: python -m playwright install chromium --with-deps
 
       - name: Run coffee price scraper
+        id: scraper
+        working-directory: services/price-collector
+        run: |
+          echo "[SCRAPER] Starting at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          python3 src/main.py > /tmp/scraper_output.json
+          echo "[SCRAPER] Finished at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+          # Validate output is valid JSON
+          python3 -c "
+          import json, sys
+          with open('/tmp/scraper_output.json') as f:
+              data = json.load(f)
+          items = data.get('items', [])
+          ok_items = [i for i in items if i.get('value') is not None]
+          print(f'[SCRAPER] Got {len(ok_items)}/{len(items)} prices')
+          for i in ok_items:
+              print(f'  {i[\"productKey\"]}: {i[\"value\"]} {i.get(\"unit\",\"INR/kg\")}')
+          if not ok_items:
+              print('[WARN] No prices extracted — PDF may not be available yet')
+              sys.exit(0)
+          "
+
+      - name: Wake up Render backend
+        run: |
+          BACKEND_URL="${{ secrets.BACKEND_URL }}"
+          echo "[WARM-UP] Pinging Render to wake from sleep..."
+          for i in 1 2 3 4 5; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" --max-time 30 "$BACKEND_URL/api/v1/health" || echo "000")
+            echo "[WARM-UP] Ping $i/5 → HTTP $STATUS"
+            if [ "$STATUS" = "200" ]; then
+              echo "[WARM-UP] Backend is awake!"
+              break
+            fi
+            sleep 15
+          done
+
+      - name: Post prices to backend
         run: |
           BACKEND_URL="${{ secrets.BACKEND_URL }}"
           CRON_SECRET="${{ secrets.CRON_SECRET }}"
 
-          echo "[SCRAPER] Triggering at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-
-          HTTP_CODE=$(curl -s -w "%{http_code}" -X POST \
-            "$BACKEND_URL/api/v1/jobs/prices/run" \
-            -H "X-Cron-Secret: $CRON_SECRET" \
-            -H "Content-Type: application/json" \
-            --max-time 120 \
-            -o /tmp/response.json)
-
-          echo "[RESPONSE] HTTP $HTTP_CODE"
-
-          # Parse and log key fields
+          # Convert scraper output to ingest-observations payload
           python3 - << 'EOF'
           import json, sys
-          try:
-              d = json.load(open('/tmp/response.json'))
-              print(f"[RESULT] ok={d.get('ok')} mode={d.get('mode')} carriedForward={d.get('carriedForward', False)}")
-              sc = d.get('scraper', {})
-              print(f"[SCRAPER] attempt={sc.get('attempt')} observations={sc.get('observations')} durationMs={sc.get('durationMs')}ms")
-              run = (d.get('ingest') or {}).get('run', {})
-              print(f"[RUN] status={run.get('status','n/a')} success={run.get('successfulCount','n/a')} failed={run.get('failedCount','n/a')}")
-              if d.get('carriedForward'):
-                  print("[WARN] Used fallback (DEGRADED) — today's PDF may not be available yet")
-          except Exception as e:
-              print(f"[WARN] Could not parse response: {e}")
+          from datetime import datetime, timezone
+
+          with open('/tmp/scraper_output.json') as f:
+              data = json.load(f)
+
+          items = data.get('items', [])
+          errors = data.get('errors', [])
+          run_at = data.get('fetchedAt') or datetime.now(timezone.utc).isoformat()
+
+          observations = []
+          for item in items:
+              if item.get('value') is None:
+                  continue
+              observations.append({
+                  'productKey': item['productKey'],
+                  'price': float(item['value']),
+                  'unit': item.get('unit', 'INR/kg'),
+                  'source': item.get('source', 'Coffee Board India'),
+                  'sourceUrl': item.get('sourceUrl', 'https://coffeeboard.gov.in/Market_Info.aspx'),
+                  'observedAt': run_at,
+                  'rawText': item.get('rawText'),
+                  'confidence': item.get('confidence'),
+              })
+
+          ingest_errors = []
+          for err in (errors or []):
+              ingest_errors.append({
+                  'productKey': err.get('productKey', 'unknown'),
+                  'error': err.get('error', 'Unknown error'),
+                  'sourceUrl': err.get('sourceUrl', 'https://coffeeboard.gov.in/Market_Info.aspx'),
+              })
+
+          payload = {
+              'runAt': run_at,
+              'observations': observations,
+              'errors': ingest_errors,
+          }
+
+          with open('/tmp/ingest_payload.json', 'w') as f:
+              json.dump(payload, f)
+
+          print(f"[INGEST] Prepared {len(observations)} observations for POST")
+          if not observations:
+              print("[SKIP] No observations — skipping ingest (PDF not yet available)")
+              sys.exit(0)
           EOF
 
-          # Fail the step if HTTP error
-          if [ "$HTTP_CODE" != "201" ] && [ "$HTTP_CODE" != "200" ]; then
-            echo "[FAIL] HTTP $HTTP_CODE — scraper did not accept the request"
-            cat /tmp/response.json
+          # Only POST if we have observations
+          if [ ! -f /tmp/ingest_payload.json ]; then
+            echo "[SKIP] No ingest payload — done"
+            exit 0
+          fi
+
+          OBS_COUNT=$(python3 -c "import json; d=json.load(open('/tmp/ingest_payload.json')); print(len(d.get('observations', [])))")
+          if [ "$OBS_COUNT" = "0" ]; then
+            echo "[SKIP] 0 observations — PDF not yet published today"
+            exit 0
+          fi
+
+          echo "[INGEST] POSTing $OBS_COUNT observations to backend..."
+          HTTP_CODE=$(curl -s -w "%{http_code}" -X POST \
+            "$BACKEND_URL/api/v1/prices/ingest-observations" \
+            -H "X-Cron-Secret: $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d @/tmp/ingest_payload.json \
+            --max-time 60 \
+            -o /tmp/ingest_response.json)
+
+          echo "[INGEST] HTTP $HTTP_CODE"
+          cat /tmp/ingest_response.json | python3 -c "
+          import json, sys
+          try:
+              d = json.load(sys.stdin)
+              run = d.get('run') or {}
+              print(f\"[DB] status={run.get('status','n/a')} success={run.get('successfulCount','n/a')} failed={run.get('failedCount','n/a')}\")
+          except:
+              pass
+          "
+
+          if [ "$HTTP_CODE" != "200" ] && [ "$HTTP_CODE" != "201" ]; then
+            echo "[FAIL] Ingest returned HTTP $HTTP_CODE"
+            cat /tmp/ingest_response.json
             exit 1
           fi
 
-          echo "[DONE] Scraper finished at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          echo "[DONE] Prices saved to database at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
       - name: Alert on failure
         if: failure()
         run: |
           echo "[ALERT] Coffee Board scraper FAILED at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-          echo "[DEBUG] Check backend logs and GitHub Actions output above"
-          # Optional Slack webhook (set SLACK_WEBHOOK secret to enable)
           if [ -n "${{ secrets.SLACK_WEBHOOK }}" ]; then
             curl -s -X POST "${{ secrets.SLACK_WEBHOOK }}" \
               -H "Content-Type: application/json" \

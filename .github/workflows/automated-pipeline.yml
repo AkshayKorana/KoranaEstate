@@ -1,9 +1,10 @@
-name: Automated Market Pipeline
+name: Automated Market Pipeline (DISABLED — replaced by coffee-daily.yml)
 
+# This workflow previously triggered the scraper inside Render, which fails on
+# the free tier due to cold-start timeouts and memory limits. The scraper now
+# runs in GitHub Actions (coffee-daily.yml) and only POSTs results to Render.
 on:
-  schedule:
-    - cron: '30 3 * * *'
-  workflow_dispatch:
+  workflow_dispatch:  # manual only — not scheduled
 
 env:
   PRODUCTION_BACKEND_URL: https://koranaestate.onrender.com
