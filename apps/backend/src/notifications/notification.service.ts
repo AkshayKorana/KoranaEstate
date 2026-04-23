@@ -19,6 +19,7 @@ type OrderNotificationPayload = {
   landmark?: string | null
   orderNote?: string | null
   createdAt?: Date | string | null
+  buyerEmail?: string | null
   items?: Array<{
     retailProductId?: string | null
   }>
@@ -75,22 +76,21 @@ export class NotificationService {
       return
     }
 
+    const nodemailer = require('nodemailer')
+    const transporter = nodemailer.createTransport({
+      host: emailHost,
+      port: emailPort,
+      secure: false,
+      auth: { user: emailUser, pass: emailPass },
+    })
+
+    const productId = this.getProductId(order)
+    const address = this.getAddress(order)
+    const buyerEmail = order.buyerEmail?.trim()
+
+    // --- Email 1: Owner notification ---
     try {
-      console.log(`[Notification] Sending email for orderId=${order.id} to ${adminEmail}`)
-      const nodemailer = require('nodemailer')
-      const transporter = nodemailer.createTransport({
-        host: emailHost,
-        port: emailPort,
-        secure: false,
-        auth: {
-          user: emailUser,
-          pass: emailPass,
-        },
-      })
-
-      const productId = this.getProductId(order)
-      const address = this.getAddress(order)
-
+      console.log(`[Notification] Sending owner notification for orderId=${order.id} to ${adminEmail}`)
       await transporter.sendMail({
         from: emailUser,
         to: adminEmail,
@@ -105,6 +105,7 @@ export class NotificationService {
             <hr />
             <h3>Customer Details</h3>
             <p><strong>Name:</strong> ${order.customerName || '-'}</p>
+            <p><strong>Email:</strong> ${buyerEmail || '-'}</p>
             <p><strong>Phone Number:</strong> ${order.phone || '-'}</p>
             <hr />
             <h3>Delivery Address</h3>
@@ -115,18 +116,54 @@ export class NotificationService {
             <hr />
             <p><strong>Order Note:</strong> ${order.orderNote || 'None'}</p>
             <hr />
-            <p style="font-size: 12px; color: #666;">
-              Sent at ${this.getTimestamp(order)}
-            </p>
+            <p style="font-size: 12px; color: #666;">Sent at ${this.getTimestamp(order)}</p>
           </div>
         `,
       })
-      console.log(`[Notification] Email sent successfully for orderId=${order.id}`)
+      console.log(`[Notification] Owner email sent for orderId=${order.id}`)
     } catch (error) {
-      console.error(`[Notification] Email failed for orderId=${order.id}:`, error)
+      console.error(`[Notification] Owner email failed for orderId=${order.id}:`, error)
       this.logger.error(
-        `Order email notification failed for order=${order.id}: ${error instanceof Error ? error.message : String(error)}`,
+        `Order owner email failed for order=${order.id}: ${error instanceof Error ? error.message : String(error)}`,
       )
+    }
+
+    // --- Email 2: Buyer confirmation (only if buyer email is available) ---
+    if (buyerEmail) {
+      try {
+        console.log(`[Notification] Sending buyer confirmation for orderId=${order.id} to ${buyerEmail}`)
+        await transporter.sendMail({
+          from: emailUser,
+          to: buyerEmail,
+          subject: `✅ Order Confirmed - ${order.id} | Korana Estate`,
+          html: `
+            <div style="font-family: Arial, sans-serif; line-height: 1.6; max-width: 600px;">
+              <h2 style="color: #2d6a4f;">Your Order is Confirmed!</h2>
+              <p>Hi ${order.customerName || 'there'},</p>
+              <p>Thank you for your order. We have received it and will process it shortly.</p>
+              <hr />
+              <p><strong>Order ID:</strong> ${order.id}</p>
+              <p><strong>Item:</strong> ${order.itemNameSnapshot || productId || '-'}</p>
+              <p><strong>Quantity:</strong> ${order.quantitySnapshot ?? '-'}</p>
+              <hr />
+              <h3>Delivery Address</h3>
+              <p>${address || '-'}</p>
+              <p>${order.city || ''} ${order.state || ''} ${order.pincode || ''}</p>
+              <hr />
+              <p>For any queries, reply to this email or contact us at <a href="mailto:${adminEmail}">${adminEmail}</a>.</p>
+              <p style="font-size: 12px; color: #666;">Order placed at ${this.getTimestamp(order)}</p>
+            </div>
+          `,
+        })
+        console.log(`[Notification] Buyer confirmation email sent for orderId=${order.id}`)
+      } catch (error) {
+        console.error(`[Notification] Buyer email failed for orderId=${order.id}:`, error)
+        this.logger.error(
+          `Order buyer email failed for order=${order.id}: ${error instanceof Error ? error.message : String(error)}`,
+        )
+      }
+    } else {
+      console.warn(`[Notification] No buyer email available for orderId=${order.id}, skipping buyer confirmation`)
     }
   }
 
