@@ -90,7 +90,7 @@ export default function Navbar() {
       mounted = false
       clearInterval(interval)
     }
-  }, [status, pathname])
+  }, [status])
 
   const shownUnreadCount = status === 'authenticated' ? unreadCount : 0
 
@@ -208,7 +208,12 @@ export default function Navbar() {
 
           {/* Mobile Menu Button */}
           <button
-            className="lg:hidden p-3 rounded-xl border border-emerald-200/25 bg-[#171411]/70 hover:bg-[#1f1a16] transition-all text-[#e8dccb]"
+            className="lg:hidden p-3 rounded-xl border transition-all"
+            style={{
+              borderColor: 'var(--lux-navbar-border)',
+              background: isDark ? 'rgba(23,20,17,0.70)' : 'rgba(47,107,79,0.10)',
+              color: isDark ? '#e8dccb' : 'var(--lux-navbar-text)',
+            }}
             onClick={() => setIsMobileMenuOpen(v => !v)}
             aria-label="Toggle menu"
           >

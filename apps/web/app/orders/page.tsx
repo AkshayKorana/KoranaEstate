@@ -41,6 +41,9 @@ export default function OrdersPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
+
+  const refresh = () => setRefreshKey(k => k + 1)
 
   useEffect(() => {
     if (status !== 'authenticated') return
@@ -68,10 +71,16 @@ export default function OrdersPage() {
     }
 
     void loadOrders()
+
+    // Refresh when tab regains focus so a new order placed externally shows up
+    const onFocus = () => { if (mounted) void loadOrders() }
+    window.addEventListener('focus', onFocus)
+
     return () => {
       mounted = false
+      window.removeEventListener('focus', onFocus)
     }
-  }, [status])
+  }, [status, refreshKey])
 
   if (status === 'loading') {
     return null
@@ -81,16 +90,26 @@ export default function OrdersPage() {
     <div className="min-h-screen pb-12">
       <div className="mx-auto max-w-6xl px-6 md:px-8 lg:px-10">
         <div className="mb-8 slide-in-up">
-          <div className="flex items-center gap-4 mb-3">
-            <div className="p-4 rounded-2xl gradient-brand-spectrum">
-              <span className="text-3xl">📦</span>
+          <div className="flex items-start justify-between gap-4 mb-3">
+            <div className="flex items-center gap-4">
+              <div className="p-4 rounded-2xl gradient-brand-spectrum">
+                <span className="text-3xl">📦</span>
+              </div>
+              <div>
+                <h1 className="font-luxe text-4xl font-bold text-brand-spectrum">{t('Your Orders', 'ನಿಮ್ಮ ಆರ್ಡರ್‌ಗಳು')}</h1>
+                <p className={`mt-2 text-base ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>
+                  {t('Track your recent Store and Raw Marketplace COD orders.', 'ನಿಮ್ಮ ಇತ್ತೀಚಿನ ಸ್ಟೋರ್ ಮತ್ತು ರಾ ಮಾರುಕಟ್ಟೆ COD ಆರ್ಡರ್‌ಗಳನ್ನು ನೋಡಿ.')}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="font-luxe text-4xl font-bold text-brand-spectrum">{t('Your Orders', 'ನಿಮ್ಮ ಆರ್ಡರ್‌ಗಳು')}</h1>
-              <p className={`mt-2 text-base ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>
-                {t('Track your recent Store and Raw Marketplace COD orders.', 'ನಿಮ್ಮ ಇತ್ತೀಚಿನ ಸ್ಟೋರ್ ಮತ್ತು ರಾ ಮಾರುಕಟ್ಟೆ COD ಆರ್ಡರ್‌ಗಳನ್ನು ನೋಡಿ.')}
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={refresh}
+              disabled={loading}
+              className="mt-1 shrink-0 surface-app-button-secondary rounded-xl px-4 py-2 text-sm font-semibold disabled:opacity-50"
+            >
+              {loading ? '…' : t('Refresh', 'ರಿಫ್ರೆಶ್')}
+            </button>
           </div>
         </div>
 
