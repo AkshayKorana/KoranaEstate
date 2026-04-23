@@ -7,9 +7,7 @@ import { CreateRetailProductDto } from './dto/create-retail-product.dto'
 import { StoreService } from './store.service'
 
 @Controller({ path: 'store', version: '1' })
-@UseGuards(JwtAuthGuard, RolesGuard)
 @ApiTags('store')
-@ApiBearerAuth()
 export class StoreController {
   constructor(private readonly storeService: StoreService) {}
 
@@ -21,7 +19,9 @@ export class StoreController {
   }
 
   @Post('products')
+  @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles('SELLER', 'ADMIN')
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create store product' })
   @ApiOkResponse({ description: 'Product created' })
   create(@Req() req: { user: { userId: string } }, @Body() dto: CreateRetailProductDto) {
