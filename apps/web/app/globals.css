@@ -388,6 +388,12 @@ html {
   animation: heroZoom 24s ease-in-out infinite alternate;
 }
 
+.hero-bg-image-light {
+  transform: scale(1.08);
+  filter: blur(2px) contrast(1.05) saturate(0.88) brightness(0.68);
+  animation: heroZoom 24s ease-in-out infinite alternate;
+}
+
 .hero-bg-fade {
   animation: heroFadeIn 900ms ease-in-out both;
 }

@@ -34,8 +34,9 @@ export default function Hero() {
           </>
         ) : (
           <>
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(47,107,79,0.08),transparent_60%)]" />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(245,239,230,0.16)_0%,rgba(245,239,230,0.3)_100%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(165deg,rgba(245,239,230,0.72)_0%,rgba(235,226,211,0.62)_40%,rgba(220,210,195,0.70)_100%)]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_30%,rgba(47,107,79,0.10),transparent_60%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(245,239,230,0.22)_0%,rgba(245,239,230,0.45)_100%)]" />
           </>
         )}
       </div>
