@@ -98,6 +98,7 @@ export default function RawMarketplacePage() {
       setListings(data.listings || [])
     } catch (error) {
       console.error('Failed to fetch listings:', error)
+      setLoadError(t('Failed to load listings', 'ಲಿಸ್ಟಿಂಗ್‌ಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'))
     } finally {
       setLoading(false)
     }

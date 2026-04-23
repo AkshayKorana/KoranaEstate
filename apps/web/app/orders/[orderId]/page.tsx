@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
+import { useSession } from 'next-auth/react'
 import { useEffectiveTheme } from '@/app/theme-context'
 import type { Order } from '@/types/marketplace'
 import { extractErrorMessage } from '@/app/lib/api-errors'
@@ -39,12 +40,20 @@ function DetailRow({ label, value }: { label: string; value: string }) {
 
 export default function OrderConfirmationPage() {
   const params = useParams<{ orderId: string }>()
+  const router = useRouter()
+  const { status: sessionStatus } = useSession()
   const { isDark } = useEffectiveTheme()
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (sessionStatus === 'unauthenticated') {
+      router.replace('/auth')
+      return
+    }
+    if (sessionStatus === 'loading') return
+
     const orderId = params?.orderId
     if (!orderId) return
 
@@ -68,7 +77,7 @@ export default function OrderConfirmationPage() {
     }
 
     load()
-  }, [params?.orderId])
+  }, [params?.orderId, sessionStatus, router])
 
   const addressText = useMemo(() => {
     if (!order) return ''

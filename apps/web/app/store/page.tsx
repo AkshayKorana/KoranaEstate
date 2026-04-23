@@ -107,6 +107,7 @@ export default function StorePage() {
       setProducts(data.products || [])
     } catch (error) {
       console.error('Failed to fetch products:', error)
+      setLoadError(t('Failed to load products', 'ಉತ್ಪನ್ನಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'))
     } finally {
       setLoading(false)
     }

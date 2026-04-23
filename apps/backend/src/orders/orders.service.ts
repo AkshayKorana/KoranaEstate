@@ -284,6 +284,9 @@ export class OrdersService {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } })
     if (!order) throw new NotFoundException('Order not found')
     if (order.buyerId !== userId) throw new ForbiddenException('Only buyer can confirm this order')
+    if (order.status !== OrderStatus.DELIVERED) {
+      throw new BadRequestException(`Order cannot be confirmed in status: ${order.status}`)
+    }
 
     const updated = await this.prisma.order.update({
       where: { id: orderId },
