@@ -19,3 +19,4 @@ scripts/playwright_prices/.pw-google-profile/
 scripts/playwright_prices/.venv/
 scripts/playwright_prices/__pycache__/
 services/price-collector/.pw-bing-profile/
+*.tsbuildinfo
