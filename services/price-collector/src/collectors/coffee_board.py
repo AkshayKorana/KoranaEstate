@@ -26,9 +26,10 @@ PDF_SELECTORS = [
     "input#pdf_click",
     "input[value*='Daily report']",
 ]
-PAGE_LOAD_TIMEOUT_MS = 30_000
+PAGE_LOAD_TIMEOUT_MS = 60_000
 DOWNLOAD_TIMEOUT_MS = 60_000
-MAX_RETRIES = 2
+DIRECT_DOWNLOAD_TIMEOUT_S = 30  # urllib timeout in seconds
+MAX_RETRIES = 0  # NestJS handles retries — no internal retry loop
 
 DATE_PATTERN = re.compile(
     r"(?:(?:Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\s+)?"
@@ -360,7 +361,9 @@ def download_report_pdf() -> dict[str, Any]:
                             log("[COFFEE_BOARD] Downloading PDF from extracted URL")
                             with tempfile.NamedTemporaryFile(suffix=".pdf", delete=False) as temp_file:
                                 temp_path = temp_file.name
-                            urllib.request.urlretrieve(pdf_url, temp_path)
+                            with urllib.request.urlopen(pdf_url, timeout=DIRECT_DOWNLOAD_TIMEOUT_S) as response:
+                                with open(temp_path, "wb") as f:
+                                    f.write(response.read())
                             log("[COFFEE_BOARD] PDF downloaded successfully via direct URL")
                             
                             return {
@@ -430,7 +433,7 @@ def download_report_pdf() -> dict[str, Any]:
                 except OSError:
                     pass
             if attempt < MAX_RETRIES:
-                backoff_seconds = attempt + 1
+                backoff_seconds = (attempt + 1) * 2
                 log(f"[COFFEE_BOARD] Retry attempt {attempt + 1}/{MAX_RETRIES + 1}, reason: {error}")
                 time.sleep(backoff_seconds)
 
