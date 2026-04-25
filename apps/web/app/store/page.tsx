@@ -506,20 +506,12 @@ export default function StorePage() {
                         <span>{product.stock > 0 ? t('Buy Now', 'ಈಗ ಖರೀದಿ') : t('Out of Stock', 'ಸ್ಟಾಕ್ ಇಲ್ಲ')}</span>
                       </button>
 
-                      <div className="mt-2 grid grid-cols-2 gap-2">
-                        <button
-                          onClick={() => handleOpenSellerChat(product, false)}
-                          className="w-full lux-btn-secondary py-2.5 rounded-xl font-semibold shadow-sm hover:shadow-md transition-all"
-                        >
-                          {t('Message', 'ಸಂದೇಶ')}
-                        </button>
-                        <button
-                          onClick={() => handleOpenSellerChat(product, true)}
-                          className="w-full lux-btn-secondary py-2.5 rounded-xl font-semibold shadow-sm hover:shadow-md transition-all"
-                        >
-                          {t('Contact Seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ')}
-                        </button>
-                      </div>
+                      <button
+                        onClick={() => handleOpenSellerChat(product, true)}
+                        className="mt-2 w-full lux-btn-secondary py-2.5 rounded-xl font-semibold shadow-sm hover:shadow-md transition-all"
+                      >
+                        {t('Contact Seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ')}
+                      </button>
                     </div>
                   </div>
                 ))}
