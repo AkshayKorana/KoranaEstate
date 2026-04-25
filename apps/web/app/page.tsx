@@ -282,6 +282,24 @@ function parsePdfIcta(rawText: string | null | undefined): IctaAuctionData | nul
     robustaCherry: parseRobRow('Robusta Cherry'),
   }
 }
+type KarnatakaRange = { min: number; max: number }
+type KarnatakaRanges = Record<string, KarnatakaRange>
+function parsePdfKarnatakaRanges(rawText: string | null | undefined): KarnatakaRanges {
+  if (!rawText) return {}
+  // Find section: "Raw Coffee Price (Karnataka)..." then the line of 4 ranges
+  const section = rawText.match(/Raw Coffee Price[^\n]*Karnataka[^\n]*\n([^\n]+)\n([^\n]+)/i)
+  if (!section) return {}
+  // The ranges are on one of the next two lines
+  const rangeLine = [section[1], section[2]].find((line) => /\d+\s*[-–]\s*\d+/.test(line)) ?? ''
+  const pairs = [...rangeLine.matchAll(/(\d+)\s*[-–]\s*(\d+)/g)]
+  if (pairs.length < 4) return {}
+  const keys = ['arabica_parchment', 'arabica_cherry', 'robusta_parchment', 'robusta_cherry']
+  const result: KarnatakaRanges = {}
+  keys.forEach((key, i) => {
+    result[key] = { min: parseInt(pairs[i][1]), max: parseInt(pairs[i][2]) }
+  })
+  return result
+}
 // ──────────────────────────────────────────────────────────────────────────────
 
 function formatTimeAgo(value: string | null | undefined) {
@@ -1034,11 +1052,20 @@ export default function HomePage() {
       : 'FAILED'
   const coffeeSummarySubtitle = `${coffeeAvailableCount}/${visibleProducts.length || 4} coffee commodities available`
   const coffeeMidpointDisplay = formatMidpointPerKg(selectedCoffeeBoardLatest?.currentPrice ?? selectedCoffeeBoardLatest?.value)
-  const currentCoffeePrimaryDisplay = reportRangeOriginal || currentPrimaryDisplay
-  const currentCoffeeSecondaryDisplay = reportRangeNormalized || currentSecondaryDisplay
+  const selectedPdfRange = pdfKarnatakaRanges[activeSelectedKey ?? '']
+  const currentCoffeePrimaryDisplay = reportRangeOriginal
+    || (selectedCoffeeBoardLatest?.todayPriceMin != null && selectedCoffeeBoardLatest?.todayPriceMax != null ? currentPrimaryDisplay : null)
+    || (selectedPdfRange ? `${formatPrice(selectedPdfRange.min)} – ${formatPrice(selectedPdfRange.max)} per 50 kg` : null)
+    || currentPrimaryDisplay
+  const currentCoffeeSecondaryDisplay = reportRangeNormalized
+    || (selectedPdfRange ? `≈ ${formatPrice(selectedPdfRange.min / 50)} – ${formatPrice(selectedPdfRange.max / 50)}/kg` : null)
+    || currentSecondaryDisplay
 
   // PDF-derived intelligence
+  // rawText is stored in metadata.query by the current backend
   const pdfRawText = selectedCoffeeBoardLatest?.rawText ?? (selectedCoffeeBoardLatest?.metadata?.query as string | undefined)
+    ?? (() => { for (const [, obs] of latestByKey) { const q = obs?.metadata?.query as string | undefined; if (q) return q } return undefined })()
+  const pdfKarnatakaRanges = parsePdfKarnatakaRanges(pdfRawText)
   const pdfMarketAnalysis = parsePdfMarketAnalysis(pdfRawText)
   const pdfIceFutures = parsePdfIceFutures(pdfRawText)
   const pdfIco = parsePdfIcoIndicator(pdfRawText)
@@ -1194,12 +1221,23 @@ export default function HomePage() {
                         <>
                           <p className={`mt-2 text-2xl font-bold ${isDark ? 'text-[#f4ead9]' : 'text-card-strong'}`}>
                             {isCoffeeCommodity(product)
-                              ? formatCoffeePriceRange(card?.todayPriceMin, card?.todayPriceMax, card?.currentPrice ?? card?.value)
+                              ? (() => {
+                                  const pdfR = pdfKarnatakaRanges[product.productKey]
+                                  return formatCoffeePriceRange(
+                                    card?.todayPriceMin ?? (pdfR ? pdfR.min / 50 : undefined),
+                                    card?.todayPriceMax ?? (pdfR ? pdfR.max / 50 : undefined),
+                                    card?.currentPrice ?? card?.value
+                                  )
+                                })()
                               : formatPrice(card?.currentPrice ?? card?.value)}
                           </p>
                           <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-muted-safe'}`}>
                             {isCoffeeCommodity(product)
-                              ? (card?.currentPrice != null || card?.value != null ? `≈ ${formatPrice(card?.currentPrice ?? card?.value ?? 0)}/kg` : 'Not available')
+                              ? (() => {
+                                  const pdfR = pdfKarnatakaRanges[product.productKey]
+                                  if (pdfR) return `≈ ${formatPrice(pdfR.min / 50)} – ${formatPrice(pdfR.max / 50)}/kg`
+                                  return card?.currentPrice != null || card?.value != null ? `≈ ${formatPrice(card?.currentPrice ?? card?.value ?? 0)}/kg` : 'Not available'
+                                })()
                               : product.unit}
                           </p>
                         </>
