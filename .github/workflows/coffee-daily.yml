@@ -99,7 +99,7 @@ jobs:
           for item in items:
               if item.get('value') is None:
                   continue
-              observations.append({
+              obs = {
                   'productKey': item['productKey'],
                   'price': float(item['value']),
                   'unit': item.get('unit', 'INR/kg'),
@@ -108,7 +108,12 @@ jobs:
                   'observedAt': report_date,
                   'rawText': item.get('rawText'),
                   'confidence': item.get('confidence'),
-              })
+              }
+              if item.get('priceMin50kg') is not None:
+                  obs['priceMin'] = float(item['priceMin50kg'])
+              if item.get('priceMax50kg') is not None:
+                  obs['priceMax'] = float(item['priceMax50kg'])
+              observations.append(obs)
 
           ingest_errors = []
           for err in (errors or []):

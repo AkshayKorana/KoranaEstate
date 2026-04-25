@@ -25,6 +25,14 @@ export class IngestObservationItemDto {
   capturedAt?: string
 
   @IsOptional()
+  @IsNumber()
+  priceMin?: number
+
+  @IsOptional()
+  @IsNumber()
+  priceMax?: number
+
+  @IsOptional()
   @IsString()
   rawText?: string
 

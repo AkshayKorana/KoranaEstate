@@ -67,6 +67,8 @@ export class PricesController {
           source: item.source,
           sourceUrl: item.sourceUrl,
           capturedAt: item.capturedAt ?? item.observedAt,
+          todayPriceMin: item.priceMin != null ? item.priceMin / 50 : undefined,
+          todayPriceMax: item.priceMax != null ? item.priceMax / 50 : undefined,
           meta: {
             query: item.rawText,
             confidence: item.confidence,

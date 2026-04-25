@@ -217,6 +217,8 @@ def extract_raw_coffee_table_prices(pdf_text: str) -> dict[str, tuple[float, str
         parsed[product_key] = (
             midpoint,
             f"₹{low:,.0f}–₹{high:,.0f} per 50 kg",
+            low,
+            high,
         )
 
     return parsed
@@ -240,8 +242,10 @@ def parse_products_from_pdf_text(pdf_text: str) -> dict[str, Any]:
         ):
             failure_reason = None
             table_match = table_prices.get(product_key)
+            price_min50kg: float | None = None
+            price_max50kg: float | None = None
             if table_match:
-                value, range_display = table_match
+                value, range_display, price_min50kg, price_max50kg = table_match
             else:
                 value, range_display, failure_reason = extract_nearest_value(section_text, product_key)
                 if value is None:
@@ -258,6 +262,8 @@ def parse_products_from_pdf_text(pdf_text: str) -> dict[str, Any]:
                     "value": value,
                     "status": "SUCCESS" if value is not None else "FAILED",
                     "rangeDisplay": range_display,
+                    "priceMin50kg": price_min50kg,
+                    "priceMax50kg": price_max50kg,
                 }
             )
 

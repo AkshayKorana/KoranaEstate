@@ -446,6 +446,17 @@ function formatPrimaryCoffeePrice(value: number | null | undefined) {
   return `${formatPrice(value * 50)} per 50 kg`
 }
 
+function formatCoffeePriceRange(
+  min: number | null | undefined,
+  max: number | null | undefined,
+  midpoint: number | null | undefined
+) {
+  if (min != null && max != null) {
+    return `${formatPrice(min * 50)} – ${formatPrice(max * 50)} per 50 kg`
+  }
+  return formatPrimaryCoffeePrice(midpoint)
+}
+
 function formatMidpointPerKg(value: number | null | undefined) {
   if (value == null) return 'Not available'
   return `≈ ${formatPrice(value)} / kg midpoint`
@@ -850,10 +861,16 @@ export default function HomePage() {
     selectedCoffeeBoardLatest?.confidence != null ? `${Math.round(selectedCoffeeBoardLatest.confidence * 100)}%` : 'Not available'
   const scheduleFreshnessWarning = (latest?.runHealth?.freshnessHours ?? 0) > 24
   const currentPer50KgDisplay = isCoffeeCommodity(selectedProduct)
-    ? formatPer50KgEquivalent(selectedCoffeeBoardLatest?.currentPrice ?? selectedCoffeeBoardLatest?.value)
+    ? (selectedCoffeeBoardLatest?.todayPriceMin != null && selectedCoffeeBoardLatest?.todayPriceMax != null
+        ? `≈ ${formatPrice(selectedCoffeeBoardLatest.value ?? selectedCoffeeBoardLatest.currentPrice)}/kg`
+        : formatPer50KgEquivalent(selectedCoffeeBoardLatest?.currentPrice ?? selectedCoffeeBoardLatest?.value))
     : null
   const currentPrimaryDisplay = isCoffeeCommodity(selectedProduct)
-    ? formatPrimaryCoffeePrice(selectedCoffeeBoardLatest?.currentPrice ?? selectedCoffeeBoardLatest?.value)
+    ? formatCoffeePriceRange(
+        selectedCoffeeBoardLatest?.todayPriceMin,
+        selectedCoffeeBoardLatest?.todayPriceMax,
+        selectedCoffeeBoardLatest?.currentPrice ?? selectedCoffeeBoardLatest?.value
+      )
     : formatPrice(selectedCoffeeBoardLatest?.currentPrice ?? selectedCoffeeBoardLatest?.value)
   const currentSecondaryDisplay = isCoffeeCommodity(selectedProduct)
     ? `(${currentKgDisplay.replace(/^/, '≈ ')})`
@@ -1094,12 +1111,12 @@ export default function HomePage() {
                         <>
                           <p className={`mt-2 text-2xl font-bold ${isDark ? 'text-[#f4ead9]' : 'text-card-strong'}`}>
                             {isCoffeeCommodity(product)
-                              ? (getMetadataString(card?.metadata, 'currentRangeOriginal') || formatPrimaryCoffeePrice(card?.currentPrice ?? card?.value))
+                              ? formatCoffeePriceRange(card?.todayPriceMin, card?.todayPriceMax, card?.currentPrice ?? card?.value)
                               : formatPrice(card?.currentPrice ?? card?.value)}
                           </p>
                           <p className={`text-xs ${isDark ? 'text-gray-400' : 'text-muted-safe'}`}>
                             {isCoffeeCommodity(product)
-                              ? (getMetadataString(card?.metadata, 'currentRangeInrPerKg') || (card?.currentPrice != null || card?.value != null ? `≈ ${formatPrice((card?.currentPrice ?? card?.value ?? 0))}/kg` : 'Not available'))
+                              ? (card?.currentPrice != null || card?.value != null ? `≈ ${formatPrice(card?.currentPrice ?? card?.value ?? 0)}/kg` : 'Not available')
                               : product.unit}
                           </p>
                         </>
