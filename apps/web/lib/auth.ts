@@ -4,6 +4,19 @@ import CredentialsProvider from 'next-auth/providers/credentials'
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
 
+/**
+ * Single source of truth for admin emails.
+ * Used at both signup and login so existing accounts also get the right role.
+ * Tell Copilot to add an email here when you want to grant admin access.
+ */
+export const ADMIN_EMAILS: ReadonlySet<string> = new Set([
+  'akshay.koranaest@gmail.com',
+])
+
+export function resolveRole(email: string): 'ADMIN' | 'BUYER' {
+  return ADMIN_EMAILS.has(email.toLowerCase()) ? 'ADMIN' : 'BUYER'
+}
+
 type BackendAuthResponse = {
   user?: {
     id: string
@@ -50,11 +63,16 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
+        // Role is always determined by the whitelist, not the DB value.
+        // This ensures existing accounts get the correct role immediately
+        // without needing a DB update or re-registration.
+        const role = resolveRole(data.user.email)
+
         return {
           id: data.user.id,
           email: data.user.email,
           name: data.user.fullName ?? undefined,
-          role: data.user.role ?? undefined,
+          role,
           accessToken: data.accessToken,
           refreshToken: data.refreshToken,
         }
