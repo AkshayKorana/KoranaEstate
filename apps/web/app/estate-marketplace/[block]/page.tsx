@@ -46,10 +46,11 @@ export default function EstateBlockPage() {
   const { isDark } = useEffectiveTheme()
   const params = useParams<{ block: string }>()
   const router = useRouter()
-  const { status } = useSession({
+  const { data: session, status } = useSession({
     required: true,
     onUnauthenticated: () => router.replace('/auth'),
   })
+  const isAdmin = session?.user?.role === 'ADMIN'
 
   const block = getEstateBlockBySlug(params?.block ?? '')
 
@@ -216,7 +217,7 @@ export default function EstateBlockPage() {
         <div className="flex items-center justify-between gap-4">
           <div>
             <h1 className={`font-luxe text-4xl font-bold ${isDark ? 'text-brand-spectrum' : 'text-[#1f1f1f]'}`}>{title}</h1>
-            <p className={`mt-1 ${isDark ? 'text-gray-300' : 'text-[#4a4a4a]'}`}>{t('View listings, add service, and chat with sellers.', 'ಪಟ್ಟಿಗಳನ್ನು ನೋಡಿ, ಸೇವೆ ಸೇರಿಸಿ, ಮಾರಾಟಗಾರರ ಜೊತೆ ಚಾಟ್ ಮಾಡಿ.')}</p>
+            <p className={`mt-1 ${isDark ? 'text-gray-300' : 'text-[#4a4a4a]'}`}>{t('Browse listings and chat with the seller.', 'ಪಟ್ಟಿಗಳನ್ನು ನೋಡಿ ಮತ್ತು ಮಾರಾಟಗಾರರೊಂದಿಗೆ ಚಾಟ್ ಮಾಡಿ.')}</p>
           </div>
           <div className="flex gap-2">
             <Link
@@ -225,20 +226,18 @@ export default function EstateBlockPage() {
             >
               {t('Back', 'ಹಿಂತಿರುಗಿ')}
             </Link>
-            <button
-              type="button"
-              onClick={() => {
-                if (status !== 'authenticated') {
-                  router.push('/auth')
-                  return
-                }
-                setFormError('')
-                setShowCreateModal(true)
-              }}
-              className="rounded-lg lux-btn-primary px-4 py-2 text-sm font-semibold"
-            >
-              {t('+ Add Service', '+ ಸೇವೆ ಸೇರಿಸಿ')}
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => {
+                  setFormError('')
+                  setShowCreateModal(true)
+                }}
+                className="rounded-lg lux-btn-primary px-4 py-2 text-sm font-semibold"
+              >
+                {t('+ Add Service', '+ ಸೇವೆ ಸೇರಿಸಿ')}
+              </button>
+            )}
           </div>
         </div>
 

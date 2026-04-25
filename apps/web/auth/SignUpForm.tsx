@@ -13,7 +13,6 @@ export default function SignUpForm() {
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
-  const [role, setRole] = useState<'BUYER' | 'SELLER'>('BUYER')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [isDuplicateEmailError, setIsDuplicateEmailError] = useState(false)
@@ -35,7 +34,7 @@ export default function SignUpForm() {
           name: fullName,
           email: normalizedEmail,
           password,
-          role,
+          role: 'BUYER',
         }),
       })
 
@@ -108,24 +107,6 @@ export default function SignUpForm() {
           className="lux-input mt-1 w-full rounded-xl px-3 py-2 text-sm"
           placeholder={t('Akshay Korana', 'ಅಕ್ಷಯ್ ಕೊರಾನಾ')}
         />
-      </div>
-
-      <div>
-        <label
-          htmlFor="signup-role"
-          className="block text-sm font-medium text-[#2f2f2f] dark:text-[#dbcdbb]"
-        >
-          {t('Account Type', 'ಖಾತೆ ಪ್ರಕಾರ')}
-        </label>
-        <select
-          id="signup-role"
-          value={role}
-          onChange={(e) => setRole((e.target.value as 'BUYER' | 'SELLER') || 'BUYER')}
-          className="lux-input mt-1 w-full rounded-xl px-3 py-2 text-sm"
-        >
-          <option value="BUYER">{t('Buyer', 'ಖರೀದಿದಾರ')}</option>
-          <option value="SELLER">{t('Seller', 'ಮಾರಾಟಗಾರ')}</option>
-        </select>
       </div>
 
       <div>
