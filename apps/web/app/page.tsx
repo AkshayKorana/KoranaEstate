@@ -257,29 +257,57 @@ function parsePdfIcoIndicator(rawText: string | null | undefined): IcoIndicator 
   }
 }
 
-type IctaRow = { grade: string; value: number }
-type IctaAuctionData = { date: string | null; arabicaPlantation: IctaRow[]; arabicaCherry: IctaRow[]; robustaParchment: IctaRow[]; robustaCherry: IctaRow[] }
-function parsePdfIcta(rawText: string | null | undefined): IctaAuctionData | null {
+type DifferentialItem = { label: string; exchange: string; from: number; to: number }
+type DifferentialData = { arabicaPlantation?: DifferentialItem; arabicaCherry?: DifferentialItem; robustaParchment?: DifferentialItem; robustaCherry?: DifferentialItem }
+function parsePdfDifferentials(rawText: string | null | undefined): DifferentialData | null {
   if (!rawText) return null
-  const dateM = rawText.match(/ICTA Auction Prices.*?as on\s+([\d.]+)/i)
-  const parseRow = (label: string): IctaRow[] => {
-    const m = rawText.match(new RegExp(label + '\\s*\\([^)]+\\)\\s*([\\d.\\s-]+)', 'i'))
-    if (!m) return []
-    const grades = ['MNEB','AA','PB','A','AB','B','C','BBB','AAA']
-    return m[1].trim().split(/\s+/).map((v, i) => ({ grade: grades[i] || `G${i}`, value: parseFloat(v) })).filter(r => !isNaN(r.value))
+  const parseItem = (labelRe: string, exchangeLabel: string): DifferentialItem | undefined => {
+    const m = rawText.match(new RegExp(labelRe + '[^\\n]*?([+-]?\\d+)to([+-]?\\d+)', 'i'))
+    if (!m) return undefined
+    return { label: '', exchange: exchangeLabel, from: parseInt(m[1]), to: parseInt(m[2]) }
   }
-  const parseRobRow = (label: string): IctaRow[] => {
-    const m = rawText.match(new RegExp(label + '\\s*\\([^)]+\\)\\s*([\\d.\\s-]+)', 'i'))
-    if (!m) return []
-    const grades = ['RKR','A','PB','AA','AB','B','C','BBB','AAA']
-    return m[1].trim().split(/\s+/).map((v, i) => ({ grade: grades[i] || `G${i}`, value: parseFloat(v) })).filter(r => !isNaN(r.value))
-  }
+  const ap = parseItem('Ar\\.Plant', 'ICE NY')
+  const ac = parseItem('Ar\\.Chy', 'ICE NY')
+  const rp = parseItem('Rob\\.Pmt', 'LIFFE')
+  const rc = parseItem('Rob\\.Chy', 'LIFFE')
+  if (!ap && !ac && !rp && !rc) return null
   return {
-    date: dateM ? dateM[1] : null,
-    arabicaPlantation: parseRow('Arabica Plantation'),
-    arabicaCherry: parseRow('Arabica Cherry'),
-    robustaParchment: parseRobRow('Robusta Parchment'),
-    robustaCherry: parseRobRow('Robusta Cherry'),
+    arabicaPlantation: ap ? { ...ap, label: 'Arabica Plantation' } : undefined,
+    arabicaCherry: ac ? { ...ac, label: 'Arabica Cherry' } : undefined,
+    robustaParchment: rp ? { ...rp, label: 'Robusta Parchment' } : undefined,
+    robustaCherry: rc ? { ...rc, label: 'Robusta Cherry' } : undefined,
+  }
+}
+function formatDiffRange(item: DifferentialItem): string {
+  const unit = item.exchange === 'ICE NY' ? '¢/lb' : '$/t'
+  const fmt = (n: number) => (n >= 0 ? `+${n}` : `${n}`)
+  return `${fmt(item.from)} to ${fmt(item.to)} ${unit}`
+}
+
+type ExportRow = { label: string; thisMT: number }
+type ExportData = { period: string | null; rows: ExportRow[]; totalThisMT: number | null; totalLastMT: number | null }
+function parsePdfExportData(rawText: string | null | undefined): ExportData | null {
+  if (!rawText) return null
+  const periodM = rawText.match(/Jan\.?\s*1?\s*[-–]\s*[A-Za-z]+\.?\s*\d+[,.]?\s*\d{4}/i)
+  const keys: { re: RegExp; label: string }[] = [
+    { re: /Ar\.Pmt\s+(\d[\d,]*)/i, label: 'Arabica Parchment' },
+    { re: /Ar\.Chy\s+(\d[\d,]*)/i, label: 'Arabica Cherry' },
+    { re: /Rob\.Pmt\s+(\d[\d,]*)/i, label: 'Robusta Parchment' },
+    { re: /Rob\.Chy\s+(\d[\d,]*)/i, label: 'Robusta Cherry' },
+  ]
+  const rows: ExportRow[] = []
+  for (const { re, label } of keys) {
+    const m = rawText.match(re)
+    if (m) rows.push({ label, thisMT: parseInt(m[1].replace(/,/g, '')) })
+  }
+  const totalM = rawText.match(/Total\s+(\d[\d,]*)\s*MT/i)
+  const totalLastLine = rawText.match(/Total\s+\d[\d,]*\s*MT[^\n]*(\d{4,})/)
+  if (rows.length === 0 && !totalM) return null
+  return {
+    period: periodM ? periodM[0].trim() : null,
+    rows,
+    totalThisMT: totalM ? parseInt(totalM[1].replace(/,/g, '')) : null,
+    totalLastMT: totalLastLine ? parseInt(totalLastLine[1].replace(/,/g, '')) : null,
   }
 }
 type KarnatakaRange = { min: number; max: number }
@@ -1069,12 +1097,8 @@ export default function HomePage() {
   const pdfMarketAnalysis = parsePdfMarketAnalysis(pdfRawText)
   const pdfIceFutures = parsePdfIceFutures(pdfRawText)
   const pdfIco = parsePdfIcoIndicator(pdfRawText)
-  const pdfIcta = parsePdfIcta(pdfRawText)
-  const ictaForSelected: IctaRow[] = activeSelectedKey === 'arabica_cherry' ? (pdfIcta?.arabicaCherry ?? [])
-    : activeSelectedKey === 'arabica_parchment' ? (pdfIcta?.arabicaPlantation ?? [])
-    : activeSelectedKey === 'robusta_parchment' ? (pdfIcta?.robustaParchment ?? [])
-    : activeSelectedKey === 'robusta_cherry' ? (pdfIcta?.robustaCherry ?? [])
-    : []
+  const pdfDifferentials = parsePdfDifferentials(pdfRawText)
+  const pdfExportData = parsePdfExportData(pdfRawText)
   const isArabica = activeSelectedKey?.startsWith('arabica')
 
   return (
@@ -1178,7 +1202,7 @@ export default function HomePage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
                 {visibleProducts.map((product) => {
                   const card = latestByKey.get(product.productKey)
                   const status = !card && showPriceSkeleton ? 'LOADING' : card?.status || 'FAILED'
@@ -1188,7 +1212,7 @@ export default function HomePage() {
                       key={product.productKey}
                       type="button"
                       onClick={() => setSelectedKey(product.productKey)}
-                      className={`text-left rounded-2xl p-4 transition ${
+                      className={`text-left rounded-2xl p-3 sm:p-4 transition ${
                         isDark
                           ? selectedKey === product.productKey
                             ? 'border-emerald-500/60 bg-[#1d1a15]'
@@ -1199,7 +1223,7 @@ export default function HomePage() {
                       }`}
                     >
                       <div className="flex items-center justify-between gap-3">
-                        <p className={`font-semibold ${isDark ? 'text-[#efe4d4]' : 'text-card-strong'}`}>{product.displayName}</p>
+                        <p className={`font-semibold text-sm sm:text-base ${isDark ? 'text-[#efe4d4]' : 'text-card-strong'}`}>{product.displayName}</p>
                         <span className={`text-[11px] px-2 py-0.5 rounded-full border ${
                           status === 'OK'
                             ? isDark
@@ -1219,7 +1243,7 @@ export default function HomePage() {
                         </>
                       ) : (
                         <>
-                          <p className={`mt-2 text-2xl font-bold ${isDark ? 'text-[#f4ead9]' : 'text-card-strong'}`}>
+                          <p className={`mt-2 text-base sm:text-xl font-bold leading-tight ${isDark ? 'text-[#f4ead9]' : 'text-card-strong'}`}>
                             {isCoffeeCommodity(product)
                               ? (() => {
                                   const pdfR = pdfKarnatakaRanges[product.productKey]
@@ -1419,23 +1443,63 @@ export default function HomePage() {
                     )}
                   </div>
 
-                  {/* right: ICTA + ICO + source */}
+                  {/* right: Kodagu intel panels + source */}
                   <div className="space-y-4">
-                    {/* ICTA Auction Prices */}
-                    {ictaForSelected.length > 0 && (
+                    {/* Differentials vs Global Benchmarks */}
+                    {pdfDifferentials && (
                       <div className="surface-app-panel-soft rounded-xl p-4">
-                        <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-app-soft">
-                          ICTA Auction · {pdfIcta?.date ? `as on ${pdfIcta.date}` : 'Latest'}
-                        </h4>
-                        <div className="mt-3 grid grid-cols-2 gap-2">
-                          {ictaForSelected.map((row) => (
-                            <div key={row.grade} className="surface-app-panel rounded-xl px-3 py-2 flex items-center justify-between gap-2">
-                              <span className="text-xs font-medium text-app-soft">{row.grade}</span>
-                              <span className="text-sm font-bold text-app-strong">₹{row.value.toLocaleString('en-IN')}</span>
+                        <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-app-soft">Differentials · Global Benchmark</h4>
+                        <p className="mt-1 text-xs text-app-muted">Premium / discount your coffee commands vs ICE/LIFFE</p>
+                        <div className="mt-3 space-y-2">
+                          {([
+                            pdfDifferentials.arabicaPlantation,
+                            pdfDifferentials.arabicaCherry,
+                            pdfDifferentials.robustaParchment,
+                            pdfDifferentials.robustaCherry,
+                          ] as (DifferentialItem | undefined)[]).filter(Boolean).map((item) => item && (
+                            <div key={item.label} className="surface-app-panel rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+                              <div>
+                                <p className="text-xs font-medium text-app-soft">{item.label}</p>
+                                <p className="text-[11px] text-app-muted">{item.exchange}</p>
+                              </div>
+                              <span className={`text-sm font-bold tabular-nums ${item.from >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                {formatDiffRange(item)}
+                              </span>
                             </div>
                           ))}
                         </div>
-                        <p className="mt-2 text-xs text-app-soft">Rs/Kg at ICTA auction · Coffee Board India</p>
+                        {pdfIco?.exchangeRate && (
+                          <p className="mt-2 text-xs text-app-soft">₹/US$ = {pdfIco.exchangeRate} · Coffee Board India</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* India Coffee Exports YTD */}
+                    {pdfExportData && (pdfExportData.rows.length > 0 || pdfExportData.totalThisMT) && (
+                      <div className="surface-app-panel-soft rounded-xl p-4">
+                        <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-app-soft">India Exports YTD</h4>
+                        {pdfExportData.period && (
+                          <p className="mt-1 text-xs text-app-muted">{pdfExportData.period}</p>
+                        )}
+                        <div className="mt-3 space-y-1.5">
+                          {pdfExportData.rows.map((row) => (
+                            <div key={row.label} className="flex items-center justify-between gap-2">
+                              <span className="text-xs text-app-soft">{row.label}</span>
+                              <span className="text-xs font-semibold text-app-strong tabular-nums">{row.thisMT.toLocaleString('en-IN')} MT</span>
+                            </div>
+                          ))}
+                          {pdfExportData.totalThisMT && (
+                            <div className="flex items-center justify-between gap-2 pt-1.5 border-t border-white/10">
+                              <span className="text-xs font-medium text-app-muted">Total</span>
+                              <div className="text-right">
+                                <span className="text-sm font-bold text-app-strong tabular-nums">{pdfExportData.totalThisMT.toLocaleString('en-IN')} MT</span>
+                                {pdfExportData.totalLastMT && (
+                                  <p className="text-[11px] text-app-soft">vs {pdfExportData.totalLastMT.toLocaleString('en-IN')} MT last year</p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
 

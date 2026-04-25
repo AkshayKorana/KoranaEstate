@@ -294,27 +294,52 @@ export default function RawMarketplacePage() {
 
   return (
     <div className="min-h-screen pb-12">
-      <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
         {/* Header */}
-        <div className="mb-8 slide-in-up">
-          <div className="flex items-center space-x-4 mb-3">
-            <div className="p-4 rounded-2xl gradient-brand-spectrum float-animation">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
+        <div className="mb-6 pt-2 slide-in-up">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2 rounded-xl bg-emerald-700/90 flex-shrink-0">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
               </svg>
             </div>
-            <div>
-              <h1 className="font-luxe text-5xl font-bold text-brand-spectrum">
-                {t('Raw Commodity Marketplace', 'ರಾ ಕಮೋಡಿಟಿ ಮಾರುಕಟ್ಟೆ')}
-              </h1>
-              <p className={`mt-2 text-lg ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Buy and sell raw coffee, pepper, cardamom, and arecanut directly from farmers 🌱', 'ರೈತರಿಂದ ನೇರವಾಗಿ ರಾ ಕಾಫಿ, ಮೆಣಸು, ಏಲಕ್ಕಿ ಮತ್ತು ಅಡಿಕೆ ಖರೀದಿ/ಮಾರಾಟ ಮಾಡಿ 🌱')}</p>
-            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-brand-spectrum">
+              {t('Raw Commodity Marketplace', 'ರಾ ಕಮೋಡಿಟಿ ಮಾರುಕಟ್ಟೆ')}
+            </h1>
           </div>
+          <p className={`text-sm ml-10 ${isDark ? 'text-[#c8bca9]' : 'text-[#6b6b6b]'}`}>{t('Buy raw coffee, pepper, cardamom & arecanut directly from farms', 'ರೈತರಿಂದ ನೇರವಾಗಿ ಕಾಫಿ, ಮೆಣಸು, ಏಲಕ್ಕಿ ಮತ್ತು ಅಡಿಕೆ ಖರೀದಿ')}</p>
         </div>
 
-        <div className="flex gap-8">
-          {/* Filters Sidebar */}
-          <aside className="w-72 flex-shrink-0 fade-in">
+        {/* Mobile commodity filter chips */}
+        <div className="flex gap-2 overflow-x-auto pb-3 lg:hidden scrollbar-hide -mx-4 px-4">
+          <button
+            onClick={() => setFilters({ ...filters, commodity: undefined })}
+            className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-all ${
+              !filters.commodity
+                ? 'bg-emerald-700 text-white shadow-md'
+                : isDark ? 'bg-white/10 text-[#d8c8b3]' : 'bg-white border border-black/10 text-[#2f2f2f]'
+            }`}
+          >
+            {t('All', 'ಎಲ್ಲ')}
+          </button>
+          {COMMODITIES.map(c => (
+            <button
+              key={c}
+              onClick={() => setFilters({ ...filters, commodity: c })}
+              className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-all ${
+                filters.commodity === c
+                  ? 'bg-emerald-700 text-white shadow-md'
+                  : isDark ? 'bg-white/10 text-[#d8c8b3]' : 'bg-white border border-black/10 text-[#2f2f2f]'
+              }`}
+            >
+              {c}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-6 lg:gap-8">
+          {/* Filters Sidebar — desktop only */}
+          <aside className="hidden lg:block w-64 flex-shrink-0 fade-in">
             <div className={`glass rounded-2xl shadow-lg p-6 sticky top-36 border ${isDark ? 'border-emerald-200/30' : 'border-black/10'}`}>
               <div className="flex items-center space-x-2 mb-6">
                 <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -368,7 +393,7 @@ export default function RawMarketplacePage() {
           </aside>
 
           {/* Listings Grid */}
-          <main className="flex-1">
+          <main className="flex-1 min-w-0">
             <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 slide-in-up">
               <p className={`font-medium ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>
                 {loading
@@ -432,11 +457,11 @@ export default function RawMarketplacePage() {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4">
                 {listings.map((listing, idx) => (
                   <div 
                     key={listing.id} 
-                    className="surface-card rounded-2xl shadow-lg hover:shadow-2xl transition-all p-6 card-hover fade-in"
+                    className="surface-card rounded-2xl shadow hover:shadow-xl transition-all p-5 card-hover fade-in"
                     style={{ animationDelay: `${idx * 100}ms` }}
                   >
                     <div className="flex justify-between items-start mb-4">

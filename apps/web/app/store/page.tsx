@@ -279,27 +279,52 @@ export default function StorePage() {
 
   return (
     <div className="min-h-screen pb-12">
-      <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-10">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10">
         {/* Header */}
-        <div className="mb-8 slide-in-up">
-          <div className="flex items-center space-x-4 mb-3">
-            <div className="p-4 rounded-2xl gradient-brand-spectrum float-animation">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="mb-6 pt-2 slide-in-up">
+          <div className="flex items-center gap-3 mb-1">
+            <div className="p-2 rounded-xl gradient-brand-spectrum flex-shrink-0">
+              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
             </div>
-            <div>
-              <h1 className="font-luxe text-5xl font-bold text-brand-spectrum">
-                {t('Korana Store', 'ಕೊರಾನಾ ಸ್ಟೋರ್')}
-              </h1>
-              <p className={`mt-2 text-lg ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Premium roasted coffee, ground spices, and gift packs ☕', 'ಪ್ರೀಮಿಯಂ ರೋಸ್ಟ್ ಕಾಫಿ, ಪುಡಿ ಮಸಾಲೆಗಳು ಮತ್ತು ಗಿಫ್ಟ್ ಪ್ಯಾಕ್‌ಗಳು ☕')}</p>
-            </div>
+            <h1 className="text-2xl sm:text-3xl font-bold text-brand-spectrum">
+              {t('Korana Store', 'ಕೊರಾನಾ ಸ್ಟೋರ್')}
+            </h1>
           </div>
+          <p className={`text-sm ml-10 ${isDark ? 'text-[#c8bca9]' : 'text-[#6b6b6b]'}`}>{t('Premium roasted coffee, ground spices & gift packs', 'ಪ್ರೀಮಿಯಂ ಕಾಫಿ, ಮಸಾಲೆ ಮತ್ತು ಗಿಫ್ಟ್ ಪ್ಯಾಕ್‌ಗಳು')}</p>
         </div>
 
-        <div className="flex gap-8">
-          {/* Category Sidebar */}
-          <aside className="w-72 flex-shrink-0 fade-in">
+        {/* Mobile category scroll */}
+        <div className="flex gap-2 overflow-x-auto pb-3 lg:hidden scrollbar-hide -mx-4 px-4">
+          <button
+            onClick={() => setSelectedCategory('')}
+            className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-all ${
+              selectedCategory === ''
+                ? 'gradient-brand-spectrum text-white shadow-md'
+                : isDark ? 'bg-white/10 text-[#d8c8b3]' : 'bg-white border border-black/10 text-[#2f2f2f]'
+            }`}
+          >
+            {t('All', 'ಎಲ್ಲ')}
+          </button>
+          {CATEGORIES.map(cat => (
+            <button
+              key={cat}
+              onClick={() => setSelectedCategory(cat)}
+              className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-all ${
+                selectedCategory === cat
+                  ? 'gradient-brand-spectrum text-white shadow-md'
+                  : isDark ? 'bg-white/10 text-[#d8c8b3]' : 'bg-white border border-black/10 text-[#2f2f2f]'
+              }`}
+            >
+              {categoryLabel(cat)}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-6 lg:gap-8">
+          {/* Category Sidebar — desktop only */}
+          <aside className="hidden lg:block w-64 flex-shrink-0 fade-in">
             <div className={`glass rounded-2xl shadow-lg p-6 sticky top-36 border ${isDark ? 'border-emerald-200/30' : 'border-black/10'}`}>
               <div className="flex items-center space-x-2 mb-6">
                 <svg className="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -349,7 +374,7 @@ export default function StorePage() {
           </aside>
 
           {/* Products Grid */}
-          <main className="flex-1">
+          <main className="flex-1 min-w-0">
             <div className="mb-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 slide-in-up">
               <p className={`font-medium ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>
                 {loading
@@ -413,7 +438,7 @@ export default function StorePage() {
                 )}
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                 {products.map((product, idx) => (
                   <div 
                     key={product.id} 
@@ -421,7 +446,7 @@ export default function StorePage() {
                     style={{ animationDelay: `${idx * 100}ms` }}
                   >
                     {/* Product Image */}
-                    <div className="h-56 bg-gradient-to-br from-amber-100 via-yellow-50 to-emerald-50 flex items-center justify-center relative overflow-hidden">
+                    <div className="h-40 sm:h-48 bg-gradient-to-br from-amber-100 via-yellow-50 to-emerald-50 flex items-center justify-center relative overflow-hidden">
                       {product.imageUrl ? (
                         <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
                       ) : (
@@ -437,21 +462,21 @@ export default function StorePage() {
                       )}
                     </div>
 
-                    <div className="p-6">
-                      <div className="flex justify-between items-start mb-3">
-                        <h3 className="font-bold text-lg text-card-strong line-clamp-2">{product.name}</h3>
+                    <div className="p-4">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="font-bold text-sm sm:text-base text-card-strong line-clamp-2 leading-snug">{product.name}</h3>
                         <span className="gradient-brand-spectrum text-white text-xs px-3 py-1.5 rounded-full font-semibold shadow-md whitespace-nowrap ml-2">
                           {categoryLabel(product.category)}
                         </span>
                       </div>
                       
-                      <div className="mb-4">
-                        <p className="text-3xl font-bold text-brand-spectrum">
+                      <div className="mb-3">
+                        <p className="text-xl font-bold text-brand-spectrum">
                           ₹{product.price.toFixed(2)}
                         </p>
                       </div>
                       
-                      <div className="space-y-2 mb-4">
+                      <div className="space-y-1.5 mb-3">
                         <div className={`flex items-center justify-between py-2 px-3 rounded-xl ${isDark ? 'bg-white/10' : 'bg-gradient-to-r from-emerald-50 to-green-50'}`}>
                           <span className="text-sm font-medium text-app-muted">📦 {t('Stock', 'ಸ್ಟಾಕ್')}</span>
                           <span className={`text-sm font-bold ${product.stock > 0 ? 'text-emerald-600' : 'text-red-600'}`}>

@@ -24,13 +24,13 @@ function CoffeeIcon({ className = 'h-8 w-8' }: { className?: string }) {
 }
 
 const navItems = [
-  { href: '/', label: { en: 'Home', kn: 'ಮುಖಪುಟ' }, icon: '🏠' },
-  { href: '/store', label: { en: 'Store', kn: 'ಸ್ಟೋರ್' }, icon: '🛒' },
-  { href: '/estate-marketplace', label: { en: 'Estate Essentials', kn: 'ಎಸ್ಟೇಟ್ ಅವಶ್ಯಕತೆಗಳು' }, icon: '🚜' },
-  { href: '/raw-marketplace', label: { en: 'Raw Marketplace', kn: 'ರಾ ಮಾರುಕಟ್ಟೆ' }, icon: '🌱' },
-  { href: '/messages', label: { en: 'Messages', kn: 'ಸಂದೇಶಗಳು' }, icon: '💬' },
-  { href: '/orders', label: { en: 'Orders', kn: 'ಆರ್ಡರ್‌ಗಳು' }, icon: '📦' },
-  { href: '/home-stays', label: { en: 'Home Stays', kn: 'ಹೋಂ ಸ್ಟೇಸ್' }, icon: '🏡' },
+  { href: '/', label: { en: 'Home', kn: 'ಮುಖಪುಟ' } },
+  { href: '/store', label: { en: 'Store', kn: 'ಸ್ಟೋರ್' } },
+  { href: '/estate-marketplace', label: { en: 'Estate Essentials', kn: 'ಎಸ್ಟೇಟ್ ಅವಶ್ಯಕತೆಗಳು' } },
+  { href: '/raw-marketplace', label: { en: 'Raw Market', kn: 'ರಾ ಮಾರುಕಟ್ಟೆ' } },
+  { href: '/messages', label: { en: 'Messages', kn: 'ಸಂದೇಶಗಳು' } },
+  { href: '/orders', label: { en: 'Orders', kn: 'ಆರ್ಡರ್‌ಗಳು' } },
+  { href: '/home-stays', label: { en: 'Home Stays', kn: 'ಹೋಂ ಸ್ಟೇಸ್' } },
 ]
 
 const HOME_STAYS_ENABLED = false
@@ -100,7 +100,7 @@ export default function Navbar() {
         <div className={`flex justify-between items-center py-4 md:py-5 transition-all duration-300 ${isScrolled || isMobileMenuOpen ? 'border-b border-emerald-200/10' : ''}`}>
           {/* Logo - Click to go Home */}
           <Link href="/" className="flex items-center space-x-3 group cursor-pointer" title="Go to Home">
-            <div className="p-2 rounded-xl gradient-emerald-coffee group-hover:scale-110 transition-transform duration-300 float-animation">
+            <div className="p-2 rounded-xl gradient-emerald-coffee group-hover:scale-110 transition-transform duration-300">
               <CoffeeIcon className="h-7 w-7 text-white" />
             </div>
             <div>
@@ -130,7 +130,6 @@ export default function Navbar() {
                   `}
                   style={!isActive ? { color: 'var(--lux-navbar-text-muted)', backgroundColor: 'transparent' } : undefined}
                 >
-                  <span className="text-lg">{item.icon}</span>
                   <span>{item.label[lang]}</span>
                   {isMessages && shownUnreadCount > 0 && (
                     <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
@@ -249,7 +248,6 @@ export default function Navbar() {
                   }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <span className="text-xl">{item.icon}</span>
                   <span>{item.label[lang]}</span>
                   {isMessages && shownUnreadCount > 0 && (
                     <span className="ml-auto inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
