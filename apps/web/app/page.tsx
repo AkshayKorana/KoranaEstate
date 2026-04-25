@@ -214,6 +214,76 @@ function formatPrice(value: number | null | undefined) {
   return value != null ? `₹${value.toLocaleString('en-IN', { maximumFractionDigits: 2 })}` : '-'
 }
 
+// ── PDF parsing helpers ────────────────────────────────────────────────────────
+function parsePdfMarketAnalysis(rawText: string | null | undefined): string | null {
+  if (!rawText) return null
+  const m = rawText.match(/Market Analysis\s*\n+([\s\S]+?)(?=\n\s*(?:Differentials|ICTA|Export|Raw Coffee|$))/i)
+  if (!m) return null
+  return m[1].replace(/\s+/g, ' ').trim().slice(0, 800) || null
+}
+
+type IceFuturesRow = { month: string; arabicaCentsLb: number; arabicaRsKg: number; robustaUsdTonne: number; robustaRsKg: number }
+function parsePdfIceFutures(rawText: string | null | undefined): IceFuturesRow[] {
+  if (!rawText) return []
+  const rows: IceFuturesRow[] = []
+  const re = /((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*[-–]\s*\d{4})\s+([\d.]+)\s+([\d.]+)\s+(?:(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s*[-–]\s*\d{4})\s+([\d,]+)\s+([\d.]+)\s+([\d.]+)/gi
+  for (const m of rawText.matchAll(re)) {
+    rows.push({
+      month: m[1].replace(/\s+/g, ' ').trim(),
+      arabicaCentsLb: parseFloat(m[2]),
+      arabicaRsKg: parseFloat(m[3]),
+      robustaUsdTonne: parseFloat(m[4].replace(/,/g, '')),
+      robustaRsKg: parseFloat(m[6]),
+    })
+    if (rows.length >= 3) break
+  }
+  return rows
+}
+
+type IcoIndicator = { arabicaCents: number; arabicaPrev: number; arabicaRs: number; robustaCents: number; robustaPrev: number; robustaRs: number; exchangeRate: number | null }
+function parsePdfIcoIndicator(rawText: string | null | undefined): IcoIndicator | null {
+  if (!rawText) return null
+  const ex = rawText.match(/Exchange Rate\s+Rs\s*\/\s*US\s*\$\s*([\d.]+)/i)
+  const m = rawText.match(/([\d.]+)\s*\(\s*([\d.]+)\s*\)\s+([\d.]+)\s*\([\d.]+\s*\)\s+([\d.]+)\s*\(\s*([\d.]+)\s*\)\s+([\d.]+)/)
+  if (!m) return null
+  return {
+    arabicaCents: parseFloat(m[1]),
+    arabicaPrev: parseFloat(m[2]),
+    arabicaRs: parseFloat(m[3]),
+    robustaCents: parseFloat(m[4]),
+    robustaPrev: parseFloat(m[5]),
+    robustaRs: parseFloat(m[6]),
+    exchangeRate: ex ? parseFloat(ex[1]) : null,
+  }
+}
+
+type IctaRow = { grade: string; value: number }
+type IctaAuctionData = { date: string | null; arabicaPlantation: IctaRow[]; arabicaCherry: IctaRow[]; robustaParchment: IctaRow[]; robustaCherry: IctaRow[] }
+function parsePdfIcta(rawText: string | null | undefined): IctaAuctionData | null {
+  if (!rawText) return null
+  const dateM = rawText.match(/ICTA Auction Prices.*?as on\s+([\d.]+)/i)
+  const parseRow = (label: string): IctaRow[] => {
+    const m = rawText.match(new RegExp(label + '\\s*\\([^)]+\\)\\s*([\\d.\\s-]+)', 'i'))
+    if (!m) return []
+    const grades = ['MNEB','AA','PB','A','AB','B','C','BBB','AAA']
+    return m[1].trim().split(/\s+/).map((v, i) => ({ grade: grades[i] || `G${i}`, value: parseFloat(v) })).filter(r => !isNaN(r.value))
+  }
+  const parseRobRow = (label: string): IctaRow[] => {
+    const m = rawText.match(new RegExp(label + '\\s*\\([^)]+\\)\\s*([\\d.\\s-]+)', 'i'))
+    if (!m) return []
+    const grades = ['RKR','A','PB','AA','AB','B','C','BBB','AAA']
+    return m[1].trim().split(/\s+/).map((v, i) => ({ grade: grades[i] || `G${i}`, value: parseFloat(v) })).filter(r => !isNaN(r.value))
+  }
+  return {
+    date: dateM ? dateM[1] : null,
+    arabicaPlantation: parseRow('Arabica Plantation'),
+    arabicaCherry: parseRow('Arabica Cherry'),
+    robustaParchment: parseRobRow('Robusta Parchment'),
+    robustaCherry: parseRobRow('Robusta Cherry'),
+  }
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 function formatTimeAgo(value: string | null | undefined) {
   if (!value) return 'Not available'
 
@@ -967,6 +1037,19 @@ export default function HomePage() {
   const currentCoffeePrimaryDisplay = reportRangeOriginal || currentPrimaryDisplay
   const currentCoffeeSecondaryDisplay = reportRangeNormalized || currentSecondaryDisplay
 
+  // PDF-derived intelligence
+  const pdfRawText = selectedCoffeeBoardLatest?.rawText ?? (selectedCoffeeBoardLatest?.metadata?.query as string | undefined)
+  const pdfMarketAnalysis = parsePdfMarketAnalysis(pdfRawText)
+  const pdfIceFutures = parsePdfIceFutures(pdfRawText)
+  const pdfIco = parsePdfIcoIndicator(pdfRawText)
+  const pdfIcta = parsePdfIcta(pdfRawText)
+  const ictaForSelected: IctaRow[] = activeSelectedKey === 'arabica_cherry' ? (pdfIcta?.arabicaCherry ?? [])
+    : activeSelectedKey === 'arabica_parchment' ? (pdfIcta?.arabicaPlantation ?? [])
+    : activeSelectedKey === 'robusta_parchment' ? (pdfIcta?.robustaParchment ?? [])
+    : activeSelectedKey === 'robusta_cherry' ? (pdfIcta?.robustaCherry ?? [])
+    : []
+  const isArabica = activeSelectedKey?.startsWith('arabica')
+
   return (
     <div id="top" className="space-y-14">
       <div>
@@ -1129,13 +1212,18 @@ export default function HomePage() {
               </div>
 
               <div className="surface-app-card rounded-2xl p-5 shadow-lg space-y-5">
+                {/* ── Header: commodity name + selector ─────────────────────────── */}
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
                     <h3 className="font-bold text-2xl text-app-strong">
                       {selectedProduct?.displayName || t('Commodity Detail', 'ವಸ್ತು ವಿವರ')}
                     </h3>
                     <p className="mt-1 text-sm text-app-muted">
-                      {contextualSummary || t('Structured intelligence updates appear here when available.', 'ಲಭ್ಯವಿರುವಾಗ ರಚಿತ ಮಾರುಕಟ್ಟೆ ಮಾಹಿತಿ ಇಲ್ಲಿ ಕಾಣುತ್ತದೆ.')}
+                      {reportStatusMessage
+                        ? reportStatusMessage
+                        : reportDate
+                          ? `Coffee Board report · ${reportDate}`
+                          : t('Live Coffee Board intelligence.', 'ತಾಜಾ ಕಾಫಿ ಬೋರ್ಡ್ ಮಾಹಿತಿ.')}
                     </p>
                   </div>
                   <div className="max-w-sm min-w-[240px]">
@@ -1154,9 +1242,10 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+                {/* ── Top stat row: price + report status + trend ───────────────── */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="surface-app-panel rounded-xl p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">{t('Current', 'ಪ್ರಸ್ತುತ')}</p>
+                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">{t('Karnataka Farm Gate', 'ಫಾರ್ಮ್ ಬೆಲೆ')}</p>
                     {showPriceSkeleton ? (
                       <>
                         <div className={`mt-3 h-9 w-40 animate-pulse rounded-lg ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
@@ -1165,149 +1254,94 @@ export default function HomePage() {
                     ) : (
                       <>
                         <p className="mt-2 text-3xl font-bold text-app-strong">{currentCoffeePrimaryDisplay}</p>
-                        <p className="mt-1 text-xs text-app-muted">
-                          {currentCoffeeSecondaryDisplay}
-                        </p>
+                        <p className="mt-1 text-xs text-app-muted">{currentCoffeeSecondaryDisplay}</p>
                       </>
                     )}
-                  </div>
-                  <div className="surface-app-panel rounded-xl p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">Midpoint</p>
-                    {showPriceSkeleton ? (
-                      <>
-                        <div className={`mt-3 h-9 w-32 animate-pulse rounded-lg ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
-                        <div className={`mt-2 h-4 w-36 animate-pulse rounded ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
-                      </>
-                    ) : (
-                      <>
-                        <p className="mt-2 text-3xl font-bold text-app-strong">{coffeeMidpointDisplay}</p>
-                        <p className="mt-1 text-xs text-app-muted">Used for continuity in charts and history</p>
-                      </>
-                    )}
+                    {selectedLatest?.trend && <p className="mt-2 text-xs text-emerald-400">{selectedLatest.trend}</p>}
                   </div>
                   <div className="surface-app-panel rounded-xl p-4">
                     <p className="text-xs uppercase tracking-[0.25em] text-app-soft">Report Status</p>
-                    <p className="mt-2 text-2xl font-bold text-app-strong">{reportStatusBadge}</p>
-                    <p className="mt-1 text-xs text-app-muted">{reportStatusMessage || 'Coffee Board values are in sync with the latest verified report.'}</p>
-                  </div>
-                  <div className="surface-app-panel rounded-xl p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">{t('Trend', 'ಪ್ರವೃತ್ತಿ')}</p>
-                    <p className="mt-2 text-3xl font-bold text-app-strong">{selectedLatest?.trend || '-'}</p>
-                    <p className="mt-1 text-xs text-app-muted">
-                      {selectedLatest?.confidence != null ? `${Math.round(selectedLatest.confidence * 100)}% confidence` : t('Partial data is handled safely.', 'ಅಪೂರ್ಣ ಮಾಹಿತಿಯೂ ಸುರಕ್ಷಿತವಾಗಿ ತೋರಿಸಲಾಗುತ್ತದೆ.')}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                  <div className="surface-app-panel rounded-xl p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">Daily Coffee Report</p>
-                    <div className="mt-3 flex flex-wrap items-center gap-3">
-                      <p className="text-xl font-semibold text-app-strong">{reportTitle}</p>
-                      <span className="surface-app-chip rounded-full px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em]">
-                        {reportStatusBadge}
-                      </span>
-                    </div>
-                    <p className="mt-2 text-sm text-app-muted">{reportDate || 'Report date not available'}</p>
-                    {reportFileName && <p className="mt-1 text-xs text-app-soft">{reportFileName}</p>}
-                    {reportStatusMessage && (
-                      <p className="mt-3 rounded-xl border border-amber-300/25 bg-amber-950/20 px-3 py-2 text-sm text-amber-200">
-                        {reportStatusMessage}
-                      </p>
-                    )}
-                    {lastCheckedAt && (
-                      <p className="mt-2 text-xs text-app-soft">Last checked: {formatDateTime(lastCheckedAt)}</p>
-                    )}
+                    <p className="mt-2 text-xl font-bold text-app-strong">{reportStatusBadge}</p>
+                    <p className="mt-1 text-xs text-app-muted">{reportDate || 'Report date not available'}</p>
                     {reportSourceUrl && (
-                      <a
-                        href={reportSourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="mt-3 inline-flex text-sm text-emerald-300 hover:text-emerald-200"
-                      >
-                        Open source report
+                      <a href={reportSourceUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-xs text-emerald-400 hover:text-emerald-300">
+                        Open PDF source ↗
                       </a>
                     )}
                   </div>
                   <div className="surface-app-panel rounded-xl p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">Exact Coffee Board Range</p>
-                    <p className="mt-3 text-2xl font-bold text-app-strong">{reportRangeOriginal || 'Not available'}</p>
-                    <p className="mt-2 text-sm text-app-muted">{reportRangeNormalized || 'Normalized INR/kg not available'}</p>
-                    <p className="mt-2 text-xs text-emerald-300">{coffeeMidpointDisplay}</p>
-                    <p className="mt-3 text-sm text-app-muted">{analysisText}</p>
+                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">{t('Trend / Confidence', 'ಪ್ರವೃತ್ತಿ')}</p>
+                    <p className="mt-2 text-3xl font-bold text-app-strong">{selectedLatest?.trend || '-'}</p>
+                    <p className="mt-1 text-xs text-app-muted">
+                      {selectedLatest?.confidence != null ? `${Math.round(selectedLatest.confidence * 100)}% confidence` : 'Coffee Board verified data'}
+                    </p>
                   </div>
                 </div>
 
+                {/* ── Market Analysis from PDF ───────────────────────────────────── */}
+                {pdfMarketAnalysis && (
+                  <div className="surface-app-panel-soft rounded-xl p-4">
+                    <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-app-soft">Market Analysis · Coffee Board</h4>
+                    <p className="mt-3 text-sm leading-7 text-app-body">{pdfMarketAnalysis}</p>
+                  </div>
+                )}
+
+                {/* ── Main 2-column content area ────────────────────────────────── */}
                 <div className="grid grid-cols-1 xl:grid-cols-[1.4fr,0.9fr] gap-5">
+                  {/* left: chart + price history context */}
                   <div className="surface-app-card rounded-2xl p-4 space-y-4">
-                    <div className="surface-app-panel rounded-xl p-4 space-y-4">
-                      <h4 className="text-xl font-semibold text-app-strong">Market Report</h4>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm text-app-muted">
-                        <div className="surface-app-panel rounded-xl px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-app-soft">Latest Price</p>
-                          <p className="mt-2 text-lg font-semibold text-app-strong">{isCoffeeCommodity(selectedProduct) ? currentPrimaryDisplay : latestPriceDisplay}</p>
-                        </div>
-                        <div className="surface-app-panel rounded-xl px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-app-soft">{isCoffeeCommodity(selectedProduct) ? 'Normalized INR/kg' : 'Current INR/kg equivalent'}</p>
-                          <p className="mt-2 text-lg font-semibold text-app-strong">{currentKgDisplay}</p>
-                          {currentPer50KgDisplay && <p className="mt-1 text-xs text-app-soft">{currentPer50KgDisplay}</p>}
-                        </div>
-                        <div className="surface-app-panel rounded-xl px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-app-soft">Last Week range/value</p>
-                          <p className="mt-2 text-lg font-semibold text-app-strong">{lastWeekDisplayParts.large}</p>
-                          <p className="mt-1 text-xs text-app-soft">{lastWeekDisplayParts.small}</p>
-                        </div>
-                        <div className="surface-app-panel rounded-xl px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-app-soft">Next Week outlook/range</p>
-                          <p className="mt-2 text-lg font-semibold text-app-strong">{nextWeekDisplayParts.large}</p>
-                          <p className="mt-1 text-xs text-app-soft">{nextWeekDisplayParts.small}</p>
-                        </div>
-                        <div className="surface-app-panel rounded-xl px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-app-soft">Trend</p>
-                          <p className="mt-2 text-lg font-semibold text-app-strong">{trendDisplay}</p>
-                        </div>
-                        <div className="surface-app-panel rounded-xl px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-app-soft">Market Sentiment</p>
-                          <p className="mt-2 text-lg font-semibold text-app-strong">{sentimentDisplay}</p>
-                          <p className="mt-1 text-xs text-app-soft">{confidenceDisplay} confidence</p>
-                        </div>
-                        <div className="surface-app-panel rounded-xl px-4 py-3">
-                          <p className="text-xs uppercase tracking-[0.2em] text-app-soft">Confidence</p>
-                          <p className="mt-2 text-lg font-semibold text-app-strong">{confidenceDisplay}</p>
+                    {/* ICE Futures mini-table */}
+                    {pdfIceFutures.length > 0 && (
+                      <div className="surface-app-panel rounded-xl p-4">
+                        <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-app-soft">ICE Global Futures</h4>
+                        <div className="mt-3 overflow-x-auto">
+                          <table className="w-full text-sm text-app-body">
+                            <thead>
+                              <tr className="text-xs text-app-soft border-b border-white/10">
+                                <th className="pb-2 text-left font-medium">Month</th>
+                                <th className="pb-2 text-right font-medium">Arabica (¢/lb)</th>
+                                <th className="pb-2 text-right font-medium">Arabica (₹/kg)</th>
+                                <th className="pb-2 text-right font-medium">Robusta ($/t)</th>
+                                <th className="pb-2 text-right font-medium">Robusta (₹/kg)</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {pdfIceFutures.map((row) => (
+                                <tr key={row.month} className={`border-b border-white/5 ${isArabica ? 'font-semibold text-app-strong' : ''}`}>
+                                  <td className="py-2 text-left">{row.month}</td>
+                                  <td className={`py-2 text-right ${isArabica ? 'text-emerald-400' : ''}`}>{row.arabicaCentsLb}</td>
+                                  <td className={`py-2 text-right ${isArabica ? 'text-emerald-400' : ''}`}>₹{row.arabicaRsKg}</td>
+                                  <td className={`py-2 text-right ${!isArabica ? 'text-emerald-400' : ''}`}>{row.robustaUsdTonne.toLocaleString()}</td>
+                                  <td className={`py-2 text-right ${!isArabica ? 'text-emerald-400' : ''}`}>₹{row.robustaRsKg}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
-                    </div>
+                    )}
 
-                    <div className="surface-app-panel-soft rounded-xl p-4">
-                      <h4 className="text-xl font-semibold text-app-strong">Contextual Summary</h4>
-                      <p className="mt-3 text-sm leading-7 text-app-body">
-                        {contextualSummary || 'No reliable structured market summary available.'}
-                      </p>
-                    </div>
-
+                    {/* Price Curve */}
                     <div className="flex items-center justify-between gap-3">
                       <h4 className="text-lg font-semibold text-app-strong">
                         {t('Price Curve', 'ಬೆಲೆ ವಕ್ರ')}
                       </h4>
                       <p className="text-xs text-app-muted">
-                        {dbHistoryChart ? 'Using stored historical observations with latest forecast overlay' : t('Falling back to historical observations', 'ಇತಿಹಾಸ ಆಬ್ಸರ್ವೇಶನ್‌ಗಳಿಗೆ ಹಿಂತಿರುಗುತ್ತಿದೆ')}
+                        {dbHistoryChart ? 'Stored historical observations + forecast overlay' : t('Historical observations', 'ಇತಿಹಾಸ')}
                       </p>
                     </div>
 
                     {loadingHistory && !dbHistoryChart && (
                       <p className="text-sm text-[#d8e8dc]">{t('Loading history...', 'ಇತಿಹಾಸ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
                     )}
-
                     {historyError && !dbHistoryChart && (
                       <p className="text-sm text-red-300">{historyError}</p>
                     )}
-
                     {!chartConfig && !loadingHistory && (
                       <p className="text-sm text-app-muted">
-                        {t('No chartable points available for this commodity yet.', 'ಈ ವಸ್ತುವಿಗೆ ಇನ್ನೂ ಚಾರ್ಟ್ ಮಾಡಬಹುದಾದ ಪಾಯಿಂಟ್‌ಗಳು ಲಭ್ಯವಿಲ್ಲ.')}
+                        {t('No chartable points available yet.', 'ಇನ್ನೂ ಚಾರ್ಟ್ ಪಾಯಿಂಟ್‌ಗಳು ಲಭ್ಯವಿಲ್ಲ.')}
                       </p>
                     )}
-
                     {chartConfig && (
                       <Line
                         data={{
@@ -1345,9 +1379,7 @@ export default function HomePage() {
                           plugins: {
                             legend: {
                               position: 'top',
-                              labels: {
-                                color: isDark ? 'rgb(212 212 216)' : 'rgb(82 82 91)',
-                              },
+                              labels: { color: isDark ? 'rgb(212 212 216)' : 'rgb(82 82 91)' },
                             },
                             tooltip: {
                               backgroundColor: isDark ? 'rgba(9,9,11,0.95)' : 'rgba(255,255,255,0.98)',
@@ -1374,33 +1406,57 @@ export default function HomePage() {
                     )}
                   </div>
 
+                  {/* right: ICTA + ICO + source */}
                   <div className="space-y-4">
-                    <div className="surface-app-panel-soft rounded-xl p-4">
-                      <h4 className="text-lg font-semibold text-app-strong">{t('Analysis', 'ವಿಶ್ಲೇಷಣೆ')}</h4>
-                      <p className="mt-3 text-sm leading-6 text-app-body">
-                        {analysisText || t('No analysis summary is available yet. The dashboard will keep rendering partial results safely.', 'ವಿಶ್ಲೇಷಣೆಯ ಸಾರಾಂಶ ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ. ಭಾಗಶಃ ಫಲಿತಾಂಶಗಳೂ ಸುರಕ್ಷಿತವಾಗಿ ತೋರಿಸಲಾಗುತ್ತವೆ.')}
-                      </p>
-                    </div>
-
-                    <div className="surface-app-panel-soft rounded-xl p-4">
-                      <h4 className="text-lg font-semibold text-app-strong">{t('Highlights', 'ಮುಖ್ಯಾಂಶಗಳು')}</h4>
-                      <div className="mt-3 space-y-2">
-                        {derivedHighlights.length > 0 ? (
-                          derivedHighlights.map((bullet, index) => (
-                            <div key={`${bullet}-${index}`} className="surface-app-panel rounded-xl px-3 py-2 text-sm leading-6 text-app-body">
-                              {bullet}
+                    {/* ICTA Auction Prices */}
+                    {ictaForSelected.length > 0 && (
+                      <div className="surface-app-panel-soft rounded-xl p-4">
+                        <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-app-soft">
+                          ICTA Auction · {pdfIcta?.date ? `as on ${pdfIcta.date}` : 'Latest'}
+                        </h4>
+                        <div className="mt-3 grid grid-cols-2 gap-2">
+                          {ictaForSelected.map((row) => (
+                            <div key={row.grade} className="surface-app-panel rounded-xl px-3 py-2 flex items-center justify-between gap-2">
+                              <span className="text-xs font-medium text-app-soft">{row.grade}</span>
+                              <span className="text-sm font-bold text-app-strong">₹{row.value.toLocaleString('en-IN')}</span>
                             </div>
-                          ))
-                        ) : (
-                          <p className="text-sm text-app-muted">
-                            {t('No structured highlights available yet.', 'ರಚಿತ ಮುಖ್ಯಾಂಶಗಳು ಇನ್ನೂ ಲಭ್ಯವಿಲ್ಲ.')}
-                          </p>
-                        )}
+                          ))}
+                        </div>
+                        <p className="mt-2 text-xs text-app-soft">Rs/Kg at ICTA auction · Coffee Board India</p>
                       </div>
-                    </div>
+                    )}
 
+                    {/* ICO Indicator Prices */}
+                    {pdfIco && (
+                      <div className="surface-app-panel-soft rounded-xl p-4">
+                        <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-app-soft">ICO Indicator Prices</h4>
+                        {pdfIco.exchangeRate && (
+                          <p className="mt-1 text-xs text-app-soft">Exchange rate: ₹{pdfIco.exchangeRate} / US$</p>
+                        )}
+                        <div className="mt-3 space-y-2">
+                          <div className={`surface-app-panel rounded-xl px-3 py-2 ${isArabica ? 'ring-1 ring-emerald-500/40' : ''}`}>
+                            <p className="text-xs text-app-soft">Other Mild Arabica</p>
+                            <p className="mt-1 text-base font-bold text-app-strong">
+                              {pdfIco.arabicaCents}¢/lb
+                              <span className="ml-2 text-xs font-normal text-app-muted">(prev {pdfIco.arabicaPrev})</span>
+                            </p>
+                            <p className="text-xs text-emerald-400">₹{pdfIco.arabicaRs}/kg</p>
+                          </div>
+                          <div className={`surface-app-panel rounded-xl px-3 py-2 ${!isArabica ? 'ring-1 ring-emerald-500/40' : ''}`}>
+                            <p className="text-xs text-app-soft">Robusta</p>
+                            <p className="mt-1 text-base font-bold text-app-strong">
+                              {pdfIco.robustaCents}¢/lb
+                              <span className="ml-2 text-xs font-normal text-app-muted">(prev {pdfIco.robustaPrev})</span>
+                            </p>
+                            <p className="text-xs text-emerald-400">₹{pdfIco.robustaRs}/kg</p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Source */}
                     <div className="surface-app-panel-soft rounded-xl p-4">
-                      <h4 className="text-lg font-semibold text-app-strong">{t('Sources', 'ಮೂಲಗಳು')}</h4>
+                      <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-app-soft">{t('Source', 'ಮೂಲ')}</h4>
                       <div className="mt-3 space-y-2">
                         {(selectedLatest?.sources || []).length > 0 ? (
                           (selectedLatest?.sources || []).map((source, index) => (
@@ -1426,36 +1482,8 @@ export default function HomePage() {
                           </a>
                         ) : (
                           <p className="text-sm text-app-muted">
-                            {t('No source links captured for this commodity yet.', 'ಈ ವಸ್ತುವಿಗೆ ಇನ್ನೂ ಮೂಲ ಲಿಂಕ್‌ಗಳು ಲಭ್ಯವಿಲ್ಲ.')}
+                            {t('No source links captured yet.', 'ಮೂಲ ಲಿಂಕ್‌ಗಳು ಲಭ್ಯವಿಲ್ಲ.')}
                           </p>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="surface-app-panel-soft rounded-xl p-4">
-                      <h4 className="text-lg font-semibold text-app-strong">Recent Daily History</h4>
-                      <div className="mt-3 space-y-2">
-                        {recentDailyHistory.length > 0 ? (
-                          recentDailyHistory.map((point) => (
-                            <div key={`${point.runId}-${point.capturedAt}`} className="surface-app-panel rounded-xl px-3 py-3 text-sm text-app-body">
-                              <div className="flex items-center justify-between gap-3">
-                                <span className="font-medium text-app-strong">
-                                  {new Date(point.capturedAt).toLocaleDateString('en-IN', { dateStyle: 'medium' })}
-                                </span>
-                                <span className={`text-xs ${point.status === 'OK' ? 'text-emerald-300' : 'text-red-300'}`}>
-                                  {point.runStatus} / {point.status}
-                                </span>
-                              </div>
-                              <div className="mt-1 text-app-strong">
-                                {point.value != null ? `${formatPrice(point.value)} ${point.unit}` : 'No usable price captured'}
-                              </div>
-                              <div className="mt-1 text-xs text-app-soft">
-                                {point.error || point.source || 'Historical observation stored successfully.'}
-                              </div>
-                            </div>
-                          ))
-                        ) : (
-                          <p className="text-sm text-app-muted">No recent daily observations stored for this commodity yet.</p>
                         )}
                       </div>
                     </div>
@@ -1468,6 +1496,7 @@ export default function HomePage() {
                   </div>
                 )}
               </div>
+
             </>
           )}
         </section>
