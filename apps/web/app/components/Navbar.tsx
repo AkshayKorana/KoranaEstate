@@ -25,9 +25,8 @@ function CoffeeIcon({ className = 'h-8 w-8' }: { className?: string }) {
 
 const navItems = [
   { href: '/', label: { en: 'Home', kn: 'ಮುಖಪುಟ' } },
-  { href: '/store', label: { en: 'Store', kn: 'ಸ್ಟೋರ್' } },
+  { href: '/marketplace', label: { en: 'Marketplace', kn: 'ಮಾರುಕಟ್ಟೆ' } },
   { href: '/estate-marketplace', label: { en: 'Estate Essentials', kn: 'ಎಸ್ಟೇಟ್ ಅವಶ್ಯಕತೆಗಳು' } },
-  { href: '/raw-marketplace', label: { en: 'Raw Market', kn: 'ರಾ ಮಾರುಕಟ್ಟೆ' } },
   { href: '/messages', label: { en: 'Messages', kn: 'ಸಂದೇಶಗಳು' } },
   { href: '/orders', label: { en: 'Orders', kn: 'ಆರ್ಡರ್‌ಗಳು' } },
   { href: '/home-stays', label: { en: 'Home Stays', kn: 'ಹೋಂ ಸ್ಟೇಸ್' } },
