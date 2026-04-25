@@ -64,6 +64,8 @@ export class PricesController {
           productKey: item.productKey,
           value: item.price,
           unit: item.unit,
+          source: item.source,
+          sourceUrl: item.sourceUrl,
           meta: {
             query: item.rawText,
             confidence: item.confidence,
