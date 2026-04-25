@@ -4,6 +4,19 @@ import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '')
 
+/**
+ * Emails that are granted ADMIN role on signup.
+ * All other accounts are created as BUYER regardless of what the client sends.
+ * Add new admin emails here when instructed.
+ */
+const ADMIN_EMAILS: ReadonlySet<string> = new Set([
+  'akshay.koranaest@gmail.com',
+])
+
+function resolveRole(email: string): 'ADMIN' | 'BUYER' {
+  return ADMIN_EMAILS.has(email.toLowerCase()) ? 'ADMIN' : 'BUYER'
+}
+
 export async function POST(request: NextRequest) {
   try {
     if (!API_BASE) {
@@ -14,7 +27,9 @@ export async function POST(request: NextRequest) {
     const fullName = typeof body?.name === 'string' ? body.name.trim() : ''
     const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
     const password = typeof body?.password === 'string' ? body.password : ''
-    const role = body?.role === 'SELLER' ? 'SELLER' : 'BUYER'
+
+    // Role is determined server-side by the whitelist — client input is ignored
+    const role = resolveRole(email)
 
     const upstream = await fetch(`${API_BASE}/auth/signup`, {
       method: 'POST',
