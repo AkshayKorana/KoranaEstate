@@ -1052,6 +1052,12 @@ export default function HomePage() {
       : 'FAILED'
   const coffeeSummarySubtitle = `${coffeeAvailableCount}/${visibleProducts.length || 4} coffee commodities available`
   const coffeeMidpointDisplay = formatMidpointPerKg(selectedCoffeeBoardLatest?.currentPrice ?? selectedCoffeeBoardLatest?.value)
+
+  // PDF-derived intelligence
+  // rawText is stored in metadata.query by the current backend
+  const pdfRawText = selectedCoffeeBoardLatest?.rawText ?? (selectedCoffeeBoardLatest?.metadata?.query as string | undefined)
+    ?? (() => { for (const [, obs] of latestByKey) { const q = obs?.metadata?.query as string | undefined; if (q) return q } return undefined })()
+  const pdfKarnatakaRanges = parsePdfKarnatakaRanges(pdfRawText)
   const selectedPdfRange = pdfKarnatakaRanges[activeSelectedKey ?? '']
   const currentCoffeePrimaryDisplay = reportRangeOriginal
     || (selectedCoffeeBoardLatest?.todayPriceMin != null && selectedCoffeeBoardLatest?.todayPriceMax != null ? currentPrimaryDisplay : null)
@@ -1060,12 +1066,6 @@ export default function HomePage() {
   const currentCoffeeSecondaryDisplay = reportRangeNormalized
     || (selectedPdfRange ? `≈ ${formatPrice(selectedPdfRange.min / 50)} – ${formatPrice(selectedPdfRange.max / 50)}/kg` : null)
     || currentSecondaryDisplay
-
-  // PDF-derived intelligence
-  // rawText is stored in metadata.query by the current backend
-  const pdfRawText = selectedCoffeeBoardLatest?.rawText ?? (selectedCoffeeBoardLatest?.metadata?.query as string | undefined)
-    ?? (() => { for (const [, obs] of latestByKey) { const q = obs?.metadata?.query as string | undefined; if (q) return q } return undefined })()
-  const pdfKarnatakaRanges = parsePdfKarnatakaRanges(pdfRawText)
   const pdfMarketAnalysis = parsePdfMarketAnalysis(pdfRawText)
   const pdfIceFutures = parsePdfIceFutures(pdfRawText)
   const pdfIco = parsePdfIcoIndicator(pdfRawText)
