@@ -224,7 +224,13 @@ export default function Navbar() {
 
       {/* Mobile Menu */}
       {isMobileMenuOpen && (
-        <div className="lg:hidden border-t border-emerald-200/15 bg-[rgba(13,10,8,0.92)]">
+        <div
+          className="lg:hidden border-t"
+          style={{
+            background: isDark ? 'rgba(13,10,8,0.95)' : 'rgba(235,226,211,0.98)',
+            borderColor: 'var(--lux-navbar-border)',
+          }}
+        >
           <div className="mx-auto max-w-7xl px-6 md:px-8 lg:px-10 pt-4 pb-6 space-y-3 slide-in-up">
             {visibleNavItems.map(item => {
               const isActive = isActivePath(item.href)
@@ -233,14 +239,14 @@ export default function Navbar() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`
-                    flex items-center space-x-3 px-4 py-3 rounded-xl text-base font-semibold
-                    transition-all duration-300
-                    ${isActive
-                      ? 'bg-emerald-700 text-white shadow-md'
-                      : 'bg-[#171411]/75 text-[#d8c8b3] hover:bg-emerald-900/25 hover:text-[#e9dcc9]'
-                    }
-                  `}
+                  className="flex items-center space-x-3 px-4 py-3 rounded-xl text-base font-semibold transition-all duration-300"
+                  style={isActive
+                    ? { background: '#2f6b4f', color: '#ffffff' }
+                    : {
+                        background: isDark ? 'rgba(23,20,17,0.75)' : 'rgba(47,107,79,0.08)',
+                        color: isDark ? '#d8c8b3' : '#1f3a2a',
+                      }
+                  }
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
                   <span className="text-xl">{item.icon}</span>
@@ -253,7 +259,7 @@ export default function Navbar() {
                 </Link>
               )
             })}
-            <div className="pt-3 border-t border-emerald-200/30">
+            <div className="pt-3 border-t" style={{ borderColor: isDark ? 'rgba(110,178,144,0.30)' : 'rgba(47,107,79,0.20)' }}>
               <div className="lux-segment mb-3 w-full">
                 <button
                   type="button"
@@ -270,8 +276,14 @@ export default function Navbar() {
                   ಕನ್ನಡ
                 </button>
               </div>
-              <div className="mb-3 flex items-center justify-between rounded-lg border border-emerald-200/20 bg-[#171411]/55 px-3 py-2">
-                <span className="text-sm font-semibold text-[#d8c8b3]">
+              <div
+                className="mb-3 flex items-center justify-between rounded-lg border px-3 py-2"
+                style={{
+                  borderColor: 'var(--lux-navbar-border)',
+                  background: isDark ? 'rgba(23,20,17,0.55)' : 'rgba(47,107,79,0.06)',
+                }}
+              >
+                <span className="text-sm font-semibold" style={{ color: 'var(--lux-navbar-text-muted)' }}>
                   {isDark ? t('Dark Mode', 'ಡಾರ್ಕ್ ಮೋಡ್') : t('Light Mode', 'ಲೈಟ್ ಮೋಡ್')}
                 </span>
                 <button
@@ -286,11 +298,17 @@ export default function Navbar() {
               </div>
               {status === 'authenticated' && session?.user ? (
                 <>
-                  <div className="flex items-center space-x-3 px-4 py-3 rounded-xl bg-gradient-to-r from-emerald-950/50 to-amber-900/30 mb-3 border border-emerald-200/20">
+                  <div
+                    className="flex items-center space-x-3 px-4 py-3 rounded-xl mb-3 border"
+                    style={{
+                      background: isDark ? 'linear-gradient(to right, rgba(6,78,59,0.5), rgba(120,53,15,0.3))' : 'rgba(47,107,79,0.10)',
+                      borderColor: 'var(--lux-navbar-border)',
+                    }}
+                  >
                     <div className="w-10 h-10 rounded-full gradient-emerald-coffee flex items-center justify-center text-white font-bold">
                       {session.user.name?.[0]?.toUpperCase() || session.user.email?.[0]?.toUpperCase() || 'U'}
                     </div>
-                    <span className="text-sm font-medium text-[#e6d8c5]">
+                    <span className="text-sm font-medium" style={{ color: 'var(--lux-navbar-text)' }}>
                       {session.user.name || session.user.email}
                     </span>
                   </div>
