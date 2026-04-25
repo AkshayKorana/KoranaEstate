@@ -21,6 +21,10 @@ export class IngestObservationItemDto {
   observedAt!: string
 
   @IsOptional()
+  @IsISO8601()
+  capturedAt?: string
+
+  @IsOptional()
   @IsString()
   rawText?: string
 

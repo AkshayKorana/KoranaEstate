@@ -90,7 +90,10 @@ jobs:
 
           items = data.get('items', [])
           errors = data.get('errors', [])
-          run_at = data.get('fetchedAt') or datetime.now(timezone.utc).isoformat()
+          # runAt = when this pipeline actually executed (used for freshness check)
+          run_at = datetime.now(timezone.utc).isoformat()
+          # reportDate = date stated in the PDF (used as capturedAt per observation)
+          report_date = data.get('fetchedAt') or run_at
 
           observations = []
           for item in items:
@@ -102,7 +105,7 @@ jobs:
                   'unit': item.get('unit', 'INR/kg'),
                   'source': item.get('source', 'Coffee Board India'),
                   'sourceUrl': item.get('sourceUrl', 'https://coffeeboard.gov.in/Market_Info.aspx'),
-                  'observedAt': run_at,
+                  'observedAt': report_date,
                   'rawText': item.get('rawText'),
                   'confidence': item.get('confidence'),
               })

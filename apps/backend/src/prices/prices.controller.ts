@@ -66,6 +66,7 @@ export class PricesController {
           unit: item.unit,
           source: item.source,
           sourceUrl: item.sourceUrl,
+          capturedAt: item.capturedAt ?? item.observedAt,
           meta: {
             query: item.rawText,
             confidence: item.confidence,
