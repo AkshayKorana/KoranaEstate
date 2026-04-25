@@ -1280,41 +1280,16 @@ export default function HomePage() {
                   </div>
                 </div>
 
-                {/* ── Top stat row: price + report status + trend ───────────────── */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="surface-app-panel rounded-xl p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">{t('Karnataka Farm Gate', 'ಫಾರ್ಮ್ ಬೆಲೆ')}</p>
-                    {showPriceSkeleton ? (
-                      <>
-                        <div className={`mt-3 h-9 w-40 animate-pulse rounded-lg ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
-                        <div className={`mt-2 h-4 w-28 animate-pulse rounded ${isDark ? 'bg-white/10' : 'bg-black/10'}`} />
-                      </>
-                    ) : (
-                      <>
-                        <p className="mt-2 text-3xl font-bold text-app-strong">{currentCoffeePrimaryDisplay}</p>
-                        <p className="mt-1 text-xs text-app-muted">{currentCoffeeSecondaryDisplay}</p>
-                      </>
-                    )}
-                    {selectedLatest?.trend && <p className="mt-2 text-xs text-emerald-400">{selectedLatest.trend}</p>}
-                  </div>
-                  <div className="surface-app-panel rounded-xl p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">Report Status</p>
-                    <p className="mt-2 text-xl font-bold text-app-strong">{reportStatusBadge}</p>
-                    <p className="mt-1 text-xs text-app-muted">{reportDate || 'Report date not available'}</p>
-                    {reportSourceUrl && (
-                      <a href={reportSourceUrl} target="_blank" rel="noreferrer" className="mt-3 inline-flex text-xs text-emerald-400 hover:text-emerald-300">
-                        Open PDF source ↗
-                      </a>
+                {/* ── Top stat row: trend only ──────────────────────────────── */}
+                {selectedLatest?.trend && (
+                  <div className="surface-app-panel rounded-xl p-4 flex items-center gap-4">
+                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">{t('Trend', 'ಪ್ರವೃತ್ತಿ')}</p>
+                    <p className="text-xl font-bold text-app-strong">{selectedLatest.trend}</p>
+                    {selectedLatest.confidence != null && (
+                      <p className="text-xs text-app-muted ml-auto">{Math.round(selectedLatest.confidence * 100)}% confidence</p>
                     )}
                   </div>
-                  <div className="surface-app-panel rounded-xl p-4">
-                    <p className="text-xs uppercase tracking-[0.25em] text-app-soft">{t('Trend / Confidence', 'ಪ್ರವೃತ್ತಿ')}</p>
-                    <p className="mt-2 text-3xl font-bold text-app-strong">{selectedLatest?.trend || '-'}</p>
-                    <p className="mt-1 text-xs text-app-muted">
-                      {selectedLatest?.confidence != null ? `${Math.round(selectedLatest.confidence * 100)}% confidence` : 'Coffee Board verified data'}
-                    </p>
-                  </div>
-                </div>
+                )}
 
                 {/* ── Market Analysis from PDF ───────────────────────────────────── */}
                 {pdfMarketAnalysis && (
@@ -1461,34 +1436,6 @@ export default function HomePage() {
                           ))}
                         </div>
                         <p className="mt-2 text-xs text-app-soft">Rs/Kg at ICTA auction · Coffee Board India</p>
-                      </div>
-                    )}
-
-                    {/* ICO Indicator Prices */}
-                    {pdfIco && (
-                      <div className="surface-app-panel-soft rounded-xl p-4">
-                        <h4 className="text-sm font-semibold uppercase tracking-[0.2em] text-app-soft">ICO Indicator Prices</h4>
-                        {pdfIco.exchangeRate && (
-                          <p className="mt-1 text-xs text-app-soft">Exchange rate: ₹{pdfIco.exchangeRate} / US$</p>
-                        )}
-                        <div className="mt-3 space-y-2">
-                          <div className={`surface-app-panel rounded-xl px-3 py-2 ${isArabica ? 'ring-1 ring-emerald-500/40' : ''}`}>
-                            <p className="text-xs text-app-soft">Other Mild Arabica</p>
-                            <p className="mt-1 text-base font-bold text-app-strong">
-                              {pdfIco.arabicaCents}¢/lb
-                              <span className="ml-2 text-xs font-normal text-app-muted">(prev {pdfIco.arabicaPrev})</span>
-                            </p>
-                            <p className="text-xs text-emerald-400">₹{pdfIco.arabicaRs}/kg</p>
-                          </div>
-                          <div className={`surface-app-panel rounded-xl px-3 py-2 ${!isArabica ? 'ring-1 ring-emerald-500/40' : ''}`}>
-                            <p className="text-xs text-app-soft">Robusta</p>
-                            <p className="mt-1 text-base font-bold text-app-strong">
-                              {pdfIco.robustaCents}¢/lb
-                              <span className="ml-2 text-xs font-normal text-app-muted">(prev {pdfIco.robustaPrev})</span>
-                            </p>
-                            <p className="text-xs text-emerald-400">₹{pdfIco.robustaRs}/kg</p>
-                          </div>
-                        </div>
                       </div>
                     )}
 
