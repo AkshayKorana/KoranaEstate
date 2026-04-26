@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common'
+import { ForbiddenException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
 import { ChatGateway } from './chat.gateway'
 import { CreateConversationDto } from './dto/create-conversation.dto'
@@ -6,20 +6,27 @@ import { SendMessageDto } from './dto/send-message.dto'
 
 @Injectable()
 export class ChatService {
+  private readonly logger = new Logger(ChatService.name)
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly chatGateway: ChatGateway,
   ) {}
 
-  myConversations(userId: string) {
-    return this.prisma.conversation.findMany({
-      where: { participants: { some: { userId } } },
-      include: {
-        participants: { include: { user: { select: { id: true, fullName: true, role: true, email: true } } } },
-        messages: { orderBy: { createdAt: 'desc' }, take: 1 },
-      },
-      orderBy: { updatedAt: 'desc' },
-    })
+  async myConversations(userId: string) {
+    try {
+      return await this.prisma.conversation.findMany({
+        where: { participants: { some: { userId } } },
+        include: {
+          participants: { include: { user: { select: { id: true, fullName: true, role: true, email: true } } } },
+          messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+        },
+        orderBy: { updatedAt: 'desc' },
+      })
+    } catch (error) {
+      this.logger.error('myConversations failed', error instanceof Error ? error.stack : String(error))
+      throw new InternalServerErrorException('Failed to load conversations')
+    }
   }
 
   async createConversation(userId: string, dto: CreateConversationDto) {
