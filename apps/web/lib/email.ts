@@ -128,3 +128,69 @@ export async function sendMessageReplyNotification(to: string, adminName: string
   `
   return sendEmail({ to, subject, html })
 }
+
+type OfferNotificationInput = {
+  buyerName: string
+  buyerEmail: string
+  commodity: string
+  location: string
+  quantityKg: number
+  askingPricePerKg: number
+  offerPricePerKg: number
+  message: string | null
+  listingsUrl: string
+}
+
+export async function sendOfferToAdminNotification(to: string, input: OfferNotificationInput) {
+  const subject = `New offer on ${input.commodity} from ${input.buyerName} — Korana Estate`
+  const totalOffer = (input.offerPricePerKg * input.quantityKg).toLocaleString('en-IN')
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1a1a1a">
+      <h2 style="color:#059669">New Offer Received — Korana Estate</h2>
+      <p><strong>${input.buyerName}</strong> (${input.buyerEmail}) has submitted an offer on your raw commodity listing.</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px">
+        <tr style="background:#f0fdf4"><td style="padding:10px 14px;font-weight:600;color:#065f46">Commodity</td><td style="padding:10px 14px">${input.commodity}</td></tr>
+        <tr><td style="padding:10px 14px;font-weight:600;color:#065f46">Location</td><td style="padding:10px 14px">${input.location}</td></tr>
+        <tr style="background:#f0fdf4"><td style="padding:10px 14px;font-weight:600;color:#065f46">Quantity</td><td style="padding:10px 14px">${input.quantityKg} kg (${Math.round(input.quantityKg / 50)} × 50 kg bags)</td></tr>
+        <tr><td style="padding:10px 14px;font-weight:600;color:#065f46">Your Asking Price</td><td style="padding:10px 14px">₹${input.askingPricePerKg}/kg · ₹${(input.askingPricePerKg * 50).toLocaleString('en-IN')}/bag</td></tr>
+        <tr style="background:#fffbeb"><td style="padding:10px 14px;font-weight:700;color:#92400e">Buyer's Offer</td><td style="padding:10px 14px;font-weight:700;color:#d97706">₹${input.offerPricePerKg}/kg · ₹${(input.offerPricePerKg * 50).toLocaleString('en-IN')}/bag</td></tr>
+        <tr><td style="padding:10px 14px;font-weight:600;color:#065f46">Total Value</td><td style="padding:10px 14px;font-weight:700">₹${totalOffer}</td></tr>
+        ${input.message ? `<tr style="background:#f0fdf4"><td style="padding:10px 14px;font-weight:600;color:#065f46">Message</td><td style="padding:10px 14px">${input.message.replace(/\n/g, '<br/>')}</td></tr>` : ''}
+      </table>
+      <p>
+        <a href="${input.listingsUrl}" style="display:inline-block;padding:10px 20px;background:#059669;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">
+          View Raw Marketplace
+        </a>
+      </p>
+      <p style="color:#6b7280;font-size:13px">Reply to this buyer via the Messages section in Korana Estate.</p>
+      <p style="color:#6b7280;font-size:13px">Korana Estate · Coffee &amp; Spice Marketplace</p>
+    </div>
+  `
+  return sendEmail({ to, subject, html })
+}
+
+export async function sendOfferConfirmationToUser(to: string, input: OfferNotificationInput) {
+  const subject = `Your offer on ${input.commodity} has been submitted — Korana Estate`
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1a1a1a">
+      <h2 style="color:#059669">Offer Submitted Successfully!</h2>
+      <p>Hi <strong>${input.buyerName}</strong>, your offer has been sent to the seller and they will get back to you shortly.</p>
+      <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px">
+        <tr style="background:#f0fdf4"><td style="padding:10px 14px;font-weight:600;color:#065f46">Commodity</td><td style="padding:10px 14px">${input.commodity}</td></tr>
+        <tr><td style="padding:10px 14px;font-weight:600;color:#065f46">Location</td><td style="padding:10px 14px">${input.location}</td></tr>
+        <tr style="background:#f0fdf4"><td style="padding:10px 14px;font-weight:600;color:#065f46">Quantity</td><td style="padding:10px 14px">${input.quantityKg} kg (${Math.round(input.quantityKg / 50)} × 50 kg bags)</td></tr>
+        <tr><td style="padding:10px 14px;font-weight:600;color:#065f46">Seller's Asking Price</td><td style="padding:10px 14px">₹${input.askingPricePerKg}/kg · ₹${(input.askingPricePerKg * 50).toLocaleString('en-IN')}/bag</td></tr>
+        <tr style="background:#fffbeb"><td style="padding:10px 14px;font-weight:700;color:#92400e">Your Offer</td><td style="padding:10px 14px;font-weight:700;color:#d97706">₹${input.offerPricePerKg}/kg · ₹${(input.offerPricePerKg * 50).toLocaleString('en-IN')}/bag</td></tr>
+        ${input.message ? `<tr style="background:#f0fdf4"><td style="padding:10px 14px;font-weight:600;color:#065f46">Your Note</td><td style="padding:10px 14px">${input.message.replace(/\n/g, '<br/>')}</td></tr>` : ''}
+      </table>
+      <p>You will receive a notification when the seller responds to your offer.</p>
+      <p>
+        <a href="${input.listingsUrl}" style="display:inline-block;padding:10px 20px;background:#059669;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">
+          View Raw Marketplace
+        </a>
+      </p>
+      <p style="color:#6b7280;font-size:13px">Korana Estate · Coffee &amp; Spice Marketplace</p>
+    </div>
+  `
+  return sendEmail({ to, subject, html })
+}

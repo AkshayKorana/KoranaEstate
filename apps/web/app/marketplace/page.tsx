@@ -145,7 +145,19 @@ function StoreTab() {
   async function handleOpenSellerChat(product: Product, withIntro: boolean) {
     if (!product.seller?.id) { alert(t('Seller details unavailable', 'ಮಾರಾಟಗಾರ ವಿವರಗಳು ಲಭ್ಯವಿಲ್ಲ')); return }
     try {
-      await sendMarketplaceMessage({ recipientId: product.seller.id, listingId: product.id, listingName: `${product.name} (${product.category})`, kind: 'store', action: withIntro ? 'contact' : 'message', router })
+      await sendMarketplaceMessage({
+        recipientId: product.seller.id,
+        listingId: product.id,
+        listingName: product.name,
+        kind: 'store',
+        action: withIntro ? 'contact' : 'message',
+        router,
+        details: {
+          price: product.price,
+          stock: product.stock,
+          category: product.category,
+        },
+      })
     } catch { alert(t('Failed to connect with seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಲು ವಿಫಲವಾಗಿದೆ')) }
   }
 
@@ -498,8 +510,19 @@ function RawTab() {
     e.preventDefault()
     if (!selectedListing) return
     try {
-      const res = await fetch('/api/raw/offers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ listingId: selectedListing.id, ...offerData }) })
-      if (res.ok) { setShowOfferModal(false); setOfferData({ offerPrice: 0, quantity: 0, message: '' }); alert(t('Offer submitted successfully!', 'ಆಫರ್ ಯಶಸ್ವಿಯಾಗಿ ಸಲ್ಲಿಸಲಾಗಿದೆ!')) }
+      const res = await fetch('/api/raw/offers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listingId: selectedListing.id,
+          ...offerData,
+          // listing context for email notifications
+          listingCommodity: selectedListing.commodity,
+          listingLocation: selectedListing.location,
+          listingAskingPrice: selectedListing.pricePerKg,
+        }),
+      })
+      if (res.ok) { setShowOfferModal(false); setOfferData({ offerPrice: 0, quantity: 0, message: '' }); alert(t('Offer submitted! You will receive a confirmation email shortly.', 'ಆಫರ್ ಸಲ್ಲಿಸಲಾಗಿದೆ! ನಿಮಗೆ ಶೀಘ್ರದಲ್ಲಿ ಇಮೇಲ್ ಬರುತ್ತದೆ.')) }
       else { alert((await extractErrorMessage(res)) || t('Failed to create offer', 'ಆಫರ್ ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ')) }
     } catch { alert(t('Failed to create offer', 'ಆಫರ್ ಸಲ್ಲಿಸಲು ವಿಫಲವಾಗಿದೆ')) }
   }
@@ -535,7 +558,21 @@ function RawTab() {
   async function handleOpenConversation(listing: RawListing, withIntro: boolean) {
     if (!listing.sellerId) { alert(t('Seller details unavailable', 'ಮಾರಾಟಗಾರ ವಿವರಗಳು ಲಭ್ಯವಿಲ್ಲ')); return }
     try {
-      await sendMarketplaceMessage({ recipientId: listing.sellerId, listingId: listing.id, listingName: `${listing.commodity}${listing.grade ? ` (${listing.grade})` : ''}`, kind: 'raw', action: withIntro ? 'contact' : 'message', router })
+      await sendMarketplaceMessage({
+        recipientId: listing.sellerId,
+        listingId: listing.id,
+        listingName: listing.commodity,
+        kind: 'raw',
+        action: withIntro ? 'contact' : 'message',
+        router,
+        details: {
+          pricePerKg: listing.pricePerKg,
+          pricePerBag: listing.pricePerKg * 50,
+          quantityKg: listing.quantityKg,
+          location: listing.location,
+          grade: listing.grade ?? undefined,
+        },
+      })
     } catch { alert(t('Failed to connect with seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಲು ವಿಫಲವಾಗಿದೆ')) }
   }
 
@@ -617,40 +654,62 @@ function RawTab() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-              {listings.map((listing, idx) => (
-                <div key={listing.id} className="surface-card rounded-2xl shadow hover:shadow-xl transition-all p-5 card-hover fade-in" style={{ animationDelay: `${idx * 100}ms` }}>
-                  <div className="flex justify-between items-start mb-3">
-                    <div><h3 className="font-bold text-base text-card-strong">{listing.commodity}</h3><p className="text-xs mt-0.5 text-muted-safe">📍 {listing.location}</p></div>
-                    {listing.grade && <span className="gradient-brand-spectrum text-white text-[10px] px-2.5 py-1 rounded-full font-semibold shadow">{listing.grade}</span>}
-                  </div>
-                  <div className="space-y-2 mb-4">
-                    <div className={`flex items-center justify-between py-2.5 px-3 rounded-xl ${isDark ? 'bg-white/10' : 'bg-gradient-to-r from-emerald-50 to-green-50'}`}>
-                      <span className="text-xs font-medium text-app-muted">{t('Price', 'ಬೆಲೆ')}</span>
-                      <span className={`text-base font-bold ${isDark ? 'text-emerald-300' : 'text-emerald-600'}`}>₹{listing.pricePerKg}/kg</span>
+              {listings.map((listing, idx) => {
+                const pricePerBag = listing.pricePerKg * 50
+                return (
+                  <div key={listing.id} className="surface-card rounded-2xl shadow hover:shadow-xl transition-all overflow-hidden card-hover fade-in flex flex-col" style={{ animationDelay: `${idx * 100}ms` }}>
+                    {/* Top accent strip + commodity badge */}
+                    <div className="h-2 w-full bg-gradient-to-r from-emerald-500 to-teal-400 flex-shrink-0" />
+                    <div className="p-4 flex flex-col flex-1">
+                      {/* Header */}
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <h3 className="font-bold text-base sm:text-lg text-card-strong leading-snug">{listing.commodity}</h3>
+                        {listing.grade && <span className="flex-shrink-0 gradient-brand-spectrum text-white text-[10px] px-2.5 py-0.5 rounded-full font-semibold shadow">{listing.grade}</span>}
+                      </div>
+                      <p className="text-xs text-muted-safe mb-3">📍 {listing.location}</p>
+
+                      {/* Price per bag (prominent) */}
+                      <div className={`rounded-xl px-4 py-3 mb-2 ${isDark ? 'bg-emerald-900/30 border border-emerald-700/40' : 'bg-emerald-50 border border-emerald-200'}`}>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 mb-0.5">{t('Price per 50 kg bag', '50 ಕೆಜಿ ಚೀಲಕ್ಕೆ ಬೆಲೆ')}</p>
+                        <p className="text-2xl font-bold text-emerald-700 dark:text-emerald-300">₹{pricePerBag.toLocaleString('en-IN')}</p>
+                        <p className="text-xs text-muted-safe mt-0.5">₹{listing.pricePerKg}/kg</p>
+                      </div>
+
+                      {/* Coffee variant row */}
+                      <div className={`flex items-center justify-between py-1.5 px-3 rounded-xl mb-2 ${isDark ? 'bg-amber-900/30' : 'bg-amber-50 border border-amber-200/60'}`}>
+                        <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">☕ {listing.commodity}</span>
+                        <span className="text-xs font-medium text-muted-safe">{listing.quantityKg.toLocaleString('en-IN')} kg {t('available', 'ಲಭ್ಯ')}</span>
+                      </div>
+
+                      {/* Seller row */}
+                      <div className="flex items-center gap-2 text-xs text-muted-safe mb-3 px-1">
+                        <div className="w-6 h-6 rounded-full gradient-coffee-cream flex items-center justify-center text-white font-bold text-[10px]">{listing.seller?.name?.[0]?.toUpperCase() || 'S'}</div>
+                        <span className="font-medium">{listing.seller?.name || t('Korana Estate', 'ಕೊರಾನಾ ಎಸ್ಟೇಟ್')}</span>
+                      </div>
+
+                      {listing.description && <p className="text-xs mb-3 line-clamp-2 text-muted-safe">{listing.description}</p>}
+
+                      {/* Actions */}
+                      <div className="mt-auto space-y-2">
+                        <div className="grid grid-cols-2 gap-2">
+                          <button onClick={() => { setSelectedListing(listing); setOfferData({ offerPrice: listing.pricePerKg, quantity: Math.min(50, listing.quantityKg), message: '' }); setShowOfferModal(true) }} className="w-full gradient-coffee-cream text-white py-2.5 rounded-xl font-semibold text-sm shadow hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-1.5">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            {t('Make Offer', 'ಆಫರ್ ಮಾಡಿ')}
+                          </button>
+                          <button onClick={() => { setSelectedListing(listing); setCodOrderData({ listingId: listing.id, quantityKg: Math.min(50, listing.quantityKg), customer: createEmptyCustomerDetails(session?.user?.name || '') }); setCodErrors({}); setShowCodModal(true) }} className="w-full gradient-brand-spectrum text-white py-2.5 rounded-xl font-semibold text-sm shadow hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-1.5">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                            {t('Buy Now', 'ಈಗ ಖರೀದಿ')}
+                          </button>
+                        </div>
+                        <button onClick={() => handleOpenConversation(listing, true)} className="w-full lux-btn-secondary py-2 rounded-xl font-semibold transition-all text-sm flex items-center justify-center gap-1.5">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                          {t('Contact Seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ')}
+                        </button>
+                      </div>
                     </div>
-                    <div className={`flex items-center justify-between py-2.5 px-3 rounded-xl ${isDark ? 'bg-white/10' : 'bg-gradient-to-r from-amber-50 to-yellow-50'}`}>
-                      <span className="text-xs font-medium text-app-muted">{t('Quantity', 'ಪ್ರಮಾಣ')}</span>
-                      <span className={`text-base font-bold ${isDark ? 'text-amber-300' : 'text-amber-700'}`}>{listing.quantityKg} kg</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-safe">
-                      <div className="w-7 h-7 rounded-full gradient-coffee-cream flex items-center justify-center text-white font-bold text-[10px]">{listing.seller?.name?.[0]?.toUpperCase() || 'S'}</div>
-                      <span className="font-medium">{listing.seller?.name || t('Unknown Seller', 'ಅಪರಿಚಿತ ಮಾರಾಟಗಾರ')}</span>
-                    </div>
                   </div>
-                  {listing.description && <p className="text-xs mb-3 line-clamp-2 text-muted-safe">{listing.description}</p>}
-                  <div className="grid grid-cols-2 gap-2">
-                    <button onClick={() => { setSelectedListing(listing); setOfferData({ offerPrice: listing.pricePerKg, quantity: Math.min(50, listing.quantityKg), message: '' }); setShowOfferModal(true) }} className="w-full gradient-brand-spectrum text-white py-2.5 rounded-xl font-semibold text-sm shadow hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-1.5">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                      {t('Make Offer', 'ಆಫರ್ ಮಾಡಿ')}
-                    </button>
-                    <button onClick={() => { setSelectedListing(listing); setCodOrderData({ listingId: listing.id, quantityKg: Math.min(50, listing.quantityKg), customer: createEmptyCustomerDetails(session?.user?.name || '') }); setCodErrors({}); setShowCodModal(true) }} className="w-full gradient-brand-spectrum text-white py-2.5 rounded-xl font-semibold text-sm shadow hover:shadow-lg hover:scale-105 transition-all flex items-center justify-center gap-1.5">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-                      {t('Buy Now', 'ಈಗ ಖರೀದಿ')}
-                    </button>
-                  </div>
-                  <button onClick={() => handleOpenConversation(listing, true)} className="mt-2 w-full lux-btn-secondary py-2 rounded-xl font-semibold transition-all text-sm">{t('Contact Seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ')}</button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </main>

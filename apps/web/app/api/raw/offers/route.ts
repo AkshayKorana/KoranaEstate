@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
 import { attachRefreshedSession, fetchWithAuthRetry } from '@/app/api/_lib/auth'
+import { ADMIN_EMAILS } from '@/lib/auth'
+import { sendOfferToAdminNotification, sendOfferConfirmationToUser } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:4000/api/v1'
+
+const SITE_URL = (process.env.NEXTAUTH_URL ?? 'https://korana-estate.vercel.app').replace(/\/$/, '')
 
 function getApiErrorMessage(payload: unknown, fallback: string) {
   return extractMessage(payload) || fallback
@@ -37,6 +41,10 @@ export async function POST(request: NextRequest) {
     const offerPrice = Number(body?.offerPrice)
     const quantity = Number(body?.quantity)
     const message = typeof body?.message === 'string' ? body.message.trim() : null
+    // Listing context passed by client for email notifications (read-only, no trust issues)
+    const listingCommodity = typeof body?.listingCommodity === 'string' ? body.listingCommodity : ''
+    const listingLocation = typeof body?.listingLocation === 'string' ? body.listingLocation : ''
+    const listingAskingPrice = Number(body?.listingAskingPrice) || 0
 
     if (!listingId || !Number.isFinite(offerPrice) || !Number.isFinite(quantity)) {
       return NextResponse.json(
@@ -95,6 +103,31 @@ export async function POST(request: NextRequest) {
       updatedAt: payload.updatedAt ?? payload.createdAt ?? new Date(0).toISOString(),
       listing: undefined,
       buyer: undefined,
+    }
+
+    // Fire-and-forget email notifications
+    const { authToken } = upstreamResult
+    if (authToken?.email && listingCommodity) {
+      const notifInput = {
+        buyerName: authToken.name ?? authToken.email,
+        buyerEmail: authToken.email,
+        commodity: listingCommodity,
+        location: listingLocation,
+        quantityKg: quantity,
+        askingPricePerKg: listingAskingPrice,
+        offerPricePerKg: offerPrice,
+        message,
+        listingsUrl: `${SITE_URL}/marketplace?tab=raw`,
+      }
+      const adminEmail = Array.from(ADMIN_EMAILS)[0]
+      if (adminEmail) {
+        void sendOfferToAdminNotification(adminEmail, notifInput).catch((err) =>
+          console.error('[OFFER EMAIL] Admin notification failed:', err)
+        )
+      }
+      void sendOfferConfirmationToUser(authToken.email, notifInput).catch((err) =>
+        console.error('[OFFER EMAIL] User confirmation failed:', err)
+      )
     }
 
     const response = NextResponse.json({ offer }, { status: 201 })
