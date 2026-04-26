@@ -15,7 +15,7 @@ export class ChatService {
     return this.prisma.conversation.findMany({
       where: { participants: { some: { userId } } },
       include: {
-        participants: { include: { user: { select: { id: true, fullName: true, role: true } } } },
+        participants: { include: { user: { select: { id: true, fullName: true, role: true, email: true } } } },
         messages: { orderBy: { createdAt: 'desc' }, take: 1 },
       },
       orderBy: { updatedAt: 'desc' },

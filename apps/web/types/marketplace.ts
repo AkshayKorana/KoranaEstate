@@ -10,6 +10,7 @@ export interface ConversationParticipantUser {
   id: string
   fullName?: string | null
   role?: string | null
+  email?: string | null
 }
 
 export interface ConversationParticipant {
