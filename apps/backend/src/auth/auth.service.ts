@@ -8,6 +8,12 @@ import { LogoutDto } from './dto/logout.dto'
 import { RefreshTokenDto } from './dto/refresh-token.dto'
 import { RegisterDto } from './dto/register.dto'
 
+/**
+ * Single source of truth for admin emails on the backend.
+ * Must stay in sync with apps/web/lib/auth.ts ADMIN_EMAILS.
+ */
+const ADMIN_EMAILS = new Set(['akshay.koranaest@gmail.com'])
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -158,9 +164,13 @@ export class AuthService {
     return { success: true }
   }
 
+  private resolveRole(email: string, dbRole: UserRole): UserRole {
+    return ADMIN_EMAILS.has(email.toLowerCase()) ? UserRole.ADMIN : dbRole
+  }
+
   private signAccessToken(userId: string, email: string, role: UserRole) {
     return this.jwtService.sign(
-      { sub: userId, email, role },
+      { sub: userId, email, role: this.resolveRole(email, role) },
       {
         secret: process.env.ACCESS_JWT_SECRET ?? process.env.JWT_SECRET,
         expiresIn: '15m',
@@ -170,7 +180,7 @@ export class AuthService {
 
   private async issueRefreshToken(userId: string, email: string, role: UserRole) {
     const refreshToken = this.jwtService.sign(
-      { sub: userId, email, role },
+      { sub: userId, email, role: this.resolveRole(email, role) },
       {
         secret: process.env.REFRESH_JWT_SECRET ?? process.env.JWT_SECRET,
         expiresIn: '30d',

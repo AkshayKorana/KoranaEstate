@@ -240,58 +240,61 @@ function StoreTab() {
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
               {products.map((product, idx) => (
-                <div key={product.id} className="surface-card rounded-2xl shadow hover:shadow-xl transition-all overflow-hidden card-hover fade-in flex flex-col" style={{ animationDelay: `${idx * 100}ms` }}>
+                <div key={product.id} className="surface-card rounded-2xl shadow-md hover:shadow-2xl transition-all overflow-hidden card-hover fade-in flex flex-col" style={{ animationDelay: `${idx * 100}ms` }}>
                   {/* Product image */}
-                  <div className="h-40 sm:h-48 bg-gradient-to-br from-amber-100 via-yellow-50 to-emerald-50 flex items-center justify-center relative overflow-hidden flex-shrink-0">
+                  <div className="h-28 sm:h-32 bg-gradient-to-br from-amber-100 via-yellow-50 to-emerald-50 flex items-center justify-center relative overflow-hidden flex-shrink-0">
                     {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" /> : (
                       <div className="text-center">
-                        <span className="text-5xl">☕</span>
-                        <p className="text-xs text-muted-safe mt-1 font-medium">{categoryLabel(product.category)}</p>
+                        <span className="text-4xl">☕</span>
                       </div>
                     )}
                     {product.stock === 0 && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><span className="text-white font-bold text-sm">{t('OUT OF STOCK', 'ಸ್ಟಾಕ್ ಇಲ್ಲ')}</span></div>}
-                    {/* Category badge top-right */}
                     <span className="absolute top-2 right-2 gradient-brand-spectrum text-white text-[10px] px-2 py-0.5 rounded-full font-semibold shadow">{categoryLabel(product.category)}</span>
                   </div>
 
-                  <div className="p-4 flex flex-col flex-1">
-                    {/* Name + price */}
-                    <h3 className="font-bold text-sm sm:text-base text-card-strong line-clamp-2 leading-snug mb-1">{product.name}</h3>
-                    <p className="text-xl font-bold text-brand-spectrum mb-3">₹{product.price.toFixed(2)}</p>
+                  <div className="p-3 sm:p-4 flex flex-col flex-1">
+                    {/* Name — prominent */}
+                    <h3 className="font-extrabold text-sm sm:text-base text-card-strong leading-tight mb-1 line-clamp-2">{product.name}</h3>
 
-                    {/* Coffee variant row */}
-                    {product.coffeeVariant && (
-                      <div className={`flex items-center justify-between py-1.5 px-3 rounded-xl mb-1.5 ${isDark ? 'bg-amber-900/30' : 'bg-amber-50 border border-amber-200/60'}`}>
-                        <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">☕ {product.coffeeVariant}</span>
-                        {product.coffeeVariantPct != null && (
-                          <span className="text-xs font-bold text-amber-700 dark:text-amber-200">{product.coffeeVariantPct}%</span>
-                        )}
-                      </div>
-                    )}
+                    {/* Price — very prominent */}
+                    <div className="flex items-baseline gap-1 mb-3">
+                      <span className="text-2xl sm:text-3xl font-extrabold text-emerald-600 dark:text-emerald-400">₹{product.price.toFixed(0)}</span>
+                      <span className="text-xs text-muted-safe">{t('/ unit', '/ ಯೂನಿಟ್')}</span>
+                    </div>
 
-                    {/* Chicory row */}
-                    {product.chicoryPct != null && (
-                      <div className={`flex items-center justify-between py-1.5 px-3 rounded-xl mb-1.5 ${isDark ? 'bg-emerald-900/20' : 'bg-emerald-50 border border-emerald-200/60'}`}>
-                        <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">🌿 {t('Chicory', 'ಚಿಕೊರಿ')}</span>
-                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-200">{product.chicoryPct}%</span>
-                      </div>
-                    )}
-
-                    {/* Stock + seller */}
-                    <div className="space-y-1.5 mb-3">
-                      <div className={`flex items-center justify-between py-1.5 px-3 rounded-xl ${isDark ? 'bg-white/10' : 'bg-gradient-to-r from-emerald-50 to-green-50'}`}>
-                        <span className="text-xs font-medium text-app-muted">{t('Stock', 'ಸ್ಟಾಕ್')}</span>
-                        <span className={`text-xs font-bold ${product.stock > 0 ? 'text-emerald-600' : 'text-red-600'}`}>{product.stock > 0 ? `${product.stock} ${t('units', 'ಯೂನಿಟ್‌ಗಳು')}` : t('Out', 'ಖಾಲಿ')}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-safe px-1">
-                        <div className="w-6 h-6 rounded-full gradient-coffee-cream flex items-center justify-center text-white font-bold text-[10px]">{product.seller?.name?.[0]?.toUpperCase() || 'S'}</div>
-                        <span className="font-medium">{product.seller?.name || t('Store', 'ಸ್ಟೋರ್')}</span>
+                    {/* Coffee Composition — always shown, prominent */}
+                    <div className={`rounded-xl p-2.5 mb-3 ${isDark ? 'bg-amber-900/30 border border-amber-700/30' : 'bg-amber-50 border border-amber-200'}`}>
+                      <p className="text-[9px] font-bold uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-2">☕ {t('Coffee Composition', 'ಕಾಫಿ ಸಂಯೋಜನೆ')}</p>
+                      <div className="grid grid-cols-3 gap-1 text-center">
+                        <div>
+                          <p className="text-[8px] text-muted-safe uppercase tracking-wide leading-tight mb-0.5">{t('Variant', 'ವೈವಿಧ್ಯ')}</p>
+                          <p className="text-[10px] font-bold text-amber-800 dark:text-amber-200 leading-tight line-clamp-2">{product.coffeeVariant || '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[8px] text-muted-safe uppercase tracking-wide leading-tight mb-0.5">{t('Coffee', 'ಕಾಫಿ')}</p>
+                          <p className="text-base font-extrabold text-amber-700 dark:text-amber-200">{product.coffeeVariantPct != null ? `${product.coffeeVariantPct}%` : '—'}</p>
+                        </div>
+                        <div>
+                          <p className="text-[8px] text-muted-safe uppercase tracking-wide leading-tight mb-0.5">{t('Chicory', 'ಚಿಕೊರಿ')}</p>
+                          <p className="text-base font-extrabold text-emerald-700 dark:text-emerald-300">{product.chicoryPct != null ? `${product.chicoryPct}%` : '—'}</p>
+                        </div>
                       </div>
                     </div>
 
-                    {product.description && <p className="text-xs text-muted-safe mb-3 line-clamp-2">{product.description}</p>}
+                    {/* Stock + seller — compact row */}
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-5 h-5 rounded-full gradient-coffee-cream flex items-center justify-center text-white font-bold text-[9px] flex-shrink-0">{product.seller?.name?.[0]?.toUpperCase() || 'S'}</div>
+                        <span className="text-xs text-muted-safe truncate max-w-[70px]">{product.seller?.name || t('Store', 'ಸ್ಟೋರ್')}</span>
+                      </div>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${product.stock > 0 ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300' : 'bg-red-100 text-red-600 dark:bg-red-900/40 dark:text-red-400'}`}>
+                        {product.stock > 0 ? `${product.stock} ${t('in stock', 'ಸ್ಟಾಕ್')}` : t('Out', 'ಖಾಲಿ')}
+                      </span>
+                    </div>
 
-                    {/* Actions — pushed to bottom */}
+                    {product.description && <p className="text-xs text-muted-safe mb-2 line-clamp-2">{product.description}</p>}
+
+                    {/* Actions */}
                     <div className="mt-auto space-y-2">
                       <button
                         onClick={() => {
@@ -338,14 +341,14 @@ function StoreTab() {
               </div>
               <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Description (optional)', 'ವಿವರಣೆ (ಐಚ್ಛಿಕ)')}</label><textarea className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" rows={3} placeholder={t('Product details...', 'ಉತ್ಪನ್ನದ ವಿವರಗಳು...')} value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
               <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Image URL (optional)', 'ಚಿತ್ರ URL (ಐಚ್ಛಿಕ)')}</label><input type="url" className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" placeholder="https://example.com/image.jpg" value={formData.imageUrl || ''} onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })} /></div>
-              {/* Coffee composition */}
-              <div className={`rounded-xl p-4 space-y-3 ${isDark ? 'bg-amber-900/20 border border-amber-700/30' : 'bg-amber-50 border border-amber-200'}`}>
-                <p className="text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">{t('Coffee Composition (optional)', 'ಕಾಫಿ ಸಂಯೋಜನೆ (ಐಚ್ಛಿಕ)')}</p>
+              {/* Coffee composition — required */}
+              <div className={`rounded-xl p-4 space-y-3 ${isDark ? 'bg-amber-900/20 border border-amber-600/40' : 'bg-amber-50 border-2 border-amber-300'}`}>
+                <p className="text-sm font-bold text-amber-800 dark:text-amber-300">☕ {t('Coffee Composition', 'ಕಾಫಿ ಸಂಯೋಜನೆ')} <span className="text-red-500">*</span></p>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="sm:col-span-1">
-                    <label className="block text-xs font-semibold text-[#111111] dark:text-[#ffffff] mb-1.5">{t('Coffee Variant', 'ಕಾಫಿ ವೈವಿಧ್ಯ')}</label>
-                    <select className="w-full border-2 border-amber-200 rounded-xl px-3 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" value={formData.coffeeVariant || ''} onChange={(e) => setFormData({ ...formData, coffeeVariant: e.target.value })}>
-                      <option value="">{t('— None —', '— ಯಾವುದೂ ಅಲ್ಲ —')}</option>
+                    <label className="block text-xs font-semibold text-[#111111] dark:text-[#ffffff] mb-1.5">{t('Coffee Variant', 'ಕಾಫಿ ವೈವಿಧ್ಯ')} <span className="text-red-500">*</span></label>
+                    <select required className="w-full border-2 border-amber-200 rounded-xl px-3 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" value={formData.coffeeVariant || ''} onChange={(e) => setFormData({ ...formData, coffeeVariant: e.target.value })}>
+                      <option value="">{t('— Select —', '— ಆಯ್ಕೆ ಮಾಡಿ —')}</option>
                       <option>Arabica Cherry</option>
                       <option>Arabica Parchment</option>
                       <option>Robusta Cherry</option>
@@ -353,14 +356,15 @@ function StoreTab() {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#111111] dark:text-[#ffffff] mb-1.5">{t('Variant %', 'ವೈವಿಧ್ಯ %')}</label>
-                    <input type="number" min="0" max="100" step="0.1" className="w-full border-2 border-amber-200 rounded-xl px-3 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" placeholder="e.g. 70" value={formData.coffeeVariantPct ?? ''} onChange={(e) => setFormData({ ...formData, coffeeVariantPct: e.target.value !== '' ? parseFloat(e.target.value) : null })} />
+                    <label className="block text-xs font-semibold text-[#111111] dark:text-[#ffffff] mb-1.5">{t('Variant %', 'ವೈವಿಧ್ಯ %')} <span className="text-red-500">*</span></label>
+                    <input required type="number" min="0" max="100" step="0.1" className="w-full border-2 border-amber-200 rounded-xl px-3 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" placeholder="e.g. 70" value={formData.coffeeVariantPct ?? ''} onChange={(e) => setFormData({ ...formData, coffeeVariantPct: e.target.value !== '' ? parseFloat(e.target.value) : null })} />
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-[#111111] dark:text-[#ffffff] mb-1.5">{t('Chicory %', 'ಚಿಕೊರಿ %')}</label>
-                    <input type="number" min="0" max="100" step="0.1" className="w-full border-2 border-amber-200 rounded-xl px-3 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" placeholder="e.g. 30" value={formData.chicoryPct ?? ''} onChange={(e) => setFormData({ ...formData, chicoryPct: e.target.value !== '' ? parseFloat(e.target.value) : null })} />
+                    <label className="block text-xs font-semibold text-[#111111] dark:text-[#ffffff] mb-1.5">{t('Chicory %', 'ಚಿಕೊರಿ %')} <span className="text-red-500">*</span></label>
+                    <input required type="number" min="0" max="100" step="0.1" className="w-full border-2 border-amber-200 rounded-xl px-3 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" placeholder="e.g. 30" value={formData.chicoryPct ?? ''} onChange={(e) => setFormData({ ...formData, chicoryPct: e.target.value !== '' ? parseFloat(e.target.value) : null })} />
                   </div>
                 </div>
+                <p className="text-[10px] text-amber-700 dark:text-amber-400">{t('Coffee % + Chicory % should equal 100', 'ಕಾಫಿ % + ಚಿಕೊರಿ % = 100 ಆಗಿರಬೇಕು')}</p>
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowCreateModal(false)} className="surface-button-secondary flex-1 py-3 rounded-xl font-semibold transition-all">{t('Cancel', 'ರದ್ದುಮಾಡಿ')}</button>

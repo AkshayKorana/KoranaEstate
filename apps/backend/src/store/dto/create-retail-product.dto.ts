@@ -30,22 +30,20 @@ export class CreateRetailProductDto {
   @IsString()
   imageUrl?: string
 
-  @ApiPropertyOptional({ description: 'Coffee variant e.g. Arabica Cherry' })
-  @IsOptional()
+
+  @ApiProperty({ description: 'Coffee variant e.g. Arabica Cherry' })
   @IsString()
-  coffeeVariant?: string
+  coffeeVariant!: string
 
-  @ApiPropertyOptional({ description: 'Coffee variant percentage 0-100', minimum: 0, maximum: 100 })
-  @IsOptional()
+  @ApiProperty({ description: 'Coffee variant percentage 0-100', minimum: 0, maximum: 100 })
   @IsNumber()
   @Min(0)
   @Max(100)
-  coffeeVariantPct?: number
+  coffeeVariantPct!: number
 
-  @ApiPropertyOptional({ description: 'Chicory percentage 0-100', minimum: 0, maximum: 100 })
-  @IsOptional()
+  @ApiProperty({ description: 'Chicory percentage 0-100', minimum: 0, maximum: 100 })
   @IsNumber()
   @Min(0)
   @Max(100)
-  chicoryPct?: number
+  chicoryPct!: number
 }
