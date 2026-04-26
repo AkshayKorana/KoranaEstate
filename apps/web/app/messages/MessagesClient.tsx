@@ -28,6 +28,7 @@ export default function MessagesClient() {
   const [messagesError, setMessagesError] = useState('')
   const [conversationNotFound, setConversationNotFound] = useState(false)
   const [isPageVisible, setIsPageVisible] = useState(true)
+  const [mobileView, setMobileView] = useState<'list' | 'chat'>(requestedConversationId ? 'chat' : 'list')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const optimisticIdRef = useRef(0)
 
@@ -271,9 +272,9 @@ export default function MessagesClient() {
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-slate-950' : 'bg-transparent'}`}>
-      <div className="h-[calc(100vh-10rem)] max-w-7xl mx-auto px-6 md:px-8 lg:px-10 py-6">
-        <div className="surface-panel h-full rounded-3xl shadow-sm flex overflow-hidden">
-          <div className="w-80 border-r border-black/10 dark:border-white/10 flex flex-col">
+      <div className="h-[calc(100vh-10rem)] max-w-7xl mx-auto px-0 sm:px-4 md:px-8 lg:px-10 py-0 sm:py-4 md:py-6">
+        <div className="surface-panel h-full sm:rounded-3xl shadow-sm flex overflow-hidden">
+          <div className={`w-full md:w-80 flex-shrink-0 border-r border-black/10 dark:border-white/10 flex-col ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
             <div className="surface-card-strong p-4 border-b border-black/10 dark:border-white/10">
               <h2 className="font-luxe text-2xl font-semibold text-card-strong">{t('Messages', 'ಸಂದೇಶಗಳು')}</h2>
             </div>
@@ -313,6 +314,7 @@ export default function MessagesClient() {
                       onClick={() => {
                         setConversationNotFound(false)
                         setSelectedConversation(conversation)
+                        setMobileView('chat')
                       }}
                       className={`w-full p-4 border-b text-left transition-all duration-300 ${
                         isDark
@@ -343,11 +345,21 @@ export default function MessagesClient() {
             </div>
           </div>
 
-          <div className="flex-1 flex flex-col">
+          <div className={`flex-1 flex-col min-w-0 ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}`}>
             {selectedConversation ? (
               <>
-                <div className="surface-card-strong p-4 border-b border-black/10 dark:border-white/10 flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-semibold">
+                <div className="surface-card-strong p-3 sm:p-4 border-b border-black/10 dark:border-white/10 flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setMobileView('list')}
+                    className="md:hidden flex-shrink-0 p-1.5 -ml-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-card-strong"
+                    aria-label="Back to conversations"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
+                  <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-semibold flex-shrink-0">
                     {getParticipantLabel(selectedConversation)[0]?.toUpperCase() || '?'}
                   </div>
                   <div>
