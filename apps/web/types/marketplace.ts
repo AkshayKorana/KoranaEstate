@@ -60,6 +60,9 @@ export interface Product {
   stock: number
   description: string | null
   imageUrl: string | null
+  coffeeVariant: string | null
+  coffeeVariantPct: number | null
+  chicoryPct: number | null
   isActive: boolean
   createdAt: Date | string
   updatedAt: Date | string
@@ -192,6 +195,9 @@ export interface CreateProductInput {
   stock: number
   description?: string
   imageUrl?: string
+  coffeeVariant?: string
+  coffeeVariantPct?: number | null
+  chicoryPct?: number | null
 }
 
 export interface CreateOrderInput {

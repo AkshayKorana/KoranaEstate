@@ -1,4 +1,4 @@
-import { IsNumber, IsOptional, IsString, Min } from 'class-validator'
+import { IsNumber, IsOptional, IsString, Min, Max } from 'class-validator'
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger'
 
 export class CreateRetailProductDto {
@@ -29,4 +29,23 @@ export class CreateRetailProductDto {
   @IsOptional()
   @IsString()
   imageUrl?: string
+
+  @ApiPropertyOptional({ description: 'Coffee variant e.g. Arabica Cherry' })
+  @IsOptional()
+  @IsString()
+  coffeeVariant?: string
+
+  @ApiPropertyOptional({ description: 'Coffee variant percentage 0-100', minimum: 0, maximum: 100 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  coffeeVariantPct?: number
+
+  @ApiPropertyOptional({ description: 'Chicory percentage 0-100', minimum: 0, maximum: 100 })
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  chicoryPct?: number
 }

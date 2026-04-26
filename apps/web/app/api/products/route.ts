@@ -16,6 +16,9 @@ type BackendStoreProduct = {
   price?: number | string | null
   stock?: number | null
   description?: string | null
+  coffeeVariant?: string | null
+  coffeeVariantPct?: number | string | null
+  chicoryPct?: number | string | null
   isActive?: boolean | null
   createdAt?: string | null
   updatedAt?: string | null
@@ -39,6 +42,9 @@ function toProduct(product: BackendStoreProduct | null | undefined) {
     stock: Number(product.stock ?? 0),
     description: product.description ?? null,
     imageUrl: product.imageUrl ?? null,
+    coffeeVariant: product.coffeeVariant ?? null,
+    coffeeVariantPct: product.coffeeVariantPct != null ? Number(product.coffeeVariantPct) : null,
+    chicoryPct: product.chicoryPct != null ? Number(product.chicoryPct) : null,
     isActive: product.isActive ?? true,
     createdAt: product.createdAt ?? new Date(0).toISOString(),
     updatedAt: product.updatedAt ?? product.createdAt ?? new Date(0).toISOString(),
@@ -139,6 +145,9 @@ export async function POST(request: NextRequest) {
         price: Number(price.toFixed(2)),
         stock: Math.floor(stock),
         description,
+        coffeeVariant: typeof body?.coffeeVariant === 'string' && body.coffeeVariant.trim() ? body.coffeeVariant.trim() : null,
+        coffeeVariantPct: body?.coffeeVariantPct != null && Number.isFinite(Number(body.coffeeVariantPct)) ? Number(Number(body.coffeeVariantPct).toFixed(2)) : null,
+        chicoryPct: body?.chicoryPct != null && Number.isFinite(Number(body.chicoryPct)) ? Number(Number(body.chicoryPct).toFixed(2)) : null,
       }),
     })
     if ('errorResponse' in upstreamResult) {

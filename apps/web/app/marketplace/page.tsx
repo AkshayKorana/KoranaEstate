@@ -46,7 +46,7 @@ function StoreTab() {
   const [showOrderModal, setShowOrderModal] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
-  const [formData, setFormData] = useState<CreateProductInput>({ name: '', category: STORE_CATEGORIES[0], price: 0, stock: 0 })
+  const [formData, setFormData] = useState<CreateProductInput>({ name: '', category: STORE_CATEGORIES[0], price: 0, stock: 0, coffeeVariant: '', coffeeVariantPct: null, chicoryPct: null })
   const [orderData, setOrderData] = useState<CreateOrderInput>({ productId: '', quantity: 1, customer: createEmptyCustomerDetails() })
   const [orderErrors, setOrderErrors] = useState<Partial<Record<keyof OrderCustomerDetails | 'quantity' | 'form', string>>>({})
   const [submittingOrder, setSubmittingOrder] = useState(false)
@@ -99,7 +99,7 @@ function StoreTab() {
       const res = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(formData) })
       if (res.ok) {
         setShowCreateModal(false)
-        setFormData({ name: '', category: STORE_CATEGORIES[0], price: 0, stock: 0, description: '', imageUrl: '' })
+        setFormData({ name: '', category: STORE_CATEGORIES[0], price: 0, stock: 0, description: '', imageUrl: '', coffeeVariant: '', coffeeVariantPct: null, chicoryPct: null })
         fetchProducts()
       } else {
         setCreateError(res.status === 403
@@ -228,8 +228,9 @@ function StoreTab() {
           ) : (
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
               {products.map((product, idx) => (
-                <div key={product.id} className="surface-card rounded-2xl shadow hover:shadow-xl transition-all overflow-hidden card-hover fade-in" style={{ animationDelay: `${idx * 100}ms` }}>
-                  <div className="h-40 sm:h-48 bg-gradient-to-br from-amber-100 via-yellow-50 to-emerald-50 flex items-center justify-center relative overflow-hidden">
+                <div key={product.id} className="surface-card rounded-2xl shadow hover:shadow-xl transition-all overflow-hidden card-hover fade-in flex flex-col" style={{ animationDelay: `${idx * 100}ms` }}>
+                  {/* Product image */}
+                  <div className="h-40 sm:h-48 bg-gradient-to-br from-amber-100 via-yellow-50 to-emerald-50 flex items-center justify-center relative overflow-hidden flex-shrink-0">
                     {product.imageUrl ? <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" /> : (
                       <div className="text-center">
                         <span className="text-5xl">☕</span>
@@ -237,43 +238,68 @@ function StoreTab() {
                       </div>
                     )}
                     {product.stock === 0 && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><span className="text-white font-bold text-sm">{t('OUT OF STOCK', 'ಸ್ಟಾಕ್ ಇಲ್ಲ')}</span></div>}
+                    {/* Category badge top-right */}
+                    <span className="absolute top-2 right-2 gradient-brand-spectrum text-white text-[10px] px-2 py-0.5 rounded-full font-semibold shadow">{categoryLabel(product.category)}</span>
                   </div>
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="font-bold text-sm sm:text-base text-card-strong line-clamp-2 leading-snug">{product.name}</h3>
-                      <span className="gradient-brand-spectrum text-white text-[10px] px-2 py-1 rounded-full font-semibold shadow ml-2 whitespace-nowrap">{categoryLabel(product.category)}</span>
-                    </div>
-                    <div className="mb-3">
-                      <p className="text-xl font-bold text-brand-spectrum">₹{product.price.toFixed(2)}</p>
-                    </div>
+
+                  <div className="p-4 flex flex-col flex-1">
+                    {/* Name + price */}
+                    <h3 className="font-bold text-sm sm:text-base text-card-strong line-clamp-2 leading-snug mb-1">{product.name}</h3>
+                    <p className="text-xl font-bold text-brand-spectrum mb-3">₹{product.price.toFixed(2)}</p>
+
+                    {/* Coffee variant row */}
+                    {product.coffeeVariant && (
+                      <div className={`flex items-center justify-between py-1.5 px-3 rounded-xl mb-1.5 ${isDark ? 'bg-amber-900/30' : 'bg-amber-50 border border-amber-200/60'}`}>
+                        <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">☕ {product.coffeeVariant}</span>
+                        {product.coffeeVariantPct != null && (
+                          <span className="text-xs font-bold text-amber-700 dark:text-amber-200">{product.coffeeVariantPct}%</span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Chicory row */}
+                    {product.chicoryPct != null && (
+                      <div className={`flex items-center justify-between py-1.5 px-3 rounded-xl mb-1.5 ${isDark ? 'bg-emerald-900/20' : 'bg-emerald-50 border border-emerald-200/60'}`}>
+                        <span className="text-xs font-semibold text-emerald-700 dark:text-emerald-300">🌿 {t('Chicory', 'ಚಿಕೊರಿ')}</span>
+                        <span className="text-xs font-bold text-emerald-700 dark:text-emerald-200">{product.chicoryPct}%</span>
+                      </div>
+                    )}
+
+                    {/* Stock + seller */}
                     <div className="space-y-1.5 mb-3">
                       <div className={`flex items-center justify-between py-1.5 px-3 rounded-xl ${isDark ? 'bg-white/10' : 'bg-gradient-to-r from-emerald-50 to-green-50'}`}>
                         <span className="text-xs font-medium text-app-muted">{t('Stock', 'ಸ್ಟಾಕ್')}</span>
                         <span className={`text-xs font-bold ${product.stock > 0 ? 'text-emerald-600' : 'text-red-600'}`}>{product.stock > 0 ? `${product.stock} ${t('units', 'ಯೂನಿಟ್‌ಗಳು')}` : t('Out', 'ಖಾಲಿ')}</span>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-safe">
+                      <div className="flex items-center gap-2 text-xs text-muted-safe px-1">
                         <div className="w-6 h-6 rounded-full gradient-coffee-cream flex items-center justify-center text-white font-bold text-[10px]">{product.seller?.name?.[0]?.toUpperCase() || 'S'}</div>
                         <span className="font-medium">{product.seller?.name || t('Store', 'ಸ್ಟೋರ್')}</span>
                       </div>
                     </div>
+
                     {product.description && <p className="text-xs text-muted-safe mb-3 line-clamp-2">{product.description}</p>}
-                    <button
-                      onClick={() => {
-                        if (product.stock === 0) { alert(t('This product is out of stock', 'ಈ ಉತ್ಪನ್ನ ಸ್ಟಾಕ್‌ನಲ್ಲಿ ಇಲ್ಲ')); return }
-                        setSelectedProduct(product)
-                        setOrderData({ productId: product.id, quantity: 1, customer: createEmptyCustomerDetails(session?.user?.name || '') })
-                        setOrderErrors({})
-                        setShowOrderModal(true)
-                      }}
-                      disabled={product.stock === 0}
-                      className={`w-full py-2.5 rounded-xl font-semibold shadow transition-all flex items-center justify-center gap-2 text-sm ${product.stock > 0 ? 'gradient-brand-spectrum text-white hover:shadow-lg hover:scale-105' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
-                    >
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
-                      {product.stock > 0 ? t('Buy Now', 'ಈಗ ಖರೀದಿ') : t('Out of Stock', 'ಸ್ಟಾಕ್ ಇಲ್ಲ')}
-                    </button>
-                    <button onClick={() => handleOpenSellerChat(product, true)} className="mt-2 w-full lux-btn-secondary py-2 rounded-xl font-semibold shadow-sm hover:shadow-md transition-all text-sm">
-                      {t('Contact Seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ')}
-                    </button>
+
+                    {/* Actions — pushed to bottom */}
+                    <div className="mt-auto space-y-2">
+                      <button
+                        onClick={() => {
+                          if (product.stock === 0) { alert(t('This product is out of stock', 'ಈ ಉತ್ಪನ್ನ ಸ್ಟಾಕ್‌ನಲ್ಲಿ ಇಲ್ಲ')); return }
+                          setSelectedProduct(product)
+                          setOrderData({ productId: product.id, quantity: 1, customer: createEmptyCustomerDetails(session?.user?.name || '') })
+                          setOrderErrors({})
+                          setShowOrderModal(true)
+                        }}
+                        disabled={product.stock === 0}
+                        className={`w-full py-2.5 rounded-xl font-semibold shadow transition-all flex items-center justify-center gap-2 text-sm ${product.stock > 0 ? 'gradient-brand-spectrum text-white hover:shadow-lg hover:scale-105' : 'bg-gray-300 text-gray-500 cursor-not-allowed'}`}
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>
+                        {product.stock > 0 ? t('Buy Now', 'ಈಗ ಖರೀದಿ') : t('Out of Stock', 'ಸ್ಟಾಕ್ ಇಲ್ಲ')}
+                      </button>
+                      <button onClick={() => handleOpenSellerChat(product, true)} className="w-full lux-btn-secondary py-2 rounded-xl font-semibold shadow-sm hover:shadow-md transition-all text-sm flex items-center justify-center gap-1.5">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                        {t('Contact Seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ')}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))}
@@ -300,6 +326,30 @@ function StoreTab() {
               </div>
               <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Description (optional)', 'ವಿವರಣೆ (ಐಚ್ಛಿಕ)')}</label><textarea className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" rows={3} placeholder={t('Product details...', 'ಉತ್ಪನ್ನದ ವಿವರಗಳು...')} value={formData.description || ''} onChange={(e) => setFormData({ ...formData, description: e.target.value })} /></div>
               <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Image URL (optional)', 'ಚಿತ್ರ URL (ಐಚ್ಛಿಕ)')}</label><input type="url" className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" placeholder="https://example.com/image.jpg" value={formData.imageUrl || ''} onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })} /></div>
+              {/* Coffee composition */}
+              <div className={`rounded-xl p-4 space-y-3 ${isDark ? 'bg-amber-900/20 border border-amber-700/30' : 'bg-amber-50 border border-amber-200'}`}>
+                <p className="text-xs font-bold uppercase tracking-widest text-amber-700 dark:text-amber-300">{t('Coffee Composition (optional)', 'ಕಾಫಿ ಸಂಯೋಜನೆ (ಐಚ್ಛಿಕ)')}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-1">
+                    <label className="block text-xs font-semibold text-[#111111] dark:text-[#ffffff] mb-1.5">{t('Coffee Variant', 'ಕಾಫಿ ವೈವಿಧ್ಯ')}</label>
+                    <select className="w-full border-2 border-amber-200 rounded-xl px-3 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" value={formData.coffeeVariant || ''} onChange={(e) => setFormData({ ...formData, coffeeVariant: e.target.value })}>
+                      <option value="">{t('— None —', '— ಯಾವುದೂ ಅಲ್ಲ —')}</option>
+                      <option>Arabica Cherry</option>
+                      <option>Arabica Parchment</option>
+                      <option>Robusta Cherry</option>
+                      <option>Robusta Parchment</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#111111] dark:text-[#ffffff] mb-1.5">{t('Variant %', 'ವೈವಿಧ್ಯ %')}</label>
+                    <input type="number" min="0" max="100" step="0.1" className="w-full border-2 border-amber-200 rounded-xl px-3 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" placeholder="e.g. 70" value={formData.coffeeVariantPct ?? ''} onChange={(e) => setFormData({ ...formData, coffeeVariantPct: e.target.value !== '' ? parseFloat(e.target.value) : null })} />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-[#111111] dark:text-[#ffffff] mb-1.5">{t('Chicory %', 'ಚಿಕೊರಿ %')}</label>
+                    <input type="number" min="0" max="100" step="0.1" className="w-full border-2 border-amber-200 rounded-xl px-3 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" placeholder="e.g. 30" value={formData.chicoryPct ?? ''} onChange={(e) => setFormData({ ...formData, chicoryPct: e.target.value !== '' ? parseFloat(e.target.value) : null })} />
+                  </div>
+                </div>
+              </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowCreateModal(false)} className="surface-button-secondary flex-1 py-3 rounded-xl font-semibold transition-all">{t('Cancel', 'ರದ್ದುಮಾಡಿ')}</button>
                 <button type="submit" disabled={!isAdmin} className="flex-1 gradient-coffee-cream text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all">{t('Add Product', 'ಉತ್ಪನ್ನ ಸೇರಿಸಿ')}</button>
