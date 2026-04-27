@@ -1155,7 +1155,7 @@ export default function HomePage() {
 
           {(productsError || latestError) && (
             <div className="rounded-xl border border-red-300/35 bg-red-950/25 px-4 py-3 text-sm text-red-200">
-              {productsError || latestError}
+              {String(productsError || latestError)}
             </div>
           )}
 

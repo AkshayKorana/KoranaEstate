@@ -64,12 +64,14 @@ export async function proxyPricesRequest({ request, upstreamPath, method }: Prox
     }
 
     if (!upstream.ok) {
-      const parsed = (payload as { error?: string; message?: string; detail?: string }) || {}
+      const parsed = (payload as { error?: unknown; message?: unknown; detail?: unknown }) || {}
+      const rawMsg = parsed.message || parsed.error || `Upstream request failed with status ${upstream.status}`
+      const msg = Array.isArray(rawMsg) ? rawMsg.join('; ') : String(rawMsg)
       return buildPricesProxyError(
         upstream.status,
-        parsed.message || parsed.error || `Upstream request failed with status ${upstream.status}`,
+        msg,
         upstreamUrl,
-        parsed.detail
+        parsed.detail != null ? String(parsed.detail) : undefined
       )
     }
 
