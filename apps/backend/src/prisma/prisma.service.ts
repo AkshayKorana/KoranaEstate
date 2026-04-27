@@ -1,4 +1,4 @@
-import { INestApplication, Injectable, OnModuleInit } from '@nestjs/common'
+import { INestApplication, Injectable, Logger, OnModuleInit } from '@nestjs/common'
 import { PrismaClient } from '@prisma/client'
 
 function withRequiredSsl(url: string | undefined) {
@@ -18,6 +18,8 @@ function withRequiredSsl(url: string | undefined) {
 
 @Injectable()
 export class PrismaService extends PrismaClient implements OnModuleInit {
+  private readonly logger = new Logger(PrismaService.name)
+
   constructor() {
     const datasourceUrl = withRequiredSsl(process.env.DATABASE_URL)
 
@@ -36,23 +38,28 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   }
 
   async onModuleInit() {
+    // Connect lazily — attempt in background so the app boots even if DB is temporarily unreachable.
+    // Individual requests will fail with 500s until DB is available rather than crashing the process.
     const MAX_RETRIES = 5
     const DELAY_MS = 3000
-    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-      try {
-        await this.$connect()
-        console.log('Prisma connected to database.')
-        return
-      } catch (error) {
-        console.error(`Prisma connection attempt ${attempt}/${MAX_RETRIES} failed.`, error)
-        if (attempt < MAX_RETRIES) {
-          await new Promise(res => setTimeout(res, DELAY_MS * attempt))
-        } else {
-          console.error('Prisma could not connect after all retries. Exiting.')
-          process.exit(1)
+    const connect = async () => {
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          await this.$connect()
+          this.logger.log('Prisma connected to database.')
+          return
+        } catch (error) {
+          this.logger.error(`Prisma connection attempt ${attempt}/${MAX_RETRIES} failed.`, error)
+          if (attempt < MAX_RETRIES) {
+            await new Promise(res => setTimeout(res, DELAY_MS * attempt))
+          } else {
+            this.logger.error('Prisma could not connect after all retries. Requests requiring DB will fail until reconnected.')
+          }
         }
       }
     }
+    // Fire-and-forget: do not await so the app starts up immediately
+    connect().catch(() => {/* already logged */})
   }
 
   async enableShutdownHooks(app: INestApplication) {
