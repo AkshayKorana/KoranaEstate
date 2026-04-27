@@ -36,11 +36,22 @@ export class PrismaService extends PrismaClient implements OnModuleInit {
   }
 
   async onModuleInit() {
-    try {
-      await this.$connect()
-    } catch (error) {
-      console.error('Prisma failed to connect during startup.', error)
-      process.exit(1)
+    const MAX_RETRIES = 5
+    const DELAY_MS = 3000
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await this.$connect()
+        console.log('Prisma connected to database.')
+        return
+      } catch (error) {
+        console.error(`Prisma connection attempt ${attempt}/${MAX_RETRIES} failed.`, error)
+        if (attempt < MAX_RETRIES) {
+          await new Promise(res => setTimeout(res, DELAY_MS * attempt))
+        } else {
+          console.error('Prisma could not connect after all retries. Exiting.')
+          process.exit(1)
+        }
+      }
     }
   }
 
