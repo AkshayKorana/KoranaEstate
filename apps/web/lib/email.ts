@@ -194,3 +194,28 @@ export async function sendOfferConfirmationToUser(to: string, input: OfferNotifi
   `
   return sendEmail({ to, subject, html })
 }
+
+export async function sendTempPasswordEmail(to: string, fullName: string, tempPassword: string) {
+  const subject = 'Your temporary password — Korana Estate'
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1a1a1a;max-width:480px;margin:0 auto">
+      <div style="background:linear-gradient(135deg,#065f46,#059669);padding:28px 24px;border-radius:12px 12px 0 0;text-align:center">
+        <h1 style="color:#fff;margin:0;font-size:22px;font-weight:700">Korana Estate</h1>
+        <p style="color:#a7f3d0;margin:4px 0 0;font-size:13px">Coffee &amp; Spice Marketplace</p>
+      </div>
+      <div style="background:#ffffff;padding:28px 24px;border-radius:0 0 12px 12px;border:1px solid #e5e7eb">
+        <h2 style="color:#065f46;margin:0 0 12px">Password Reset</h2>
+        <p>Hi <strong>${fullName}</strong>,</p>
+        <p>We received a request to reset your password. Use the temporary password below to log in:</p>
+        <div style="background:#f0fdf4;border:2px solid #059669;border-radius:10px;padding:18px 24px;text-align:center;margin:20px 0">
+          <p style="margin:0 0 4px;font-size:12px;color:#6b7280;text-transform:uppercase;letter-spacing:1px">Temporary Password</p>
+          <p style="margin:0;font-size:28px;font-weight:800;letter-spacing:4px;color:#065f46;font-family:monospace">${tempPassword}</p>
+        </div>
+        <p style="color:#374151">After logging in, please change your password immediately from your account settings.</p>
+        <p style="color:#6b7280;font-size:13px;margin-top:20px">If you did not request this, you can safely ignore this email.</p>
+        <p style="color:#6b7280;font-size:13px">Korana Estate · Coffee &amp; Spice Marketplace</p>
+      </div>
+    </div>
+  `
+  return sendEmail({ to, subject, html })
+}

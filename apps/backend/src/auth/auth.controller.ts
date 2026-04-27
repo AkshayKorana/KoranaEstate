@@ -54,6 +54,16 @@ export class AuthController {
     return this.authService.refresh(dto)
   }
 
+  @Post('forgot-password')
+  @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @ApiOperation({ summary: 'Generate temporary password and return it for email dispatch' })
+  async forgotPassword(@Body() body: { email: string }) {
+    const email = typeof body?.email === 'string' ? body.email.trim().toLowerCase() : ''
+    if (!email) return { ok: false, error: 'Email is required.' }
+    return this.authService.forgotPassword(email)
+  }
+
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 30, ttl: 60000 } })

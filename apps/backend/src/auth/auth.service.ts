@@ -131,6 +131,31 @@ export class AuthService {
     }
   }
 
+  async forgotPassword(email: string): Promise<{ ok: boolean; tempPassword?: string; fullName?: string }> {
+    const normalised = email.toLowerCase().trim()
+    const user = await this.prisma.user.findUnique({ where: { email: normalised } })
+    // Always return ok to prevent email enumeration
+    if (!user) return { ok: true }
+
+    // Generate a random 10-char temp password: 2 upper + 4 digits + 4 lower
+    const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+    const lower = 'abcdefghjkmnpqrstuvwxyz'
+    const digits = '23456789'
+    const rand = (chars: string) => chars[Math.floor(Math.random() * chars.length)]
+    const tempChars = [rand(upper), rand(upper), rand(digits), rand(digits), rand(digits), rand(digits), rand(lower), rand(lower), rand(lower), rand(lower)]
+    // Shuffle
+    for (let i = tempChars.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [tempChars[i], tempChars[j]] = [tempChars[j], tempChars[i]]
+    }
+    const tempPassword = tempChars.join('')
+
+    const passwordHash = await bcrypt.hash(tempPassword, 12)
+    await this.prisma.user.update({ where: { id: user.id }, data: { passwordHash } })
+
+    return { ok: true, tempPassword, fullName: user.fullName }
+  }
+
   async logout(dto: LogoutDto) {
     let payload: { sub: string } | null = null
     try {
