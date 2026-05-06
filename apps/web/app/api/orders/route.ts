@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
 import { attachRefreshedSession, fetchWithAuthRetry } from '@/app/api/_lib/auth'
+import { sendStoreOrderEmails } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -308,7 +309,33 @@ export async function POST(request: NextRequest) {
 
     console.log('[STORE API] ✅ Order created successfully:', order.id)
     console.log('═══════════════════════════════════════')
-    
+
+    // Fire order confirmation emails (user + admin) — non-blocking
+    const buyerEmail = session?.user?.email ?? order.buyer?.email ?? ''
+    if (buyerEmail) {
+      sendStoreOrderEmails({
+        orderId: order.id,
+        buyerName: order.customer.fullName || (session?.user?.name ?? 'Customer'),
+        buyerEmail,
+        itemName: order.itemName,
+        itemCategory: order.itemCategory,
+        sellerName: order.sellerName,
+        quantity: order.quantity,
+        unitLabel: order.unitLabel,
+        unitPrice: order.unitPrice,
+        totalPrice: order.totalPrice,
+        addressLine1: order.customer.addressLine1,
+        addressLine2: order.customer.addressLine2,
+        area: order.customer.area,
+        city: order.customer.city,
+        state: order.customer.state,
+        pincode: order.customer.pincode,
+        landmark: order.customer.landmark,
+        mobileNumber: order.customer.mobileNumber,
+        orderNote: order.customer.orderNote,
+      }).catch((err) => console.error('[STORE API] Order email error:', err))
+    }
+
     const response = NextResponse.json({ order }, { status: 201 })
     return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
   } catch (error) {

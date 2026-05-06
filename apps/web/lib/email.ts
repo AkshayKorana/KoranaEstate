@@ -154,6 +154,154 @@ export async function sendOfferConfirmationToUser(to: string, input: OfferNotifi
   return sendEmail({ to, subject, html })
 }
 
+// ─── Order emails ──────────────────────────────────────────────────────────────
+
+type StoreOrderEmailInput = {
+  orderId: string
+  buyerName: string
+  buyerEmail: string
+  itemName: string
+  itemCategory: string | null
+  sellerName: string | null
+  quantity: number
+  unitLabel: string
+  unitPrice: number
+  totalPrice: number
+  addressLine1: string
+  addressLine2: string
+  area: string
+  city: string
+  state: string
+  pincode: string
+  landmark: string
+  mobileNumber: string
+  orderNote: string
+}
+
+function storeOrderTable(o: StoreOrderEmailInput) {
+  return `
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px">
+      <tr style="background:#f0fdf4"><td style="padding:10px 14px;font-weight:600;color:#065f46">Order ID</td><td style="padding:10px 14px;font-family:monospace">${o.orderId}</td></tr>
+      <tr><td style="padding:10px 14px;font-weight:600;color:#065f46">Item</td><td style="padding:10px 14px">${o.itemName}${o.itemCategory ? ` <span style="color:#6b7280;font-size:12px">(${o.itemCategory})</span>` : ''}</td></tr>
+      ${o.sellerName ? `<tr style="background:#f0fdf4"><td style="padding:10px 14px;font-weight:600;color:#065f46">Seller</td><td style="padding:10px 14px">${o.sellerName}</td></tr>` : ''}
+      <tr style="${o.sellerName ? '' : 'background:#f0fdf4'}"><td style="padding:10px 14px;font-weight:600;color:#065f46">Quantity</td><td style="padding:10px 14px">${o.quantity} ${o.unitLabel}</td></tr>
+      <tr><td style="padding:10px 14px;font-weight:600;color:#065f46">Unit Price</td><td style="padding:10px 14px">₹${o.unitPrice.toLocaleString('en-IN')}</td></tr>
+      <tr style="background:#f0fdf4"><td style="padding:10px 14px;font-weight:700;color:#065f46">Total (COD)</td><td style="padding:10px 14px;font-weight:700;color:#059669;font-size:16px">₹${o.totalPrice.toLocaleString('en-IN')}</td></tr>
+    </table>
+    <p style="font-size:14px;font-weight:600;color:#374151;margin:16px 0 4px">Delivery Address</p>
+    <p style="font-size:14px;color:#374151;margin:0">${o.buyerName} · ${o.mobileNumber}<br/>${o.addressLine1}${o.addressLine2 ? ', ' + o.addressLine2 : ''}, ${o.area}, ${o.city} – ${o.pincode}, ${o.state}${o.landmark ? '<br/>Landmark: ' + o.landmark : ''}${o.orderNote ? '<br/>Note: ' + o.orderNote : ''}</p>
+  `
+}
+
+export async function sendStoreOrderEmails(order: StoreOrderEmailInput) {
+  const ADMIN = process.env.EMAIL_USER || 'akshay.koranaest@gmail.com'
+
+  const userHtml = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1a1a1a;max-width:520px;margin:0 auto">
+      <div style="background:linear-gradient(135deg,#065f46,#059669);padding:24px;border-radius:12px 12px 0 0;text-align:center">
+        <h1 style="color:#fff;margin:0;font-size:20px">Korana Estate</h1>
+        <p style="color:#a7f3d0;margin:4px 0 0;font-size:12px">Coffee &amp; Spice Marketplace</p>
+      </div>
+      <div style="background:#ffffff;padding:24px;border-radius:0 0 12px 12px;border:1px solid #e5e7eb">
+        <h2 style="color:#065f46;margin:0 0 8px">Order Confirmed! 🎉</h2>
+        <p>Hi <strong>${order.buyerName}</strong>, your order has been placed successfully. Pay on delivery.</p>
+        ${storeOrderTable(order)}
+        <p style="color:#6b7280;font-size:13px;margin-top:20px">You will receive a call to confirm delivery. Questions? Reply to this email.</p>
+        <p style="color:#6b7280;font-size:13px">Korana Estate · Coffee &amp; Spice Marketplace</p>
+      </div>
+    </div>
+  `
+
+  const adminHtml = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1a1a1a;max-width:520px;margin:0 auto">
+      <h2 style="color:#059669">New Store Order — Korana Estate</h2>
+      <p><strong>${order.buyerName}</strong> (${order.buyerEmail}) placed a COD order.</p>
+      ${storeOrderTable(order)}
+    </div>
+  `
+
+  const [userResult, adminResult] = await Promise.allSettled([
+    sendEmail({ to: order.buyerEmail, subject: `Order Confirmed — ${order.itemName} · Korana Estate`, html: userHtml }),
+    sendEmail({ to: ADMIN, subject: `New Store Order: ${order.itemName} from ${order.buyerName}`, html: adminHtml }),
+  ])
+
+  return { user: userResult, admin: adminResult }
+}
+
+// ── Raw marketplace order ──
+
+type RawOrderEmailInput = {
+  orderId: string
+  buyerName: string
+  buyerEmail: string
+  commodityName: string
+  location: string | null
+  quantityKg: number
+  pricePerKg: number
+  totalPrice: number
+  addressLine1: string
+  addressLine2: string
+  area: string
+  city: string
+  state: string
+  pincode: string
+  landmark: string
+  mobileNumber: string
+  orderNote: string
+}
+
+function rawOrderTable(o: RawOrderEmailInput) {
+  return `
+    <table style="width:100%;border-collapse:collapse;margin:16px 0;font-size:14px">
+      <tr style="background:#f0fdf4"><td style="padding:10px 14px;font-weight:600;color:#065f46">Order ID</td><td style="padding:10px 14px;font-family:monospace">${o.orderId}</td></tr>
+      <tr><td style="padding:10px 14px;font-weight:600;color:#065f46">Commodity</td><td style="padding:10px 14px">${o.commodityName}</td></tr>
+      ${o.location ? `<tr style="background:#f0fdf4"><td style="padding:10px 14px;font-weight:600;color:#065f46">Location</td><td style="padding:10px 14px">${o.location}</td></tr>` : ''}
+      <tr style="${o.location ? '' : 'background:#f0fdf4'}"><td style="padding:10px 14px;font-weight:600;color:#065f46">Quantity</td><td style="padding:10px 14px">${o.quantityKg} kg</td></tr>
+      <tr><td style="padding:10px 14px;font-weight:600;color:#065f46">Price / kg</td><td style="padding:10px 14px">₹${o.pricePerKg.toLocaleString('en-IN')}</td></tr>
+      <tr style="background:#f0fdf4"><td style="padding:10px 14px;font-weight:700;color:#065f46">Total (COD)</td><td style="padding:10px 14px;font-weight:700;color:#059669;font-size:16px">₹${o.totalPrice.toLocaleString('en-IN')}</td></tr>
+    </table>
+    <p style="font-size:14px;font-weight:600;color:#374151;margin:16px 0 4px">Delivery Address</p>
+    <p style="font-size:14px;color:#374151;margin:0">${o.buyerName} · ${o.mobileNumber}<br/>${o.addressLine1}${o.addressLine2 ? ', ' + o.addressLine2 : ''}, ${o.area}, ${o.city} – ${o.pincode}, ${o.state}${o.landmark ? '<br/>Landmark: ' + o.landmark : ''}${o.orderNote ? '<br/>Note: ' + o.orderNote : ''}</p>
+  `
+}
+
+export async function sendRawOrderEmails(order: RawOrderEmailInput) {
+  const ADMIN = process.env.EMAIL_USER || 'akshay.koranaest@gmail.com'
+
+  const userHtml = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1a1a1a;max-width:520px;margin:0 auto">
+      <div style="background:linear-gradient(135deg,#065f46,#059669);padding:24px;border-radius:12px 12px 0 0;text-align:center">
+        <h1 style="color:#fff;margin:0;font-size:20px">Korana Estate</h1>
+        <p style="color:#a7f3d0;margin:4px 0 0;font-size:12px">Coffee &amp; Spice Marketplace</p>
+      </div>
+      <div style="background:#ffffff;padding:24px;border-radius:0 0 12px 12px;border:1px solid #e5e7eb">
+        <h2 style="color:#065f46;margin:0 0 8px">Order Confirmed! 🎉</h2>
+        <p>Hi <strong>${order.buyerName}</strong>, your raw commodity order has been placed. Pay on delivery.</p>
+        ${rawOrderTable(order)}
+        <p style="color:#6b7280;font-size:13px;margin-top:20px">You will receive a call to confirm delivery. Questions? Reply to this email.</p>
+        <p style="color:#6b7280;font-size:13px">Korana Estate · Coffee &amp; Spice Marketplace</p>
+      </div>
+    </div>
+  `
+
+  const adminHtml = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1a1a1a;max-width:520px;margin:0 auto">
+      <h2 style="color:#059669">New Raw Commodity Order — Korana Estate</h2>
+      <p><strong>${order.buyerName}</strong> (${order.buyerEmail}) placed a COD order.</p>
+      ${rawOrderTable(order)}
+    </div>
+  `
+
+  const [userResult, adminResult] = await Promise.allSettled([
+    sendEmail({ to: order.buyerEmail, subject: `Order Confirmed — ${order.commodityName} · Korana Estate`, html: userHtml }),
+    sendEmail({ to: ADMIN, subject: `New Raw Order: ${order.commodityName} from ${order.buyerName}`, html: adminHtml }),
+  ])
+
+  return { user: userResult, admin: adminResult }
+}
+
+// ── Temp password ──
+
 export async function sendTempPasswordEmail(to: string, fullName: string, tempPassword: string) {
   const subject = 'Your temporary password — Korana Estate'
   const html = `
