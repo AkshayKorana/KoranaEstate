@@ -56,7 +56,18 @@ RANGE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 RAW_COFFEE_TABLE_PATTERN = re.compile(
-    r"Raw\s+Coffee\s+Price.*?Ar\.?\s*Pmt\s+Ar\.?\s*Chy\s+Rob\.?\s*Pmt\s+Rob\.?\s*Chy\s+"
+    r"Raw\s+Coffee\s+Price.*?Ar\.?\s*Pmt\s+Ar\.?\s*Ch[yv]\s+Rob\.?\s*Pmt\s+Rob\.?\s*Ch[yv]\s+"
+    r"(\d{3,6}(?:,\d{3})?)\s*(?:-|–|—|to)\s*(\d{3,6}(?:,\d{3})?)\s+"
+    r"(\d{3,6}(?:,\d{3})?)\s*(?:-|–|—|to)\s*(\d{3,6}(?:,\d{3})?)\s+"
+    r"(\d{3,6}(?:,\d{3})?)\s*(?:-|–|—|to)\s*(\d{3,6}(?:,\d{3})?)\s+"
+    r"(\d{3,6}(?:,\d{3})?)\s*(?:-|–|—|to)\s*(\d{3,6}(?:,\d{3})?)",
+    re.IGNORECASE | re.DOTALL,
+)
+# Directly matches the 'Price as on DD.MM.YYYY in Rs/50' table.
+# Tolerates OCR variants: Chv↔Chy, optional spaces/dots.
+PRICE_TABLE_BY_DATE_PATTERN = re.compile(
+    r"(?:Price\s+as\s+on|in\s+Rs\s*/\s*50).*?"
+    r"Ar\.?\s*Pmt\s+Ar\.?\s*Ch[yv]\s+Rob\.?\s*Pmt\s+Rob\.?\s*Ch[yv]\s+"
     r"(\d{3,6}(?:,\d{3})?)\s*(?:-|–|—|to)\s*(\d{3,6}(?:,\d{3})?)\s+"
     r"(\d{3,6}(?:,\d{3})?)\s*(?:-|–|—|to)\s*(\d{3,6}(?:,\d{3})?)\s+"
     r"(\d{3,6}(?:,\d{3})?)\s*(?:-|–|—|to)\s*(\d{3,6}(?:,\d{3})?)\s+"
@@ -67,7 +78,7 @@ RAW_COFFEE_TABLE_PATTERN = re.compile(
 PRODUCT_PATTERNS: dict[str, tuple[re.Pattern[str], ...]] = {
     "arabica_cherry": (
         re.compile(r"arabica\s*cherry", re.IGNORECASE),
-        re.compile(r"ar\s*\.?\s*chy", re.IGNORECASE),
+        re.compile(r"ar\s*\.?\s*ch[yv]", re.IGNORECASE),  # tolerate OCR Chv/Chy
     ),
     "arabica_parchment": (
         re.compile(r"arabica\s*parchment", re.IGNORECASE),
@@ -197,7 +208,9 @@ def extract_section(text: str) -> str:
 
 
 def extract_raw_coffee_table_prices(pdf_text: str) -> dict[str, tuple[float, str]]:
-    match = RAW_COFFEE_TABLE_PATTERN.search(pdf_text)
+    # Try the most specific pattern first (Price as on DD.MM.YYYY in Rs/50),
+    # then fall back to the generic Raw Coffee Price header pattern.
+    match = PRICE_TABLE_BY_DATE_PATTERN.search(pdf_text) or RAW_COFFEE_TABLE_PATTERN.search(pdf_text)
     if not match:
         return {}
 
