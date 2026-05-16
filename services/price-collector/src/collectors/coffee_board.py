@@ -502,6 +502,8 @@ def build_success_item(commodity: CommodityConfig, product: dict[str, Any], repo
     source_url = report.get("sourceUrl") or REPORT_PAGE_URL
     report_date = report.get("reportDate")
     range_display = product.get("rangeDisplay")
+    price_min50kg = product.get("priceMin50kg")
+    price_max50kg = product.get("priceMax50kg")
 
     return build_item(
         product_key=commodity.product_key,
@@ -517,6 +519,10 @@ def build_success_item(commodity: CommodityConfig, product: dict[str, Any], repo
         extras={
             "currentPrice": value,
             "todayPrice": value,
+            # Top-level range fields consumed by the GitHub Actions ingest script
+            "priceMin50kg": price_min50kg,
+            "priceMax50kg": price_max50kg,
+            "rangeDisplay": range_display,
             "shortDescription": f"{commodity.display_name} is trading at {value:.2f} INR/kg from the latest Coffee Board India PDF.",
             "trend": "Stable",
             "analysisSummary": "Direct value parsed from the latest Coffee Board India market report PDF.",
