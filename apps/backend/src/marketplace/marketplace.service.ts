@@ -2,6 +2,9 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { PrismaService } from '../prisma/prisma.service'
 import { CreateBidDto } from './dto/create-bid.dto'
 import { CreateRawProductDto } from './dto/create-raw-product.dto'
+import { UpdateRawListingDto } from './dto/update-raw-listing.dto'
+
+const ADMIN_EMAILS = new Set(['akshay.koranaest@gmail.com'])
 
 @Injectable()
 export class MarketplaceService {
@@ -41,8 +44,15 @@ export class MarketplaceService {
     })
   }
 
+  async updateListing(rawProductId: string, requesterId: string, requesterEmail: string, dto: UpdateRawListingDto) {
+    const product = await this.prisma.rawProduct.findUnique({ where: { id: rawProductId } })
+    if (!product || product.deletedAt) throw new NotFoundException('Listing not found')
+    const isAdmin = ADMIN_EMAILS.has(requesterEmail) || product.sellerId === requesterId
+    if (!isAdmin) throw new ForbiddenException('Not authorized to edit this listing')
+    return this.prisma.rawProduct.update({ where: { id: rawProductId }, data: dto })
+  }
+
   async softDeleteProduct(rawProductId: string, sellerId: string, sellerEmail?: string) {
-    const ADMIN_EMAILS = new Set(['akshay.koranaest@gmail.com'])
     const product = await this.prisma.rawProduct.findUnique({ where: { id: rawProductId } })
     if (!product || product.deletedAt) throw new NotFoundException('Listing not found')
     const isAdmin = sellerEmail ? ADMIN_EMAILS.has(sellerEmail) : false

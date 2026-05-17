@@ -51,6 +51,10 @@ function StoreTab() {
   const [orderErrors, setOrderErrors] = useState<Partial<Record<keyof OrderCustomerDetails | 'quantity' | 'form', string>>>({})
   const [submittingOrder, setSubmittingOrder] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [editFormData, setEditFormData] = useState<CreateProductInput>({ name: '', category: STORE_CATEGORIES[0], price: 0, stock: 0, coffeeVariant: '', coffeeVariantPct: null, chicoryPct: null })
+  const [editError, setEditError] = useState<string | null>(null)
   const isAdmin = session?.user?.role === 'ADMIN'
 
   function categoryLabel(category: string) {
@@ -107,6 +111,39 @@ function StoreTab() {
           : (await extractErrorMessage(res)) || t('Failed to create product', 'ಉತ್ಪನ್ನ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
       }
     } catch { setCreateError(t('Failed to create product', 'ಉತ್ಪನ್ನ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ')) }
+  }
+
+  async function handleEditProduct(e: React.FormEvent) {
+    e.preventDefault()
+    if (!isAdmin || !editingProduct) return
+    try {
+      setEditError(null)
+      const body = {
+        title: editFormData.name,
+        category: editFormData.category,
+        price: editFormData.price,
+        stock: editFormData.stock,
+        description: editFormData.description || null,
+        imageUrl: editFormData.imageUrl || null,
+        coffeeVariant: editFormData.coffeeVariant || null,
+        coffeeVariantPct: editFormData.coffeeVariantPct ?? null,
+        chicoryPct: editFormData.chicoryPct ?? null,
+      }
+      const res = await fetch(`/api/products/${editingProduct.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        setShowEditModal(false)
+        setEditingProduct(null)
+        fetchProducts()
+      } else {
+        setEditError((await extractErrorMessage(res)) || t('Failed to update product', 'ಉತ್ಪನ್ನ ಅಪ್ಡೇಟ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'))
+      }
+    } catch {
+      setEditError(t('Failed to update product', 'ಉತ್ಪನ್ನ ಅಪ್ಡೇಟ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'))
+    }
   }
 
   async function handleDeleteProduct(productId: string, productName: string) {
@@ -330,10 +367,16 @@ function StoreTab() {
                         {t('Contact Seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ')}
                       </button>
                       {isAdmin && (
-                        <button onClick={() => handleDeleteProduct(product.id, product.name)} className="w-full py-2 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-700/30 dark:hover:bg-red-900/40 transition-all">
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          {t('Delete', 'ಅಳಿಸಿ')}
-                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button onClick={() => { setEditingProduct(product); setEditFormData({ name: product.name, category: product.category, price: product.price, stock: product.stock, description: product.description ?? '', imageUrl: product.imageUrl ?? '', coffeeVariant: product.coffeeVariant ?? '', coffeeVariantPct: product.coffeeVariantPct, chicoryPct: product.chicoryPct }); setEditError(null); setShowEditModal(true) }} className="py-2 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300 dark:border-amber-700/30 dark:hover:bg-amber-900/40 transition-all">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            {t('Edit', 'ತಿದ್ದು')}
+                          </button>
+                          <button onClick={() => handleDeleteProduct(product.id, product.name)} className="py-2 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-700/30 dark:hover:bg-red-900/40 transition-all">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            {t('Delete', 'ಅಳಿಸಿ')}
+                          </button>
+                        </div>
                       )}
                     </div>
                   </div>
@@ -390,6 +433,47 @@ function StoreTab() {
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={() => setShowCreateModal(false)} className="surface-button-secondary flex-1 py-3 rounded-xl font-semibold transition-all">{t('Cancel', 'ರದ್ದುಮಾಡಿ')}</button>
                 <button type="submit" disabled={!isAdmin} className="flex-1 gradient-coffee-cream text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all">{t('Add Product', 'ಉತ್ಪನ್ನ ಸೇರಿಸಿ')}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Product Modal */}
+      {showEditModal && editingProduct && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
+          <div className="surface-card rounded-3xl max-w-lg w-full p-8 shadow-2xl slide-in-up max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 rounded-xl bg-amber-100 dark:bg-amber-900/40"><svg className="w-5 h-5 text-amber-700 dark:text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></div>
+              <h2 className="text-2xl font-bold text-brand-spectrum">{t('Edit Product', 'ಉತ್ಪನ್ನ ತಿದ್ದು')}</h2>
+            </div>
+            <form onSubmit={handleEditProduct} className="space-y-4">
+              {editError && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">{editError}</div>}
+              <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Product Name', 'ಉತ್ಪನ್ನದ ಹೆಸರು')} *</label><input required type="text" className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" value={editFormData.name} onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })} /></div>
+              <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Category', 'ವರ್ಗ')} *</label><select required className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" value={editFormData.category} onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}>{STORE_CATEGORIES.map(c => <option key={c} value={c}>{categoryLabel(c)}</option>)}</select></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Price (₹)', 'ಬೆಲೆ (₹)')} *</label><input required type="number" min="1" step="0.01" className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" value={editFormData.price || ''} onChange={(e) => setEditFormData({ ...editFormData, price: parseFloat(e.target.value) })} /></div>
+                <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Stock (units)', 'ಸ್ಟಾಕ್ (ಯೂನಿಟ್‌ಗಳು)')} *</label><input required type="number" min="0" step="1" className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" value={editFormData.stock || ''} onChange={(e) => setEditFormData({ ...editFormData, stock: parseInt(e.target.value) })} /></div>
+              </div>
+              <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Description (optional)', 'ವಿವರಣೆ (ಐಚ್ಛಿಕ)')}</label><textarea className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" rows={3} value={editFormData.description || ''} onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })} /></div>
+              <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Image URL (optional)', 'ಚಿತ್ರ URL (ಐಚ್ಛಿಕ)')}</label><input type="url" className="w-full border-2 border-amber-200 rounded-xl px-4 py-3 focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" placeholder="https://example.com/image.jpg" value={editFormData.imageUrl || ''} onChange={(e) => setEditFormData({ ...editFormData, imageUrl: e.target.value })} /></div>
+              <div className={`rounded-xl p-4 space-y-3 ${isDark ? 'bg-amber-900/20 border border-amber-600/40' : 'bg-amber-50 border-2 border-amber-300'}`}>
+                <p className="text-sm font-bold text-amber-800 dark:text-amber-300">☕ {t('Coffee Composition', 'ಕಾಫಿ ಸಂಯೋಜನೆ')}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="sm:col-span-1">
+                    <label className="block text-xs font-semibold text-[#111111] dark:text-[#ffffff] mb-1.5">{t('Coffee Variant', 'ಕಾಫಿ ವೈವಿಧ್ಯ')}</label>
+                    <select className="w-full border-2 border-amber-200 rounded-xl px-3 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" value={editFormData.coffeeVariant || ''} onChange={(e) => setEditFormData({ ...editFormData, coffeeVariant: e.target.value })}>
+                      <option value="">{t('— Select —', '— ಆಯ್ಕೆ ಮಾಡಿ —')}</option>
+                      <option>Arabica Cherry</option><option>Arabica Parchment</option><option>Robusta Cherry</option><option>Robusta Parchment</option>
+                    </select>
+                  </div>
+                  <div><label className="block text-xs font-semibold text-[#111111] dark:text-[#ffffff] mb-1.5">{t('Variant %', 'ವೈವಿಧ್ಯ %')}</label><input type="number" min="0" max="100" step="0.1" className="w-full border-2 border-amber-200 rounded-xl px-3 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" placeholder="e.g. 70" value={editFormData.coffeeVariantPct ?? ''} onChange={(e) => setEditFormData({ ...editFormData, coffeeVariantPct: e.target.value !== '' ? parseFloat(e.target.value) : null })} /></div>
+                  <div><label className="block text-xs font-semibold text-[#111111] dark:text-[#ffffff] mb-1.5">{t('Chicory %', 'ಚಿಕೊರಿ %')}</label><input type="number" min="0" max="100" step="0.1" className="w-full border-2 border-amber-200 rounded-xl px-3 py-2.5 text-sm focus:border-amber-500 focus:ring-2 focus:ring-amber-200 transition-all" placeholder="e.g. 30" value={editFormData.chicoryPct ?? ''} onChange={(e) => setEditFormData({ ...editFormData, chicoryPct: e.target.value !== '' ? parseFloat(e.target.value) : null })} /></div>
+                </div>
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => { setShowEditModal(false); setEditingProduct(null) }} className="surface-button-secondary flex-1 py-3 rounded-xl font-semibold transition-all">{t('Cancel', 'ರದ್ದುಮಾಡಿ')}</button>
+                <button type="submit" className="flex-1 bg-amber-600 hover:bg-amber-700 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all">{t('Save Changes', 'ಬದಲಾವಣೆ ಉಳಿಸಿ')}</button>
               </div>
             </form>
           </div>
@@ -492,6 +576,10 @@ function RawTab() {
   const [codErrors, setCodErrors] = useState<Partial<Record<keyof OrderCustomerDetails | 'quantityKg' | 'form', string>>>({})
   const [submittingCod, setSubmittingCod] = useState(false)
   const [createError, setCreateError] = useState<string | null>(null)
+  const [showEditListingModal, setShowEditListingModal] = useState(false)
+  const [editingListing, setEditingListing] = useState<RawListing | null>(null)
+  const [editListingData, setEditListingData] = useState<CreateRawListingInput>({ commodity: RAW_COMMODITIES[0], quantityKg: 0, pricePerKg: 0, location: '' })
+  const [editListingError, setEditListingError] = useState<string | null>(null)
   const isAdmin = session?.user?.role === 'ADMIN'
 
   useEffect(() => {
@@ -529,6 +617,36 @@ function RawTab() {
         setCreateError(res.status === 403 ? t('Only seller accounts can create raw marketplace listings.', 'ಮಾರಾಟಗಾರ ಖಾತೆಗಳಷ್ಟೇ ರಾ ಮಾರುಕಟ್ಟೆ ಲಿಸ್ಟಿಂಗ್‌ಗಳನ್ನು ರಚಿಸಬಹುದು.') : (await extractErrorMessage(res)) || t('Failed to create listing', 'ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
       }
     } catch { setCreateError(t('Failed to create listing', 'ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ')) }
+  }
+
+  async function handleEditListing(e: React.FormEvent) {
+    e.preventDefault()
+    if (!isAdmin || !editingListing) return
+    try {
+      setEditListingError(null)
+      const body = {
+        commodityName: editListingData.commodity,
+        grade: editListingData.grade || null,
+        quantityKg: editListingData.quantityKg,
+        pricePerKg: editListingData.pricePerKg,
+        location: editListingData.location,
+        description: editListingData.description || null,
+      }
+      const res = await fetch(`/api/raw/listings/${editingListing.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        setShowEditListingModal(false)
+        setEditingListing(null)
+        fetchListings()
+      } else {
+        setEditListingError((await extractErrorMessage(res)) || t('Failed to update listing', 'ಲಿಸ್ಟಿಂಗ್ ಅಪ್ಡೇಟ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'))
+      }
+    } catch {
+      setEditListingError(t('Failed to update listing', 'ಲಿಸ್ಟಿಂಗ್ ಅಪ್ಡೇಟ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'))
+    }
   }
 
   async function handleDeleteListing(listingId: string, commodity: string) {
@@ -746,10 +864,16 @@ function RawTab() {
                           {t('Contact Seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ')}
                         </button>
                         {isAdmin && (
-                          <button onClick={() => handleDeleteListing(listing.id, listing.commodity)} className="w-full py-2 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-700/30 dark:hover:bg-red-900/40 transition-all">
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                            {t('Delete', 'ಅಳಿಸಿ')}
-                          </button>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button onClick={() => { setEditingListing(listing); setEditListingData({ commodity: listing.commodity, grade: listing.grade ?? '', quantityKg: listing.quantityKg, pricePerKg: listing.pricePerKg, location: listing.location, description: listing.description ?? '' }); setEditListingError(null); setShowEditListingModal(true) }} className="py-2 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-300 dark:border-emerald-700/30 dark:hover:bg-emerald-900/40 transition-all">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                              {t('Edit', 'ತಿದ್ದು')}
+                            </button>
+                            <button onClick={() => handleDeleteListing(listing.id, listing.commodity)} className="py-2 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-700/30 dark:hover:bg-red-900/40 transition-all">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              {t('Delete', 'ಅಳಿಸಿ')}
+                            </button>
+                          </div>
                         )}
                       </div>
                     </div>
@@ -760,6 +884,33 @@ function RawTab() {
           )}
         </main>
       </div>
+
+      {/* Edit Listing Modal */}
+      {showEditListingModal && editingListing && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
+          <div className="surface-card rounded-3xl max-w-lg w-full p-8 shadow-2xl slide-in-up max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="p-3 rounded-xl bg-emerald-100 dark:bg-emerald-900/40"><svg className="w-5 h-5 text-emerald-700 dark:text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></div>
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">{t('Edit Listing', 'ಲಿಸ್ಟಿಂಗ್ ತಿದ್ದು')}</h2>
+            </div>
+            <form onSubmit={handleEditListing} className="space-y-4">
+              {editListingError && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">{editListingError}</div>}
+              <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Commodity', 'ವಸ್ತು')} *</label><select required className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all" value={editListingData.commodity} onChange={(e) => setEditListingData({ ...editListingData, commodity: e.target.value })}>{RAW_COMMODITIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+              <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Grade (optional)', 'ಗ್ರೇಡ್ (ಐಚ್ಛಿಕ)')}</label><input type="text" className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all" placeholder={t('e.g., A, AA, Premium', 'ಉದಾ., A, AA, ಪ್ರೀಮಿಯಂ')} value={editListingData.grade || ''} onChange={(e) => setEditListingData({ ...editListingData, grade: e.target.value })} /></div>
+              <div className="grid grid-cols-2 gap-4">
+                <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Quantity (kg)', 'ಪ್ರಮಾಣ (ಕೆಜಿ)')} *</label><input required type="number" min="0.1" step="0.1" className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all" value={editListingData.quantityKg || ''} onChange={(e) => setEditListingData({ ...editListingData, quantityKg: parseFloat(e.target.value) })} /></div>
+                <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Price (₹/kg)', 'ಬೆಲೆ (₹/ಕೆಜಿ)')} *</label><input required type="number" min="1" step="1" className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all" value={editListingData.pricePerKg || ''} onChange={(e) => setEditListingData({ ...editListingData, pricePerKg: parseFloat(e.target.value) })} /></div>
+              </div>
+              <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Location', 'ಸ್ಥಳ')} *</label><input required type="text" className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all" value={editListingData.location} onChange={(e) => setEditListingData({ ...editListingData, location: e.target.value })} /></div>
+              <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Description (optional)', 'ವಿವರಣೆ (ಐಚ್ಛಿಕ)')}</label><textarea className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all" rows={3} value={editListingData.description || ''} onChange={(e) => setEditListingData({ ...editListingData, description: e.target.value })} /></div>
+              <div className="flex gap-3 pt-2">
+                <button type="button" onClick={() => { setShowEditListingModal(false); setEditingListing(null) }} className="surface-button-secondary flex-1 py-3 rounded-xl font-semibold transition-all">{t('Cancel', 'ರದ್ದುಮಾಡಿ')}</button>
+                <button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:scale-105 transition-all">{t('Save Changes', 'ಬದಲಾವಣೆ ಉಳಿಸಿ')}</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* Create Listing Modal */}
       {showCreateModal && (

@@ -1,10 +1,11 @@
-import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiForbiddenResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 import { Roles } from '../common/decorators/roles.decorator'
 import { RolesGuard } from '../common/guards/roles.guard'
 import { CreateBidDto } from './dto/create-bid.dto'
 import { CreateRawProductDto } from './dto/create-raw-product.dto'
+import { UpdateRawListingDto } from './dto/update-raw-listing.dto'
 import { MarketplaceService } from './marketplace.service'
 
 @Controller({ path: 'marketplace', version: '1' })
@@ -40,6 +41,18 @@ export class MarketplaceController {
     @Body() dto: CreateBidDto,
   ) {
     return this.marketplaceService.createBid(rawProductId, req.user.userId, dto)
+  }
+
+  @Patch('listings/:id')
+  @Roles('ADMIN')
+  @ApiOperation({ summary: 'Update listing (admin only)' })
+  @ApiOkResponse({ description: 'Listing updated' })
+  updateListing(
+    @Param('id') rawProductId: string,
+    @Req() req: { user: { userId: string; email: string } },
+    @Body() dto: UpdateRawListingDto,
+  ) {
+    return this.marketplaceService.updateListing(rawProductId, req.user.userId, req.user.email, dto)
   }
 
   @Delete('listings/:id')

@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 import { Roles } from '../common/decorators/roles.decorator'
 import { RolesGuard } from '../common/guards/roles.guard'
 import { CreateRetailProductDto } from './dto/create-retail-product.dto'
+import { UpdateRetailProductDto } from './dto/update-retail-product.dto'
 import { StoreService } from './store.service'
 
 @Controller({ path: 'store', version: '1' })
@@ -26,6 +27,20 @@ export class StoreController {
   @ApiOkResponse({ description: 'Product created' })
   create(@Req() req: { user: { userId: string } }, @Body() dto: CreateRetailProductDto) {
     return this.storeService.createProduct(req.user.userId, dto)
+  }
+
+  @Patch('products/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Update store product (admin only)' })
+  @ApiOkResponse({ description: 'Product updated' })
+  updateProduct(
+    @Param('id') productId: string,
+    @Req() req: { user: { userId: string; email: string } },
+    @Body() dto: UpdateRetailProductDto,
+  ) {
+    return this.storeService.updateProduct(productId, req.user.userId, req.user.email, dto)
   }
 
   @Delete('products/:id')
