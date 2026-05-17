@@ -22,6 +22,7 @@ export async function PATCH(
       request,
       url: `${API_BASE}/marketplace/listings/${id}`,
       method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
     })
     if ('errorResponse' in upstreamResult) {
