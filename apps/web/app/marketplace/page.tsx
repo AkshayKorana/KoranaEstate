@@ -109,6 +109,21 @@ function StoreTab() {
     } catch { setCreateError(t('Failed to create product', 'ಉತ್ಪನ್ನ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ')) }
   }
 
+  async function handleDeleteProduct(productId: string, productName: string) {
+    if (!isAdmin) return
+    if (!confirm(t(`Delete "${productName}"? This cannot be undone.`, `"${productName}" ಅಳಿಸಬೇಕೇ? ಇದನ್ನು ರದ್ದು ಮಾಡಲಾಗುವುದಿಲ್ಲ.`))) return
+    try {
+      const res = await fetch(`/api/products/${productId}`, { method: 'DELETE' })
+      if (res.ok) {
+        setProducts((prev) => prev.filter((p) => p.id !== productId))
+      } else {
+        alert((await extractErrorMessage(res)) || t('Failed to delete product', 'ಉತ್ಪನ್ನ ಅಳಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+      }
+    } catch {
+      alert(t('Failed to delete product', 'ಉತ್ಪನ್ನ ಅಳಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+    }
+  }
+
   async function handlePlaceOrder(e: React.FormEvent) {
     e.preventDefault()
     if (!selectedProduct) { setOrderErrors({ form: t('Please reopen the order modal and try again.', 'ದಯವಿಟ್ಟು ಆರ್ಡರ್ ಮೋಡಲ್ ಅನ್ನು ಮತ್ತೆ ತೆರೆಯಿರಿ ಮತ್ತು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.') }); return }
@@ -314,6 +329,12 @@ function StoreTab() {
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                         {t('Contact Seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ')}
                       </button>
+                      {isAdmin && (
+                        <button onClick={() => handleDeleteProduct(product.id, product.name)} className="w-full py-2 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-700/30 dark:hover:bg-red-900/40 transition-all">
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                          {t('Delete', 'ಅಳಿಸಿ')}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -508,6 +529,21 @@ function RawTab() {
         setCreateError(res.status === 403 ? t('Only seller accounts can create raw marketplace listings.', 'ಮಾರಾಟಗಾರ ಖಾತೆಗಳಷ್ಟೇ ರಾ ಮಾರುಕಟ್ಟೆ ಲಿಸ್ಟಿಂಗ್‌ಗಳನ್ನು ರಚಿಸಬಹುದು.') : (await extractErrorMessage(res)) || t('Failed to create listing', 'ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ'))
       }
     } catch { setCreateError(t('Failed to create listing', 'ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಲು ವಿಫಲವಾಗಿದೆ')) }
+  }
+
+  async function handleDeleteListing(listingId: string, commodity: string) {
+    if (!isAdmin) return
+    if (!confirm(t(`Delete "${commodity}" listing? This cannot be undone.`, `"${commodity}" ಲಿಸ್ಟಿಂಗ್ ಅಳಿಸಬೇಕೇ? ಇದನ್ನು ರದ್ದು ಮಾಡಲಾಗುವುದಿಲ್ಲ.`))) return
+    try {
+      const res = await fetch(`/api/raw/listings/${listingId}`, { method: 'DELETE' })
+      if (res.ok) {
+        setListings((prev) => prev.filter((l) => l.id !== listingId))
+      } else {
+        alert((await extractErrorMessage(res)) || t('Failed to delete listing', 'ಲಿಸ್ಟಿಂಗ್ ಅಳಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+      }
+    } catch {
+      alert(t('Failed to delete listing', 'ಲಿಸ್ಟಿಂಗ್ ಅಳಿಸಲು ವಿಫಲವಾಗಿದೆ'))
+    }
   }
 
   async function handleMakeOffer(e: React.FormEvent) {
@@ -709,6 +745,12 @@ function RawTab() {
                           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                           {t('Contact Seller', 'ಮಾರಾಟಗಾರರನ್ನು ಸಂಪರ್ಕಿಸಿ')}
                         </button>
+                        {isAdmin && (
+                          <button onClick={() => handleDeleteListing(listing.id, listing.commodity)} className="w-full py-2 rounded-xl font-semibold text-sm flex items-center justify-center gap-1.5 bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:border-red-700/30 dark:hover:bg-red-900/40 transition-all">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            {t('Delete', 'ಅಳಿಸಿ')}
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>

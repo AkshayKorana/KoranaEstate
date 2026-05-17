@@ -41,10 +41,12 @@ export class MarketplaceService {
     })
   }
 
-  async softDeleteProduct(rawProductId: string, sellerId: string) {
+  async softDeleteProduct(rawProductId: string, sellerId: string, sellerEmail?: string) {
+    const ADMIN_EMAILS = new Set(['akshay.koranaest@gmail.com'])
     const product = await this.prisma.rawProduct.findUnique({ where: { id: rawProductId } })
     if (!product || product.deletedAt) throw new NotFoundException('Listing not found')
-    if (product.sellerId !== sellerId) throw new ForbiddenException('Not your listing')
+    const isAdmin = sellerEmail ? ADMIN_EMAILS.has(sellerEmail) : false
+    if (product.sellerId !== sellerId && !isAdmin) throw new ForbiddenException('Not your listing')
 
     return this.prisma.rawProduct.update({
       where: { id: rawProductId },

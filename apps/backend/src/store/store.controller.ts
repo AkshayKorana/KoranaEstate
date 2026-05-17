@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards } from '@nestjs/common'
+import { Body, Controller, Delete, Get, Param, Post, Req, UseGuards } from '@nestjs/common'
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger'
 import { JwtAuthGuard } from '../auth/jwt-auth.guard'
 import { Roles } from '../common/decorators/roles.decorator'
@@ -26,5 +26,18 @@ export class StoreController {
   @ApiOkResponse({ description: 'Product created' })
   create(@Req() req: { user: { userId: string } }, @Body() dto: CreateRetailProductDto) {
     return this.storeService.createProduct(req.user.userId, dto)
+  }
+
+  @Delete('products/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Delete store product (admin only)' })
+  @ApiOkResponse({ description: 'Product deleted' })
+  deleteProduct(
+    @Param('id') productId: string,
+    @Req() req: { user: { userId: string; email: string } },
+  ) {
+    return this.storeService.softDeleteProduct(productId, req.user.userId, req.user.email)
   }
 }

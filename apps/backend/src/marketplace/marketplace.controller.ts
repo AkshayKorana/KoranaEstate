@@ -46,7 +46,10 @@ export class MarketplaceController {
   @Roles('SELLER', 'ADMIN')
   @ApiOperation({ summary: 'Soft delete listing' })
   @ApiOkResponse({ description: 'Listing deleted' })
-  deleteListing(@Param('id') rawProductId: string, @Req() req: { user: { userId: string } }) {
-    return this.marketplaceService.softDeleteProduct(rawProductId, req.user.userId)
+  deleteListing(
+    @Param('id') rawProductId: string,
+    @Req() req: { user: { userId: string; email?: string } },
+  ) {
+    return this.marketplaceService.softDeleteProduct(rawProductId, req.user.userId, req.user.email)
   }
 }
