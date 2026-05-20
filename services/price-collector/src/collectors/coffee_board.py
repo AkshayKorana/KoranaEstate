@@ -38,7 +38,7 @@ DATE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 PAGE_REPORT_DATE_PATTERN = re.compile(
-    r"([A-Za-z]+\s+[A-Za-z]+\s+\d{2},\s+\d{4})",
+    r"([A-Za-z]+\s+[A-Za-z]+\s+\d{1,2},\s+\d{4})",
     re.IGNORECASE,
 )
 SECTION_PATTERN = re.compile(

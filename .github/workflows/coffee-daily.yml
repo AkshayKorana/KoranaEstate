@@ -4,6 +4,7 @@ on:
   schedule:
     - cron: '30 3 * * *'   # 9:00 AM IST (primary run)
     - cron: '30 4 * * *'   # 10:00 AM IST (backup run — late PDF)
+    - cron: '30 5 * * *'   # 11:00 AM IST (final backup — very late PDF)
   workflow_dispatch:
 
 jobs:
@@ -141,12 +142,14 @@ jobs:
           # Only POST if we have observations
           if [ ! -f /tmp/ingest_payload.json ]; then
             echo "[SKIP] No ingest payload — done"
+            echo "SKIPPED" > /tmp/pipeline_status.txt
             exit 0
           fi
 
           OBS_COUNT=$(python3 -c "import json; d=json.load(open('/tmp/ingest_payload.json')); print(len(d.get('observations', [])))")
           if [ "$OBS_COUNT" = "0" ]; then
             echo "[SKIP] 0 observations — PDF not yet published today"
+            echo "SKIPPED" > /tmp/pipeline_status.txt
             exit 0
           fi
 
@@ -178,13 +181,19 @@ jobs:
 
           echo "[DONE] Prices saved to database at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
-      - name: Alert on failure
-        if: failure()
+      - name: Alert on failure or skip
+        if: failure() || (success() && hashFiles('/tmp/pipeline_status.txt') != '')
         run: |
-          echo "[ALERT] Coffee Board scraper FAILED at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+          if [ -f /tmp/pipeline_status.txt ]; then
+            echo "[ALERT] Coffee Board scraper SKIPPED (no data) at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+            ALERT_MSG="⚠️ Coffee Board scraper found no data (PDF not published?) on $(date -u '+%Y-%m-%d'). Check GitHub Actions: ${{ github.server_url }}/${{ github.repository }}/actions"
+          else
+            echo "[ALERT] Coffee Board scraper FAILED at $(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+            ALERT_MSG="🚨 Coffee Board scraper failed on $(date -u '+%Y-%m-%d'). Check GitHub Actions: ${{ github.server_url }}/${{ github.repository }}/actions"
+          fi
           if [ -n "${{ secrets.SLACK_WEBHOOK }}" ]; then
             curl -s -X POST "${{ secrets.SLACK_WEBHOOK }}" \
               -H "Content-Type: application/json" \
-              -d "{\"text\":\"🚨 Coffee Board scraper failed on $(date -u '+%Y-%m-%d'). Check GitHub Actions: ${{ github.server_url }}/${{ github.repository }}/actions\"}"
+              -d "{\"text\":\"$ALERT_MSG\"}"
           fi
 

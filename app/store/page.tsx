@@ -19,6 +19,7 @@ export default function StorePage() {
   const isDark = theme === 'dark'
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
+  const [initialLoad, setInitialLoad] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showOrderModal, setShowOrderModal] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
@@ -62,6 +63,7 @@ export default function StorePage() {
       console.error('Failed to fetch products:', error)
     } finally {
       setLoading(false)
+      setInitialLoad(false)
     }
   }
 
@@ -247,18 +249,22 @@ export default function StorePage() {
               </button>
             </div>
 
-            {loading ? (
-              <div className="text-center py-20 glass rounded-2xl shadow-xl">
-                <div className="flex justify-center space-x-2 mb-4">
-                  <div className="w-3 h-3 bg-amber-600 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-                  <div className="w-3 h-3 bg-amber-700 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-                  <div className="w-3 h-3 bg-amber-800 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
-                </div>
-                <p className={`font-medium ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Loading store...', 'ಸ್ಟೋರ್ ಲೋಡ್ ಆಗುತ್ತಿದೆ...')}</p>
+            {initialLoad ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {Array.from({ length: 6 }).map((_, i) => (
+                  <div key={i} className="glass rounded-2xl overflow-hidden border border-emerald-200/30 animate-pulse">
+                    <div className={`h-56 ${isDark ? 'bg-[#2a2218]' : 'bg-amber-50'}`} />
+                    <div className="p-6 space-y-3">
+                      <div className={`h-4 rounded-full w-3/4 ${isDark ? 'bg-[#2a2218]' : 'bg-amber-100'}`} />
+                      <div className={`h-7 rounded-full w-1/3 ${isDark ? 'bg-[#2a2218]' : 'bg-amber-100'}`} />
+                      <div className={`h-10 rounded-xl ${isDark ? 'bg-[#2a2218]' : 'bg-amber-100'}`} />
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : products.length === 0 ? (
               <div className="text-center py-20 glass rounded-2xl shadow-xl fade-in">
-                <div className="w-24 h-24 mx-auto mb-6 p-6 rounded-full gradient-coffee-cream float-animation">
+                <div className="w-24 h-24 mx-auto mb-6 p-6 rounded-full gradient-coffee-cream">
                   <svg className="w-full h-full text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                   </svg>
@@ -276,20 +282,19 @@ export default function StorePage() {
                 </button>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {products.map((product, idx) => (
+              <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 transition-opacity duration-200 ${loading ? 'opacity-50 pointer-events-none' : 'opacity-100'}`}>
+                {products.map((product) => (
                   <div 
                     key={product.id} 
                     className="glass rounded-2xl shadow-lg hover:shadow-2xl transition-all overflow-hidden border border-emerald-200/30 card-hover fade-in"
-                    style={{ animationDelay: `${idx * 100}ms` }}
                   >
                     {/* Product Image */}
                     <div className="h-56 bg-gradient-to-br from-amber-100 via-yellow-50 to-emerald-50 flex items-center justify-center relative overflow-hidden">
                       {product.imageUrl ? (
-                        <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" />
+                        <img src={product.imageUrl} alt={product.name} className="w-full h-full object-cover" loading="lazy" />
                       ) : (
                         <div className="text-center">
-                          <span className="text-6xl float-animation">☕</span>
+                          <span className="text-6xl">☕</span>
                           <p className="text-sm text-gray-500 mt-2 font-medium">{categoryLabel(product.category)}</p>
                         </div>
                       )}
