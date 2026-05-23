@@ -288,10 +288,65 @@ export class NotificationService {
 
   async notifyOrderCreated(order: OrderNotificationPayload) {
     console.log(`[Notification] Processing order ${order.id}`)
-    
-    // Email only (Sheets disabled until config added)
     await this.sendOrderEmail(order)
-    
     console.log(`[Notification] Order ${order.id} processing complete`)
+  }
+
+  async sendChatMessageEmail(params: {
+    senderName: string
+    senderRole: string
+    messageContent: string
+    conversationId: string
+    buyerEmail?: string
+  }) {
+    const adminEmail = this.getAdminEmail()
+    const emailUser = process.env.EMAIL_USER?.trim()
+    const emailPass = process.env.EMAIL_APP_PASSWORD?.trim() || process.env.EMAIL_PASS?.trim()
+    if (!emailUser || !emailPass) return
+
+    const siteUrl = (process.env.WEB_ORIGIN ?? 'https://korana-estate.vercel.app').replace(/\/$/, '')
+    const conversationUrl = `${siteUrl}/messages?conversationId=${encodeURIComponent(params.conversationId)}`
+    const preview = params.messageContent.length > 300
+      ? params.messageContent.slice(0, 297) + '...'
+      : params.messageContent
+
+    const isAdmin = params.senderRole === 'ADMIN'
+    const recipient = isAdmin ? params.buyerEmail : adminEmail
+    if (!recipient) return
+
+    const subject = isAdmin
+      ? `${params.senderName} replied to your message — Korana Estate`
+      : `New message from ${params.senderName} — Korana Estate`
+
+    const html = `
+      <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1a1a1a">
+        <h2 style="color:#059669">${isAdmin ? 'You have a reply on Korana Estate' : 'New Message on Korana Estate'}</h2>
+        <p><strong>${params.senderName}</strong> ${isAdmin ? 'responded to your message' : 'has sent you a message'}:</p>
+        <blockquote style="border-left:4px solid #059669;margin:12px 0;padding:10px 16px;background:#f0fdf4;border-radius:4px;font-size:15px;color:#14532d">
+          ${preview.replace(/\n/g, '<br/>')}
+        </blockquote>
+        <p>
+          <a href="${conversationUrl}" style="display:inline-block;padding:10px 20px;background:#059669;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">
+            View Conversation
+          </a>
+        </p>
+        <p style="color:#6b7280;font-size:13px">Korana Estate · Coffee &amp; Spice Marketplace</p>
+      </div>
+    `
+
+    try {
+      const nodemailer = require('nodemailer')
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: { user: emailUser, pass: emailPass },
+      })
+      await transporter.sendMail({ from: emailUser, to: recipient, subject, html })
+      console.log(`[Notification] Chat email sent to ${recipient}`)
+    } catch (err) {
+      console.error(`[Notification] Chat email failed:`, err instanceof Error ? err.message : String(err))
+      this.logger.error(`Chat email failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
   }
 }

@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common'
 import { JwtModule } from '@nestjs/jwt'
 import { SupabaseService } from '../config/supabase.service'
+import { NotificationService } from '../notifications/notification.service'
 import { RolesGuard } from '../common/guards/roles.guard'
 import { ChatController } from './chat.controller'
 import { ChatGateway } from './chat.gateway'
@@ -14,7 +15,7 @@ import { ChatRealtimeService } from './realtime.service'
     }),
   ],
   controllers: [ChatController],
-  providers: [ChatService, ChatRealtimeService, ChatGateway, RolesGuard, SupabaseService],
+  providers: [ChatService, ChatRealtimeService, ChatGateway, RolesGuard, SupabaseService, NotificationService],
   exports: [ChatGateway],
 })
 export class ChatModule {}

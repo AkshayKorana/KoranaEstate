@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common'
 import { PrismaService } from '../prisma/prisma.service'
+import { NotificationService } from '../notifications/notification.service'
 import { ChatGateway } from './chat.gateway'
 import { CreateConversationDto } from './dto/create-conversation.dto'
 import { SendMessageDto } from './dto/send-message.dto'
@@ -11,6 +12,7 @@ export class ChatService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly chatGateway: ChatGateway,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async myConversations(userId: string) {
@@ -45,7 +47,11 @@ export class ChatService {
   async sendMessage(userId: string, dto: SendMessageDto) {
     const conversation = await this.prisma.conversation.findUnique({
       where: { id: dto.conversationId },
-      include: { participants: { select: { userId: true } } },
+      include: {
+        participants: {
+          include: { user: { select: { id: true, fullName: true, role: true, email: true } } },
+        },
+      },
     })
     if (!conversation) throw new NotFoundException('Conversation not found')
     if (!conversation.participants.some((p) => p.userId === userId)) {
@@ -61,6 +67,22 @@ export class ChatService {
 
     await this.prisma.conversation.update({ where: { id: dto.conversationId }, data: { updatedAt: new Date() } })
     this.chatGateway.emitNewMessage(dto.conversationId, message)
+
+    // Fire-and-forget email notification
+    const sender = conversation.participants.find((p) => p.userId === userId)?.user
+    const other = conversation.participants.find((p) => p.userId !== userId)?.user
+    if (sender) {
+      this.notificationService.sendChatMessageEmail({
+        senderName: sender.fullName ?? sender.email ?? 'User',
+        senderRole: sender.role ?? 'BUYER',
+        messageContent: dto.content,
+        conversationId: dto.conversationId,
+        buyerEmail: other?.email ?? undefined,
+      }).catch((err) => {
+        console.error('[Chat] Email notification failed:', err instanceof Error ? err.message : String(err))
+      })
+    }
+
     return message
   }
 

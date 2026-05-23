@@ -154,6 +154,11 @@ export class OrdersService {
       include: this.orderInclude,
     })
 
+    this.notificationService.notifyOrderCreated({ ...order, buyerEmail: order.buyer?.email ?? null })
+      .catch((err) => {
+        console.error('[Order] Notification failed (non-blocking):', err instanceof Error ? err.message : String(err))
+      })
+
     return order
   }
 
@@ -208,6 +213,11 @@ export class OrdersService {
       },
       include: this.orderInclude,
     })
+
+    this.notificationService.notifyOrderCreated({ ...order, buyerEmail: order.buyer?.email ?? null })
+      .catch((err) => {
+        console.error('[Order] Notification failed (non-blocking):', err instanceof Error ? err.message : String(err))
+      })
 
     return order
   }
