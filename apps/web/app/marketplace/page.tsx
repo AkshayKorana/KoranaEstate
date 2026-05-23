@@ -915,7 +915,9 @@ function RawTab() {
       {/* Create Listing Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
-          <div className="surface-card rounded-3xl max-w-lg w-full p-4 sm:p-8 shadow-2xl slide-in-up"> fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg></div>
+          <div className="surface-card rounded-3xl max-w-lg w-full p-4 sm:p-8 shadow-2xl slide-in-up max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="p-3 rounded-xl gradient-coffee-cream"><svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg></div>
               <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">{t('Create New Listing', 'ಹೊಸ ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಿ')}</h2>
             </div>
             <form onSubmit={handleCreateListing} className="space-y-4">
