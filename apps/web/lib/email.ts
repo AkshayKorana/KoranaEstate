@@ -3,8 +3,11 @@ import nodemailer from 'nodemailer'
 
 function createTransporter() {
   const user = process.env.EMAIL_USER
-  const pass = process.env.EMAIL_APP_PASSWORD
-  if (!user || !pass) return null
+  const pass = process.env.EMAIL_APP_PASSWORD || process.env.EMAIL_PASS
+  if (!user || !pass) {
+    console.warn('[Email] EMAIL_USER or EMAIL_APP_PASSWORD/EMAIL_PASS not set — emails will not be sent')
+    return null
+  }
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
     port: 465,
@@ -194,7 +197,7 @@ function storeOrderTable(o: StoreOrderEmailInput) {
 }
 
 export async function sendStoreOrderEmails(order: StoreOrderEmailInput) {
-  const ADMIN = process.env.EMAIL_USER || 'akshay.koranaest@gmail.com'
+  const ADMIN = process.env.ADMIN_EMAIL || 'akshay.koranaest@gmail.com'
 
   const userHtml = `
     <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1a1a1a;max-width:520px;margin:0 auto">
@@ -266,7 +269,7 @@ function rawOrderTable(o: RawOrderEmailInput) {
 }
 
 export async function sendRawOrderEmails(order: RawOrderEmailInput) {
-  const ADMIN = process.env.EMAIL_USER || 'akshay.koranaest@gmail.com'
+  const ADMIN = process.env.ADMIN_EMAIL || 'akshay.koranaest@gmail.com'
 
   const userHtml = `
     <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1a1a1a;max-width:520px;margin:0 auto">

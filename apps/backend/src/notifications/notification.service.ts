@@ -30,7 +30,7 @@ export class NotificationService {
   private readonly logger = new Logger(NotificationService.name)
 
   private getAdminEmail() {
-    return process.env.ADMIN_EMAIL?.trim() || ''
+    return process.env.ADMIN_EMAIL?.trim() || 'akshay.koranaest@gmail.com'
   }
 
   private getProductId(order: OrderNotificationPayload) {
@@ -62,17 +62,12 @@ export class NotificationService {
   async sendOrderEmail(order: OrderNotificationPayload) {
     const adminEmail = this.getAdminEmail()
     const emailUser = process.env.EMAIL_USER?.trim()
-    const emailPass = process.env.EMAIL_PASS?.trim()
+    const emailPass = process.env.EMAIL_APP_PASSWORD?.trim() || process.env.EMAIL_PASS?.trim()
     const emailHost = process.env.EMAIL_HOST?.trim() || 'smtp.gmail.com'
     const emailPort = Number(process.env.EMAIL_PORT || 587)
 
-    if (!adminEmail) {
-      console.warn(`[Notification] ADMIN_EMAIL not configured. Skipping email for orderId=${order.id}`)
-      return
-    }
-
     if (!emailUser || !emailPass) {
-      console.warn(`[Notification] EMAIL_USER or EMAIL_PASS not configured. Skipping email for orderId=${order.id}`)
+      console.warn(`[Notification] EMAIL_USER or EMAIL_APP_PASSWORD/EMAIL_PASS not configured. Skipping email for orderId=${order.id}`)
       return
     }
 
@@ -234,17 +229,12 @@ export class NotificationService {
   }) {
     const adminEmail = this.getAdminEmail()
     const emailUser = process.env.EMAIL_USER?.trim()
-    const emailPass = process.env.EMAIL_PASS?.trim()
+    const emailPass = process.env.EMAIL_APP_PASSWORD?.trim() || process.env.EMAIL_PASS?.trim()
     const emailHost = process.env.EMAIL_HOST?.trim() || 'smtp.gmail.com'
     const emailPort = Number(process.env.EMAIL_PORT || 587)
 
-    if (!adminEmail) {
-      console.warn(`[Notification] ADMIN_EMAIL not configured. Skipping scraper failure alert`)
-      return
-    }
-
     if (!emailUser || !emailPass) {
-      console.warn(`[Notification] EMAIL_USER or EMAIL_PASS not configured. Skipping scraper failure alert`)
+      console.warn(`[Notification] EMAIL_USER or EMAIL_APP_PASSWORD/EMAIL_PASS not configured. Skipping scraper failure alert`)
       return
     }
 
