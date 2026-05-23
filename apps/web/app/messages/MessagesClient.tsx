@@ -272,7 +272,7 @@ export default function MessagesClient() {
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-slate-950' : 'bg-transparent'}`}>
-      <div className="h-[calc(100vh-10rem)] max-w-7xl mx-auto px-0 sm:px-4 md:px-8 lg:px-10 py-0 sm:py-4 md:py-6">
+      <div className="h-[calc(100dvh-10rem)] max-w-7xl mx-auto px-0 sm:px-4 md:px-8 lg:px-10 py-0 sm:py-4 md:py-6">
         <div className="surface-panel h-full sm:rounded-3xl shadow-sm flex overflow-hidden">
           <div className={`w-full md:w-80 flex-shrink-0 border-r border-black/10 dark:border-white/10 flex-col ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
             <div className="surface-card-strong p-4 border-b border-black/10 dark:border-white/10">
@@ -352,7 +352,7 @@ export default function MessagesClient() {
                   <button
                     type="button"
                     onClick={() => setMobileView('list')}
-                    className="md:hidden flex-shrink-0 p-1.5 -ml-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-card-strong"
+                    className="md:hidden flex-shrink-0 p-2.5 -ml-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-card-strong"
                     aria-label="Back to conversations"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -404,7 +404,7 @@ export default function MessagesClient() {
                         className={`fade-in flex ${isOwn ? 'justify-end' : 'justify-start'}`}
                         style={{ animationDelay: `${Math.min(idx * 25, 220)}ms` }}
                       >
-                        <div className={`max-w-xs lg:max-w-md ${isOwn ? 'order-2' : 'order-1'}`}>
+                        <div className={`max-w-[75%] sm:max-w-sm lg:max-w-md ${isOwn ? 'order-2' : 'order-1'}`}>
                           <div
                             className={`px-4 py-2 rounded-lg ${
                               isOwn
@@ -431,12 +431,12 @@ export default function MessagesClient() {
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                       placeholder={t('Type a message...', 'ಸಂದೇಶವನ್ನು ಟೈಪ್ ಮಾಡಿ...')}
-                      className="surface-input flex-1 rounded-full px-4 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      className="surface-input flex-1 rounded-full px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     />
                     <button
                       type="submit"
                       disabled={!newMessage.trim()}
-                      className="gradient-brand-spectrum text-white px-6 py-2 rounded-full hover:opacity-95 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium"
+                      className="gradient-brand-spectrum text-white px-5 py-3 rounded-full hover:opacity-95 disabled:bg-gray-300 disabled:cursor-not-allowed font-medium min-w-[72px]"
                     >
                       {t('Send', 'ಕಳುಹಿಸಿ')}
                     </button>

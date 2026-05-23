@@ -390,7 +390,7 @@ function StoreTab() {
       {/* Create Product Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
-          <div className="surface-card rounded-3xl max-w-lg w-full p-8 shadow-2xl slide-in-up max-h-[90vh] overflow-y-auto">
+          <div className="surface-card rounded-3xl max-w-lg w-full p-4 sm:p-8 shadow-2xl slide-in-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-3 rounded-xl gradient-brand-spectrum"><svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg></div>
               <h2 className="text-2xl font-bold text-brand-spectrum">{t('Add New Product', 'ಹೊಸ ಉತ್ಪನ್ನ ಸೇರಿಸಿ')}</h2>
@@ -442,7 +442,7 @@ function StoreTab() {
       {/* Edit Product Modal */}
       {showEditModal && editingProduct && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
-          <div className="surface-card rounded-3xl max-w-lg w-full p-8 shadow-2xl slide-in-up max-h-[90vh] overflow-y-auto">
+          <div className="surface-card rounded-3xl max-w-lg w-full p-4 sm:p-8 shadow-2xl slide-in-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-3 rounded-xl bg-amber-100 dark:bg-amber-900/40"><svg className="w-5 h-5 text-amber-700 dark:text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></div>
               <h2 className="text-2xl font-bold text-brand-spectrum">{t('Edit Product', 'ಉತ್ಪನ್ನ ತಿದ್ದು')}</h2>
@@ -483,7 +483,7 @@ function StoreTab() {
       {/* Place Order Modal */}
       {showOrderModal && selectedProduct && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
-          <div className="surface-card rounded-3xl max-w-4xl w-full p-8 shadow-2xl slide-in-up max-h-[92vh] overflow-y-auto">
+          <div className="surface-card rounded-3xl max-w-4xl w-full p-4 sm:p-8 shadow-2xl slide-in-up max-h-[92vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-3 rounded-xl gradient-emerald"><svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg></div>
               <div><h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">{t('Place Order', 'ಆರ್ಡರ್ ಮಾಡಿ')}</h2><p className="text-muted-safe text-sm">{selectedProduct.name}</p></div>
@@ -888,7 +888,7 @@ function RawTab() {
       {/* Edit Listing Modal */}
       {showEditListingModal && editingListing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
-          <div className="surface-card rounded-3xl max-w-lg w-full p-8 shadow-2xl slide-in-up max-h-[90vh] overflow-y-auto">
+          <div className="surface-card rounded-3xl max-w-lg w-full p-4 sm:p-8 shadow-2xl slide-in-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-6">
               <div className="p-3 rounded-xl bg-emerald-100 dark:bg-emerald-900/40"><svg className="w-5 h-5 text-emerald-700 dark:text-emerald-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg></div>
               <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">{t('Edit Listing', 'ಲಿಸ್ಟಿಂಗ್ ತಿದ್ದು')}</h2>
@@ -915,9 +915,7 @@ function RawTab() {
       {/* Create Listing Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
-          <div className="surface-card rounded-3xl max-w-lg w-full p-8 shadow-2xl slide-in-up">
-            <div className="flex items-center gap-3 mb-6">
-              <div className="p-3 rounded-xl gradient-emerald"><svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg></div>
+          <div className="surface-card rounded-3xl max-w-lg w-full p-4 sm:p-8 shadow-2xl slide-in-up"> fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg></div>
               <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">{t('Create New Listing', 'ಹೊಸ ಲಿಸ್ಟಿಂಗ್ ರಚಿಸಿ')}</h2>
             </div>
             <form onSubmit={handleCreateListing} className="space-y-4">
@@ -942,7 +940,7 @@ function RawTab() {
       {/* Make Offer Modal */}
       {showOfferModal && selectedListing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
-          <div className="surface-card rounded-3xl max-w-lg w-full p-8 shadow-2xl slide-in-up">
+          <div className="surface-card rounded-3xl max-w-lg w-full p-4 sm:p-8 shadow-2xl slide-in-up max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-3 rounded-xl gradient-coffee-cream"><svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg></div>
               <div><h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">{t('Make an Offer', 'ಆಫರ್ ನೀಡಿ')}</h2><p className="text-muted-safe text-sm">{selectedListing.commodity} · {selectedListing.location}</p></div>
@@ -968,7 +966,7 @@ function RawTab() {
       {/* COD Order Modal */}
       {showCodModal && selectedListing && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 fade-in">
-          <div className="surface-card rounded-3xl max-w-4xl w-full p-8 shadow-2xl slide-in-up max-h-[92vh] overflow-y-auto">
+          <div className="surface-card rounded-3xl max-w-4xl w-full p-4 sm:p-8 shadow-2xl slide-in-up max-h-[92vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-4">
               <div className="p-3 rounded-xl gradient-brand-spectrum"><svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" /></svg></div>
               <div><h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">{t('Confirm COD Request', 'COD ವಿನಂತಿ ದೃಢೀಕರಿಸಿ')}</h2><p className="text-muted-safe text-sm">{selectedListing.commodity}{selectedListing.grade ? ` · ${selectedListing.grade}` : ''}</p></div>
