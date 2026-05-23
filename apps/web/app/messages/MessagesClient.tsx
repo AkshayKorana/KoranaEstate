@@ -272,7 +272,7 @@ export default function MessagesClient() {
 
   return (
     <div className={`min-h-screen ${isDark ? 'bg-slate-950' : 'bg-transparent'}`}>
-      <div className="h-[calc(100dvh-10rem)] max-w-7xl mx-auto px-0 sm:px-4 md:px-8 lg:px-10 py-0 sm:py-4 md:py-6">
+      <div className="h-[calc(100dvh-5.5rem)] md:h-[calc(100dvh-6rem)] max-w-7xl mx-auto px-0 sm:px-4 md:px-8 lg:px-10 py-0 sm:py-4 md:py-6">
         <div className="surface-panel h-full sm:rounded-3xl shadow-sm flex overflow-hidden">
           <div className={`w-full md:w-80 flex-shrink-0 border-r border-black/10 dark:border-white/10 flex-col ${mobileView === 'chat' ? 'hidden md:flex' : 'flex'}`}>
             <div className="surface-card-strong p-4 border-b border-black/10 dark:border-white/10">

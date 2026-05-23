@@ -210,12 +210,12 @@ html {
 }
 
 .content-under-navbar {
-  padding-top: 10.5rem;
+  padding-top: 5.5rem;
 }
 
 @media (min-width: 768px) {
   .content-under-navbar {
-    padding-top: 11rem;
+    padding-top: 6rem;
   }
 }
 
