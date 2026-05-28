@@ -86,10 +86,10 @@ export default function Footer() {
             <h3 className={`font-luxe text-xl font-bold mb-4 ${isDark ? 'text-[#f2e7d8]' : 'text-[#2f2f2f]'}`}>{t('Quick Links', 'ತ್ವರಿತ ಲಿಂಕ್‌ಗಳು')}</h3>
             <ul className="space-y-2">
               <li><Link href="/#top" className={isDark ? 'text-[#8fc7a9] hover:text-[#b7e2cb] transition-all' : 'text-[#2f6b4f] hover:text-[#1f4d3a] transition-all'}>{t('Home', 'ಮುಖಪುಟ')}</Link></li>
-              <li><Link href="/raw-marketplace" className={isDark ? 'text-[#8fc7a9] hover:text-[#b7e2cb] transition-all' : 'text-[#2f6b4f] hover:text-[#1f4d3a] transition-all'}>{t('Raw marketplace', 'ರಾ ಮಾರುಕಟ್ಟೆ')}</Link></li>
-              <li><Link href="/estate-marketplace" className={isDark ? 'text-[#8fc7a9] hover:text-[#b7e2cb] transition-all' : 'text-[#2f6b4f] hover:text-[#1f4d3a] transition-all'}>{t('Estate essentials', 'ಎಸ್ಟೇಟ್ ಅವಶ್ಯಕತೆಗಳು')}</Link></li>
-              <li><Link href="/store" className={isDark ? 'text-[#8fc7a9] hover:text-[#b7e2cb] transition-all' : 'text-[#2f6b4f] hover:text-[#1f4d3a] transition-all'}>{t('Store', 'ಸ್ಟೋರ್')}</Link></li>
-              <li><Link href="/#footer-about-text" className={isDark ? 'text-[#8fc7a9] hover:text-[#b7e2cb] transition-all' : 'text-[#2f6b4f] hover:text-[#1f4d3a] transition-all'}>{t('About us', 'ನಮ್ಮ ಬಗ್ಗೆ')}</Link></li>
+              <li><Link href="/store" className={isDark ? 'text-[#8fc7a9] hover:text-[#b7e2cb] transition-all' : 'text-[#2f6b4f] hover:text-[#1f4d3a] transition-all'}>{t('Processed Marketplace', 'ಸಂಸ್ಕರಿತ ಮಾರುಕಟ್ಟೆ')}</Link></li>
+              <li><Link href="/raw-marketplace" className={isDark ? 'text-[#8fc7a9] hover:text-[#b7e2cb] transition-all' : 'text-[#2f6b4f] hover:text-[#1f4d3a] transition-all'}>{t('Raw Marketplace', 'ರಾ ಮಾರುಕಟ್ಟೆ')}</Link></li>
+              <li><Link href="/estate-marketplace" className={isDark ? 'text-[#8fc7a9] hover:text-[#b7e2cb] transition-all' : 'text-[#2f6b4f] hover:text-[#1f4d3a] transition-all'}>{t('Estate Essentials', 'ಎಸ್ಟೇಟ್ ಅವಶ್ಯಕತೆಗಳು')}</Link></li>
+              <li><Link href="/#footer-about-text" className={isDark ? 'text-[#8fc7a9] hover:text-[#b7e2cb] transition-all' : 'text-[#2f6b4f] hover:text-[#1f4d3a] transition-all'}>{t('About Us', 'ನಮ್ಮ ಬಗ್ಗೆ')}</Link></li>
               <li><Link href="/#footer-contact-target" className={isDark ? 'text-[#8fc7a9] hover:text-[#b7e2cb] transition-all' : 'text-[#2f6b4f] hover:text-[#1f4d3a] transition-all'}>{t('Contact', 'ಸಂಪರ್ಕ')}</Link></li>
             </ul>
           </div>
