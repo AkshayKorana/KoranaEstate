@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { signOut, useSession } from 'next-auth/react'
@@ -43,6 +43,8 @@ export default function Navbar() {
   const [isScrolled, setIsScrolled] = useState(false)
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const [unreadCount, setUnreadCount] = useState(0)
+  const [isProfileOpen, setIsProfileOpen] = useState(false)
+  const profileRef = useRef<HTMLDivElement>(null)
   const visibleNavItems = HOME_STAYS_ENABLED ? navItems : navItems.filter((item) => item.href !== '/home-stays')
 
   const isActivePath = (path: string) => (path.startsWith('/#') ? pathname === '/' : pathname === path)
@@ -52,6 +54,17 @@ export default function Navbar() {
     window.addEventListener('scroll', handleScroll)
     return () => window.removeEventListener('scroll', handleScroll)
   }, [])
+
+  useEffect(() => {
+    if (!isProfileOpen) return
+    const handleClickOutside = (e: MouseEvent) => {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setIsProfileOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isProfileOpen])
 
   useEffect(() => {
     if (status !== 'authenticated') {
@@ -180,13 +193,48 @@ export default function Navbar() {
             </div>
             {status === 'authenticated' && session?.user ? (
               <>
-                <div className="flex items-center space-x-3 px-4 py-2 rounded-xl border" style={{ borderColor: 'var(--lux-navbar-border)', background: 'color-mix(in oklab, var(--lux-navbar-bg) 80%, transparent)' }}>
-                  <div className="w-8 h-8 rounded-full gradient-emerald-coffee flex items-center justify-center text-white font-bold text-sm">
-                    {session.user.name?.[0]?.toUpperCase() || session.user.email?.[0]?.toUpperCase() || 'U'}
-                  </div>
-                  <span className="text-sm font-medium" style={{ color: 'var(--lux-navbar-text)' }}>
-                    {session.user.name || session.user.email}
-                  </span>
+                <div ref={profileRef} className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsProfileOpen(v => !v)}
+                    className="flex items-center space-x-3 px-4 py-2 rounded-xl border transition-all hover:opacity-90 cursor-pointer"
+                    style={{ borderColor: 'var(--lux-navbar-border)', background: 'color-mix(in oklab, var(--lux-navbar-bg) 80%, transparent)' }}
+                  >
+                    <div className="w-8 h-8 rounded-full gradient-emerald-coffee flex items-center justify-center text-white font-bold text-sm">
+                      {session.user.name?.[0]?.toUpperCase() || session.user.email?.[0]?.toUpperCase() || 'U'}
+                    </div>
+                    <span className="text-sm font-medium" style={{ color: 'var(--lux-navbar-text)' }}>
+                      {session.user.name || session.user.email}
+                    </span>
+                    <svg className={`w-4 h-4 transition-transform duration-200 ${isProfileOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--lux-navbar-text-muted)' }}>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+                  {isProfileOpen && (
+                    <div
+                      className="absolute right-0 mt-2 w-64 rounded-2xl border shadow-xl z-50 overflow-hidden"
+                      style={{
+                        background: isDark ? '#1a1410' : '#ffffff',
+                        borderColor: isDark ? 'rgba(110,178,144,0.25)' : 'rgba(47,107,79,0.15)',
+                      }}
+                    >
+                      <div className="px-5 py-4 border-b" style={{ borderColor: isDark ? 'rgba(110,178,144,0.15)' : 'rgba(47,107,79,0.10)' }}>
+                        <div className="flex items-center space-x-3 mb-1">
+                          <div className="w-10 h-10 rounded-full gradient-emerald-coffee flex items-center justify-center text-white font-bold text-base flex-shrink-0">
+                            {session.user.name?.[0]?.toUpperCase() || session.user.email?.[0]?.toUpperCase() || 'U'}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-semibold truncate" style={{ color: isDark ? '#f2e7d8' : '#1f2d24' }}>
+                              {session.user.name || '—'}
+                            </p>
+                            <p className="text-xs truncate mt-0.5" style={{ color: isDark ? '#9fb8a8' : '#4b7060' }}>
+                              {session.user.email}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 <button
                   type="button"
