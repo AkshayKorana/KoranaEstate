@@ -26,7 +26,7 @@ export class AuthService {
     const existing = await this.prisma.user.findUnique({ where: { email } })
     if (existing) throw new ConflictException('Email already registered')
 
-    const passwordHash = await bcrypt.hash(dto.password, 12)
+    const passwordHash = await bcrypt.hash(dto.password, 10)
 
     const user = await this.prisma.user.create({
       data: {
@@ -93,7 +93,7 @@ export class AuthService {
         expiresAt: { gt: new Date() },
       },
       orderBy: { createdAt: 'desc' },
-      take: 20,
+      take: 5,
     })
 
     let matchedTokenId: string | null = null
@@ -150,7 +150,7 @@ export class AuthService {
     }
     const tempPassword = tempChars.join('')
 
-    const passwordHash = await bcrypt.hash(tempPassword, 12)
+    const passwordHash = await bcrypt.hash(tempPassword, 10)
     await this.prisma.user.update({ where: { id: user.id }, data: { passwordHash } })
 
     return { ok: true, tempPassword, fullName: user.fullName }
@@ -212,7 +212,7 @@ export class AuthService {
       },
     )
 
-    const tokenHash = await bcrypt.hash(refreshToken, 12)
+    const tokenHash = await bcrypt.hash(refreshToken, 10)
     const decoded = this.jwtService.decode(refreshToken) as { exp?: number } | null
     const expiresAt = new Date((decoded?.exp ?? Math.floor(Date.now() / 1000) + 30 * 24 * 60 * 60) * 1000)
 

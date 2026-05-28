@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid or expired reset token.' }, { status: 400 })
     }
 
-    const passwordHash = await bcrypt.hash(password, 12)
+    const passwordHash = await bcrypt.hash(password, 10)
     await prisma.user.update({
       where: { id: user.id },
       data: {
