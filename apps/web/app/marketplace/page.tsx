@@ -577,6 +577,8 @@ function RawTab() {
   const { data: session, status } = useSession()
   const { t } = useLanguage()
   const { isDark } = useEffectiveTheme()
+  // Translates a commodity name per current UI language
+  const tc = (name: string) => t(name, COMMODITY_KN[name] ?? name)
   const [allListings, setAllListings] = useState<RawListing[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
