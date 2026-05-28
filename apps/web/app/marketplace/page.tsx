@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
+import { Suspense, useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import type {
@@ -39,7 +39,7 @@ function StoreTab() {
   const { data: session, status } = useSession()
   const { t } = useLanguage()
   const { isDark } = useEffectiveTheme()
-  const [products, setProducts] = useState<Product[]>([])
+  const [allProducts, setAllProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -57,6 +57,12 @@ function StoreTab() {
   const [editError, setEditError] = useState<string | null>(null)
   const isAdmin = session?.user?.role === 'ADMIN'
 
+  // Client-side filtering — instant, no re-fetch on category change
+  const products = useMemo(
+    () => selectedCategory ? allProducts.filter(p => p.category === selectedCategory) : allProducts,
+    [allProducts, selectedCategory]
+  )
+
   function categoryLabel(category: string) {
     const map: Record<string, string> = {
       'Coffee Powder': t('Coffee Powder', 'ಕಾಫಿ ಪುಡಿ'),
@@ -69,25 +75,23 @@ function StoreTab() {
     return map[category] || category
   }
 
+  // Fetch ALL products once on mount — no auth required for public catalogue
   useEffect(() => {
-    if (status !== 'authenticated') return
     fetchProducts()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, selectedCategory])
+  }, [])
 
   async function fetchProducts() {
     try {
       setLoading(true)
       setLoadError(null)
-      const params = new URLSearchParams()
-      if (selectedCategory) params.set('category', selectedCategory)
-      const res = await fetch(`/api/products?${params}`)
+      const res = await fetch('/api/products?limit=200')
       if (!res.ok) {
         setLoadError((await extractErrorMessage(res)) || t('Failed to load products', 'ಉತ್ಪನ್ನಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'))
         return
       }
       const data = await res.json()
-      setProducts(data.products || [])
+      setAllProducts(data.products || [])
     } catch {
       setLoadError(t('Failed to load products', 'ಉತ್ಪನ್ನಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'))
     } finally {
@@ -562,7 +566,7 @@ function RawTab() {
   const { data: session, status } = useSession()
   const { t } = useLanguage()
   const { isDark } = useEffectiveTheme()
-  const [listings, setListings] = useState<RawListing[]>([])
+  const [allListings, setAllListings] = useState<RawListing[]>([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -582,23 +586,28 @@ function RawTab() {
   const [editListingError, setEditListingError] = useState<string | null>(null)
   const isAdmin = session?.user?.role === 'ADMIN'
 
+  // Client-side filtering — instant, no re-fetch on every filter change
+  const listings = useMemo(() => {
+    let result = allListings
+    if (filters.commodity) result = result.filter(l => l.commodity === filters.commodity)
+    if (filters.location) result = result.filter(l => l.location.toLowerCase().includes(filters.location!.toLowerCase()))
+    return result
+  }, [allListings, filters])
+
+  // Fetch ALL listings once on mount — no auth required for public catalogue
   useEffect(() => {
-    if (status !== 'authenticated') return
     fetchListings()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [status, filters])
+  }, [])
 
   async function fetchListings() {
     try {
       setLoading(true)
       setLoadError(null)
-      const params = new URLSearchParams()
-      if (filters.commodity) params.set('commodity', filters.commodity)
-      if (filters.location) params.set('location', filters.location)
-      const res = await fetch(`/api/raw/listings?${params}`)
+      const res = await fetch('/api/raw/listings?limit=200')
       if (!res.ok) { setLoadError((await extractErrorMessage(res)) || t('Failed to load listings', 'ಲಿಸ್ಟಿಂಗ್‌ಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ')); return }
       const data = await res.json()
-      setListings(data.listings || [])
+      setAllListings(data.listings || [])
     } catch { setLoadError(t('Failed to load listings', 'ಲಿಸ್ಟಿಂಗ್‌ಗಳನ್ನು ಲೋಡ್ ಮಾಡಲು ವಿಫಲವಾಗಿದೆ'))
     } finally { setLoading(false) }
   }

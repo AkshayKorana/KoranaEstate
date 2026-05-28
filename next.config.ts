@@ -1,7 +1,40 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  compress: true,
+  poweredByHeader: false,
+  images: {
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [360, 480, 640, 750, 828, 1080, 1200, 1920],
+    minimumCacheTTL: 3600,
+    remotePatterns: [
+      { protocol: 'https', hostname: 'picsum.photos' },
+      { protocol: 'https', hostname: 'images.unsplash.com' },
+      { protocol: 'https', hostname: 'unsplash.com' },
+      { protocol: 'https', hostname: '**.cloudinary.com' },
+    ],
+  },
+  experimental: {
+    optimizePackageImports: ['lucide-react'],
+  },
+  async headers() {
+    return [
+      {
+        // Aggressive caching for static assets
+        source: '/_next/static/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+        ],
+      },
+      {
+        // Moderate caching for public files
+        source: '/public/:path*',
+        headers: [
+          { key: 'Cache-Control', value: 'public, max-age=86400, stale-while-revalidate=604800' },
+        ],
+      },
+    ]
+  },
 };
 
 export default nextConfig;
