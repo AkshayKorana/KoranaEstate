@@ -675,7 +675,7 @@ function RawTab() {
     try {
       const res = await fetch(`/api/raw/listings/${listingId}`, { method: 'DELETE' })
       if (res.ok) {
-        setListings((prev) => prev.filter((l) => l.id !== listingId))
+        setAllListings((prev) => prev.filter((l) => l.id !== listingId))
       } else {
         alert((await extractErrorMessage(res)) || t('Failed to delete listing', 'ಲಿಸ್ಟಿಂಗ್ ಅಳಿಸಲು ವಿಫಲವಾಗಿದೆ'))
       }
