@@ -11,6 +11,7 @@ const API_BASE =
  */
 export const ADMIN_EMAILS: ReadonlySet<string> = new Set([
   'akshay.koranaest@gmail.com',
+  'koranaestate@gmail.com',
 ])
 
 export function resolveRole(email: string): 'ADMIN' | 'BUYER' {

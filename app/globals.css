@@ -165,6 +165,8 @@ body > * {
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 11rem;
+  /* Prevent font size inflation on iOS Safari */
+  -webkit-text-size-adjust: 100%;
 }
 
 .content-under-navbar {
@@ -175,6 +177,32 @@ html {
   .content-under-navbar {
     padding-top: 11rem;
   }
+}
+
+/* Mobile touch target minimum size (WCAG 2.5.5) */
+@media (max-width: 767px) {
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  /* Improve tap area for small icons */
+  button svg:only-child {
+    pointer-events: none;
+  }
+}
+
+/* Prevent horizontal overflow on all pages */
+body {
+  overflow-x: hidden;
+}
+
+/* Hide horizontal scrollbar while keeping scroll functional (filter chips etc.) */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 /* Emerald-Coffee Gradient Utilities */

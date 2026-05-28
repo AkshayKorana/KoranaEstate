@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service'
 import { CreateRetailProductDto } from './dto/create-retail-product.dto'
 import { UpdateRetailProductDto } from './dto/update-retail-product.dto'
 
-const ADMIN_EMAILS = new Set(['akshay.koranaest@gmail.com'])
+const ADMIN_EMAILS = new Set(['akshay.koranaest@gmail.com', 'koranaestate@gmail.com'])
 
 @Injectable()
 export class StoreService {

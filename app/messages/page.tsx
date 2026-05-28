@@ -148,10 +148,10 @@ export default function MessagesPage() {
   return (
     <div className={`min-h-screen content-under-navbar ${isDark ? 'bg-slate-950' : 'bg-transparent'}`}>
       <Navbar />
-      <div className="h-[calc(100vh-10rem)] max-w-7xl mx-auto px-6 md:px-8 lg:px-10 py-6">
+      <div className="h-[calc(100vh-10rem)] max-w-7xl mx-auto px-4 sm:px-6 md:px-8 lg:px-10 py-4 sm:py-6">
         <div className={`h-full rounded-3xl shadow-sm flex overflow-hidden border glass ${isDark ? 'border-slate-700' : 'border-slate-700/70'}`}>
-          {/* Conversations List */}
-          <div className={`w-80 border-r flex flex-col ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
+          {/* Conversations List — full-width on mobile when no chat open, sidebar on sm+ */}
+          <div className={`${selectedConversation ? 'hidden sm:flex' : 'flex'} sm:w-80 w-full border-r flex-col ${isDark ? 'border-slate-700' : 'border-gray-200'}`}>
             <div className={`p-4 border-b ${isDark ? 'border-slate-700 bg-slate-800/85' : 'border-slate-700 bg-slate-800/85'}`}>
               <h2
                 className={`font-luxe text-2xl font-semibold ${isDark ? 'text-brand-spectrum' : ''}`}
@@ -207,12 +207,23 @@ export default function MessagesPage() {
             </div>
           </div>
 
-          {/* Messages Area */}
-          <div className="flex-1 flex flex-col">
+          {/* Messages Area — hidden on mobile when no chat selected */}
+          <div className={`${selectedConversation ? 'flex' : 'hidden sm:flex'} flex-1 flex-col`}>
             {selectedConversation ? (
               <>
                 {/* Chat Header */}
                 <div className={`p-4 border-b flex items-center gap-3 ${isDark ? 'border-slate-700 bg-slate-900' : 'border-slate-700 bg-slate-900'}`}>
+                  {/* Back button — visible only on mobile */}
+                  <button
+                    type="button"
+                    className="sm:hidden flex-shrink-0 p-1.5 rounded-lg text-gray-300 hover:text-white hover:bg-slate-700 transition-colors"
+                    onClick={() => setSelectedConversation(null)}
+                    aria-label={t('Back to conversations', 'ಸಂಭಾಷಣೆಗಳಿಗೆ ಹಿಂತಿರುಗಿ')}
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                    </svg>
+                  </button>
                   <div className="w-10 h-10 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-semibold">
                     {getOtherUser(selectedConversation)?.name?.[0]?.toUpperCase() || '?'}
                   </div>

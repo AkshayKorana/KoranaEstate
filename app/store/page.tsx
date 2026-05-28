@@ -163,14 +163,14 @@ export default function StorePage() {
       <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-10">
         {/* Header */}
         <div className="mb-8 slide-in-up">
-          <div className="flex items-center space-x-4 mb-3">
-            <div className="p-4 rounded-2xl gradient-brand-spectrum float-animation">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center space-x-3 md:space-x-4 mb-3">
+            <div className="p-3 md:p-4 rounded-2xl gradient-brand-spectrum float-animation">
+              <svg className="w-8 h-8 md:w-10 md:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
               </svg>
             </div>
             <div>
-              <h1 className="font-luxe text-5xl font-bold text-brand-spectrum">
+              <h1 className="font-luxe text-3xl sm:text-4xl md:text-5xl font-bold text-brand-spectrum">
                 {t('Korana Store', 'ಕೊರಾನಾ ಸ್ಟೋರ್')}
               </h1>
               <p className={`mt-2 text-lg ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Premium roasted coffee, ground spices, and gift packs ☕', 'ಪ್ರೀಮಿಯಂ ರೋಸ್ಟ್ ಕಾಫಿ, ಪುಡಿ ಮಸಾಲೆಗಳು ಮತ್ತು ಗಿಫ್ಟ್ ಪ್ಯಾಕ್‌ಗಳು ☕')}</p>
@@ -178,10 +178,10 @@ export default function StorePage() {
           </div>
         </div>
 
-        <div className="flex gap-8">
+        <div className="flex flex-col md:flex-row gap-6 md:gap-8">
           {/* Category Sidebar */}
-          <aside className="w-72 flex-shrink-0 fade-in">
-            <div className={`glass rounded-2xl shadow-lg p-6 sticky top-36 border ${isDark ? 'border-emerald-200/30' : 'border-black/10'}`}>
+          <aside className="w-full md:w-64 lg:w-72 flex-shrink-0 fade-in">
+            <div className={`glass rounded-2xl shadow-lg p-6 md:sticky md:top-36 border ${isDark ? 'border-emerald-200/30' : 'border-black/10'}`}>
               <div className="flex items-center space-x-2 mb-6">
                 <svg className="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />

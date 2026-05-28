@@ -21,6 +21,17 @@ import { extractErrorMessage, extractMessage } from '@/app/lib/api-errors'
 // ── Shared constants ──────────────────────────────────────────────────────────
 const STORE_CATEGORIES = ['Coffee Powder', 'Roasted Beans', 'Pepper Powder', 'Cardamom Powder', 'Ground Spices', 'Gift Packs']
 const RAW_COMMODITIES = ['Arabica Cherry', 'Arabica Parchment', 'Robusta Cherry', 'Robusta Parchment', 'Cardamom', 'Arecanut', 'Pepper']
+
+// Kannada names for all traded commodities
+const COMMODITY_KN: Record<string, string> = {
+  'Arabica Cherry': 'ಅರೇಬಿಕಾ ಚೆರ್ರಿ',
+  'Arabica Parchment': 'ಅರೇಬಿಕಾ ಪಾರ್ಚ್‍ಮೆಂಟ್',
+  'Robusta Cherry': 'ರೊಬಸ್ಟಾ ಚೆರ್ರಿ',
+  'Robusta Parchment': 'ರೊಬಸ್ಟಾ ಪಾರ್ಚ್‍ಮೆಂಟ್',
+  'Cardamom': 'ಏಲಕ್ಕಿ',
+  'Arecanut': 'ಅಡಿಕೆ',
+  'Pepper': 'ಮೆಣಸು',
+}
 const STORE_ORDER_REQUIRED_FIELDS: Array<keyof OrderCustomerDetails> = ['fullName', 'mobileNumber', 'addressLine1', 'area', 'city', 'state', 'pincode']
 const RAW_ORDER_REQUIRED_FIELDS: Array<keyof OrderCustomerDetails> = ['fullName', 'mobileNumber', 'addressLine1', 'city', 'state', 'pincode']
 
@@ -752,7 +763,7 @@ function RawTab() {
         </button>
         {RAW_COMMODITIES.map(c => (
           <button key={c} onClick={() => setFilters({ ...filters, commodity: c })} className={`flex-shrink-0 text-sm px-4 py-2 rounded-full font-medium transition-all ${filters.commodity === c ? 'bg-emerald-700 text-white shadow-md' : isDark ? 'bg-white/10 text-[#d8c8b3]' : 'bg-white border border-black/10 text-[#2f2f2f]'}`}>
-            {c}
+            {tc(c)}
           </button>
         ))}
       </div>
@@ -770,7 +781,7 @@ function RawTab() {
                 <label className={`block text-sm font-semibold mb-2 ${isDark ? 'text-[#dbcdbb]' : 'text-[#2f2f2f]'}`}>{t('Commodity', 'ವಸ್ತು')}</label>
                 <select className="lux-input w-full rounded-xl px-3 py-2.5 transition-all text-sm" value={filters.commodity || ''} onChange={(e) => setFilters({ ...filters, commodity: e.target.value || undefined })}>
                   <option value="">{t('All Commodities', 'ಎಲ್ಲಾ ವಸ್ತುಗಳು')}</option>
-                  {RAW_COMMODITIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  {RAW_COMMODITIES.map(c => <option key={c} value={c}>{tc(c)}</option>)}
                 </select>
               </div>
               <div>
@@ -830,7 +841,7 @@ function RawTab() {
                     <div className="p-4 flex flex-col flex-1">
                       {/* Header */}
                       <div className="flex items-start justify-between gap-2 mb-2">
-                        <h3 className="font-bold text-base sm:text-lg text-card-strong leading-snug">{listing.commodity}</h3>
+                        <h3 className="font-bold text-base sm:text-lg text-card-strong leading-snug">{tc(listing.commodity)}</h3>
                         {listing.grade && <span className="flex-shrink-0 gradient-brand-spectrum text-white text-[10px] px-2.5 py-0.5 rounded-full font-semibold shadow">{listing.grade}</span>}
                       </div>
                       <p className="text-xs text-muted-safe mb-3">📍 {listing.location}</p>
@@ -844,7 +855,7 @@ function RawTab() {
 
                       {/* Coffee variant row */}
                       <div className={`flex items-center justify-between py-1.5 px-3 rounded-xl mb-2 ${isDark ? 'bg-amber-900/30' : 'bg-amber-50 border border-amber-200/60'}`}>
-                        <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">☕ {listing.commodity}</span>
+                        <span className="text-xs font-semibold text-amber-800 dark:text-amber-300">☕ {tc(listing.commodity)}</span>
                         <span className="text-xs font-medium text-muted-safe">{listing.quantityKg.toLocaleString('en-IN')} kg {t('available', 'ಲಭ್ಯ')}</span>
                       </div>
 
@@ -904,7 +915,7 @@ function RawTab() {
             </div>
             <form onSubmit={handleEditListing} className="space-y-4">
               {editListingError && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">{editListingError}</div>}
-              <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Commodity', 'ವಸ್ತು')} *</label><select required className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all" value={editListingData.commodity} onChange={(e) => setEditListingData({ ...editListingData, commodity: e.target.value })}>{RAW_COMMODITIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+              <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Commodity', 'ವಸ್ತು')} *</label><select required className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all" value={editListingData.commodity} onChange={(e) => setEditListingData({ ...editListingData, commodity: e.target.value })}>{RAW_COMMODITIES.map(c => <option key={c} value={c}>{tc(c)}</option>)}</select></div>
               <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Grade (optional)', 'ಗ್ರೇಡ್ (ಐಚ್ಛಿಕ)')}</label><input type="text" className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all" placeholder={t('e.g., A, AA, Premium', 'ಉದಾ., A, AA, ಪ್ರೀಮಿಯಂ')} value={editListingData.grade || ''} onChange={(e) => setEditListingData({ ...editListingData, grade: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Quantity (kg)', 'ಪ್ರಮಾಣ (ಕೆಜಿ)')} *</label><input required type="number" min="0.1" step="0.1" className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all" value={editListingData.quantityKg || ''} onChange={(e) => setEditListingData({ ...editListingData, quantityKg: parseFloat(e.target.value) })} /></div>
@@ -931,7 +942,7 @@ function RawTab() {
             </div>
             <form onSubmit={handleCreateListing} className="space-y-4">
               {createError && <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-200">{createError}</div>}
-              <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Commodity', 'ವಸ್ತು')} *</label><select required className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all" value={formData.commodity} onChange={(e) => setFormData({ ...formData, commodity: e.target.value })}>{RAW_COMMODITIES.map(c => <option key={c} value={c}>{c}</option>)}</select></div>
+              <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Commodity', 'ವಸ್ತು')} *</label><select required className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all" value={formData.commodity} onChange={(e) => setFormData({ ...formData, commodity: e.target.value })}>{RAW_COMMODITIES.map(c => <option key={c} value={c}>{tc(c)}</option>)}</select></div>
               <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Grade (optional)', 'ಗ್ರೇಡ್ (ಐಚ್ಛಿಕ)')}</label><input type="text" className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all" placeholder={t('e.g., A, AA, Premium', 'ಉದಾ., A, AA, ಪ್ರೀಮಿಯಂ')} value={formData.grade || ''} onChange={(e) => setFormData({ ...formData, grade: e.target.value })} /></div>
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-semibold text-[#111111] dark:text-[#ffffff] mb-2">{t('Quantity (kg)', 'ಪ್ರಮಾಣ (ಕೆಜಿ)')} *</label><input required type="number" min="0.1" step="0.1" className="w-full border-2 border-emerald-200 rounded-xl px-4 py-3 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-200 transition-all" value={formData.quantityKg || ''} onChange={(e) => setFormData({ ...formData, quantityKg: parseFloat(e.target.value) })} /></div>

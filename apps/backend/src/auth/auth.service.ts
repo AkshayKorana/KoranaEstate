@@ -12,7 +12,7 @@ import { RegisterDto } from './dto/register.dto'
  * Single source of truth for admin emails on the backend.
  * Must stay in sync with apps/web/lib/auth.ts ADMIN_EMAILS.
  */
-const ADMIN_EMAILS = new Set(['akshay.koranaest@gmail.com'])
+const ADMIN_EMAILS = new Set(['akshay.koranaest@gmail.com', 'koranaestate@gmail.com'])
 
 @Injectable()
 export class AuthService {

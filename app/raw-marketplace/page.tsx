@@ -11,12 +11,25 @@ import { sendMarketplaceMessage } from '@/app/lib/send-marketplace-message'
 
 const COMMODITIES = ['Arabica Cherry', 'Arabica Parchment', 'Robusta Cherry', 'Robusta Parchment', 'Cardamom', 'Arecanut', 'Pepper']
 
+// Kannada names for all traded commodities
+const COMMODITY_KN: Record<string, string> = {
+  'Arabica Cherry': 'ಅರೇಬಿಕಾ ಚೆರ್ರಿ',
+  'Arabica Parchment': 'ಅರೇಬಿಕಾ ಪಾರ್ಚ್‍ಮೆಂಟ್',
+  'Robusta Cherry': 'ರೊಬಸ್ಟಾ ಚೆರ್ರಿ',
+  'Robusta Parchment': 'ರೊಬಸ್ಟಾ ಪಾರ್ಚ್‍ಮೆಂಟ್',
+  'Cardamom': 'ಏಲಕ್ಕಿ',
+  'Arecanut': 'ಅಡಿಕೆ',
+  'Pepper': 'ಮೆಣಸು',
+}
+
 export default function RawMarketplacePage() {
   const { data: session, status } = useSession()
   const router = useRouter()
   const { t } = useLanguage()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
+  // Translates a commodity name per current UI language
+  const tc = (name: string) => t(name, COMMODITY_KN[name] ?? name)
   const [allListings, setAllListings] = useState<RawListing[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
@@ -153,14 +166,14 @@ export default function RawMarketplacePage() {
       <div className="max-w-7xl mx-auto px-6 md:px-8 lg:px-10">
         {/* Header */}
         <div className="mb-8 slide-in-up">
-          <div className="flex items-center space-x-4 mb-3">
-            <div className="p-4 rounded-2xl gradient-brand-spectrum float-animation">
-              <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex items-center space-x-3 md:space-x-4 mb-3">
+            <div className="p-3 md:p-4 rounded-2xl gradient-brand-spectrum float-animation">
+              <svg className="w-8 h-8 md:w-10 md:h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
               </svg>
             </div>
             <div>
-              <h1 className="font-luxe text-5xl font-bold text-brand-spectrum">
+              <h1 className="font-luxe text-2xl sm:text-3xl md:text-5xl font-bold text-brand-spectrum">
                 {t('Raw Commodity Marketplace', 'ರಾ ಕಮೋಡಿಟಿ ಮಾರುಕಟ್ಟೆ')}
               </h1>
               <p className={`mt-2 text-lg ${isDark ? 'text-[#c8bca9]' : 'text-[#4a4a4a]'}`}>{t('Buy and sell raw coffee, pepper, cardamom, and arecanut directly from farmers 🌱', 'ರೈತರಿಂದ ನೇರವಾಗಿ ರಾ ಕಾಫಿ, ಮೆಣಸು, ಏಲಕ್ಕಿ ಮತ್ತು ಅಡಿಕೆ ಖರೀದಿ/ಮಾರಾಟ ಮಾಡಿ 🌱')}</p>
@@ -168,10 +181,10 @@ export default function RawMarketplacePage() {
           </div>
         </div>
 
-        <div className="flex gap-8">
+        <div className="flex flex-col md:flex-row gap-6 md:gap-8">
           {/* Filters Sidebar */}
-          <aside className="w-72 flex-shrink-0 fade-in">
-            <div className={`glass rounded-2xl shadow-lg p-6 sticky top-36 border ${isDark ? 'border-emerald-200/30' : 'border-black/10'}`}>
+          <aside className="w-full md:w-64 lg:w-72 flex-shrink-0 fade-in">
+            <div className={`glass rounded-2xl shadow-lg p-6 md:sticky md:top-36 border ${isDark ? 'border-emerald-200/30' : 'border-black/10'}`}>
               <div className="flex items-center space-x-2 mb-6">
                 <svg className="w-6 h-6 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
@@ -189,7 +202,7 @@ export default function RawMarketplacePage() {
                   >
                     <option value="">{t('All Commodities', 'ಎಲ್ಲಾ ವಸ್ತುಗಳು')}</option>
                     {COMMODITIES.map(c => (
-                      <option key={c} value={c}>{c}</option>
+                      <option key={c} value={c}>{tc(c)}</option>
                     ))}
                   </select>
                 </div>
@@ -286,7 +299,7 @@ export default function RawMarketplacePage() {
                   >
                     <div className="flex justify-between items-start mb-4">
                       <div>
-                        <h3 className={`font-bold text-xl ${isDark ? 'text-[#efe4d4]' : 'text-[#1f1f1f]'}`}>{listing.commodity}</h3>
+                        <h3 className={`font-bold text-xl ${isDark ? 'text-[#efe4d4]' : 'text-[#1f1f1f]'}`}>{tc(listing.commodity)}</h3>
                         <p className={`text-sm mt-1 ${isDark ? 'text-[#b8ab97]' : 'text-[#4a4a4a]'}`}>📍 {listing.location}</p>
                       </div>
                       {listing.grade && (
@@ -380,7 +393,7 @@ export default function RawMarketplacePage() {
                   onChange={(e) => setFormData({ ...formData, commodity: e.target.value })}
                 >
                   {COMMODITIES.map(c => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c} value={c}>{tc(c)}</option>
                   ))}
                 </select>
               </div>
@@ -481,7 +494,7 @@ export default function RawMarketplacePage() {
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-emerald-800 bg-clip-text text-transparent">
                   {t('Make an Offer', 'ಆಫರ್ ನೀಡಿ')}
                 </h2>
-                <p className="text-gray-600 text-sm">{selectedListing.commodity} - {selectedListing.location}</p>
+                <p className="text-gray-600 text-sm">{tc(selectedListing.commodity)} - {selectedListing.location}</p>
               </div>
             </div>
 

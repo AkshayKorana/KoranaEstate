@@ -29,6 +29,8 @@ export async function GET() {
     let unreadCount = 0
 
     try {
+      // Use the ORM query as the authoritative source — it correctly checks
+      // conversation membership via buyerId/sellerId and respects isRead.
       unreadCount = await prisma.message.count({
         where: {
           isRead: false,
@@ -41,18 +43,6 @@ export async function GET() {
           },
         },
       })
-      // Also compute participant-based count and use the larger one for compatibility safety.
-      const compatRows = await prisma.$queryRawUnsafe<Array<{ count: number }>>(
-        `SELECT COUNT(*)::int AS count
-         FROM "Message" m
-         JOIN "ConversationParticipant" cp
-           ON cp."conversationId" = m."conversationId"
-         WHERE cp."userId" = $1
-           AND m."isRead" = false
-           AND m."senderId" <> $1`,
-        user.id,
-      )
-      unreadCount = Math.max(unreadCount, compatRows[0]?.count ?? 0)
     } catch (error) {
       if (!isPrismaSchemaCompatibilityError(error)) throw error
 

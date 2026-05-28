@@ -4,7 +4,7 @@ import { CreateBidDto } from './dto/create-bid.dto'
 import { CreateRawProductDto } from './dto/create-raw-product.dto'
 import { UpdateRawListingDto } from './dto/update-raw-listing.dto'
 
-const ADMIN_EMAILS = new Set(['akshay.koranaest@gmail.com'])
+const ADMIN_EMAILS = new Set(['akshay.koranaest@gmail.com', 'koranaestate@gmail.com'])
 
 @Injectable()
 export class MarketplaceService {

@@ -207,6 +207,7 @@ body > * {
 html {
   scroll-behavior: smooth;
   scroll-padding-top: 11rem;
+  -webkit-text-size-adjust: 100%;
 }
 
 .content-under-navbar {
@@ -217,6 +218,28 @@ html {
   .content-under-navbar {
     padding-top: 6rem;
   }
+}
+
+/* Mobile touch target minimum size */
+@media (max-width: 767px) {
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* Prevent horizontal overflow */
+body {
+  overflow-x: hidden;
+}
+
+/* Horizontal scrollbar hide for filter chips */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
 }
 
 /* Emerald-Coffee Gradient Utilities */
