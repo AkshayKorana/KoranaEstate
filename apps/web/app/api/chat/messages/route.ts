@@ -5,8 +5,7 @@ import {
   getApiBaseUrl,
   proxyChatRequest,
 } from '../_lib'
-import { ADMIN_EMAILS } from '@/lib/auth'
-import { sendMessageToAdminNotification, sendMessageReplyNotification } from '@/lib/email'
+import { sendNewMessageNotification, sendMessageSentConfirmation } from '@/lib/email'
 
 const API_BASE = getApiBaseUrl()
 
@@ -20,7 +19,6 @@ type ConversationParticipant = {
 async function sendChatEmailNotification(
   senderEmail: string,
   senderName: string,
-  senderRole: string,
   conversationId: string,
   messageContent: string,
   accessToken: string,
@@ -29,17 +27,7 @@ async function sendChatEmailNotification(
     const conversationUrl = `${SITE_URL}/messages?conversationId=${encodeURIComponent(conversationId)}`
     const notifInput = { senderName, messageContent, conversationUrl, conversationId }
 
-    if (senderRole !== 'ADMIN') {
-      // Buyer → Admin: email the admin
-      const adminEmail = Array.from(ADMIN_EMAILS)[0]
-      if (adminEmail) {
-        const result = await sendMessageToAdminNotification(adminEmail, notifInput)
-        if (!result.ok) console.error('[CHAT EMAIL] Failed to notify admin:', result.error)
-      }
-      return
-    }
-
-    // Admin → Buyer: look up the conversation to find buyer email
+    // Fetch the conversation to find the other participant
     const convRes = await fetch(`${API_BASE}/chat/conversations`, {
       method: 'GET',
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -61,17 +49,21 @@ async function sendChatEmailNotification(
       .find((c) => c.id === conversationId)
     if (!conversation) return
 
-    const buyerParticipant = conversation.participants?.find(
-      (p) => !ADMIN_EMAILS.has((p.user?.email ?? '').toLowerCase())
+    // Recipient = participant who is NOT the current sender
+    const recipientParticipant = conversation.participants?.find(
+      (p) => p.user?.email?.toLowerCase() !== senderEmail.toLowerCase()
     )
-    const buyerEmail = buyerParticipant?.user?.email
-    if (!buyerEmail) {
-      console.error('[CHAT EMAIL] Buyer email not found in conversation participants')
-      return
+    const recipientEmail = recipientParticipant?.user?.email
+    const recipientName = recipientParticipant?.user?.fullName ?? recipientEmail ?? 'User'
+
+    if (recipientEmail) {
+      const result = await sendNewMessageNotification(recipientEmail, senderName, recipientName, notifInput)
+      if (!result.ok) console.error('[CHAT EMAIL] Failed to notify recipient:', result.error)
     }
 
-    const result = await sendMessageReplyNotification(buyerEmail, senderName, notifInput)
-    if (!result.ok) console.error('[CHAT EMAIL] Failed to notify buyer:', result.error)
+    // Also notify sender as confirmation
+    const senderResult = await sendMessageSentConfirmation(senderEmail, senderName, recipientName ?? 'User', notifInput)
+    if (!senderResult.ok) console.error('[CHAT EMAIL] Failed to send sender confirmation:', senderResult.error)
   } catch (err) {
     console.error('[CHAT EMAIL] Unexpected error in sendChatEmailNotification:', err)
   }
@@ -125,7 +117,6 @@ export async function POST(request: NextRequest) {
       void sendChatEmailNotification(
         authToken.email,
         authToken.name ?? authToken.email,
-        (authToken.role as string | undefined) ?? 'BUYER',
         payload.conversationId,
         payload.content,
         authToken.accessToken,

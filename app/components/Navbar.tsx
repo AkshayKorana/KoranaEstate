@@ -69,11 +69,16 @@ export default function Navbar() {
     void loadUnreadCount()
     const interval = setInterval(() => {
       void loadUnreadCount()
-    }, 10000)
+    }, 5000)
+
+    // Immediately refresh when messages are marked read
+    const onMessagesRead = () => void loadUnreadCount()
+    window.addEventListener('korana:messages-read', onMessagesRead)
 
     return () => {
       mounted = false
       clearInterval(interval)
+      window.removeEventListener('korana:messages-read', onMessagesRead)
     }
   }, [status, pathname])
 

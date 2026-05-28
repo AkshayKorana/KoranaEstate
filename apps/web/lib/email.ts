@@ -91,6 +91,46 @@ export async function sendMessageReplyNotification(to: string, adminName: string
   return sendEmail({ to, subject, html })
 }
 
+export async function sendNewMessageNotification(to: string, senderName: string, recipientName: string, input: ChatNotificationInput) {
+  const subject = `New message from ${senderName} — Korana Estate`
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1a1a1a">
+      <h2 style="color:#059669">New Message on Korana Estate</h2>
+      <p>Hi <strong>${recipientName}</strong>, you have a new message from <strong>${senderName}</strong>:</p>
+      <blockquote style="border-left:4px solid #059669;margin:12px 0;padding:10px 16px;background:#f0fdf4;border-radius:4px;font-size:15px;color:#14532d">
+        ${input.messageContent.replace(/\n/g, '<br/>')}
+      </blockquote>
+      <p>
+        <a href="${input.conversationUrl}" style="display:inline-block;padding:10px 20px;background:#059669;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">
+          View Conversation
+        </a>
+      </p>
+      <p style="color:#6b7280;font-size:13px">Korana Estate · Coffee &amp; Spice Marketplace</p>
+    </div>
+  `
+  return sendEmail({ to, subject, html })
+}
+
+export async function sendMessageSentConfirmation(to: string, senderName: string, recipientName: string, input: ChatNotificationInput) {
+  const subject = `Your message to ${recipientName} was sent — Korana Estate`
+  const html = `
+    <div style="font-family:Arial,sans-serif;line-height:1.6;color:#1a1a1a">
+      <h2 style="color:#059669">Message Sent</h2>
+      <p>Hi <strong>${senderName}</strong>, your message to <strong>${recipientName}</strong> was delivered.</p>
+      <blockquote style="border-left:4px solid #059669;margin:12px 0;padding:10px 16px;background:#f0fdf4;border-radius:4px;font-size:15px;color:#14532d">
+        ${input.messageContent.replace(/\n/g, '<br/>')}
+      </blockquote>
+      <p>
+        <a href="${input.conversationUrl}" style="display:inline-block;padding:10px 20px;background:#059669;color:#fff;text-decoration:none;border-radius:6px;font-weight:600;">
+          View Conversation
+        </a>
+      </p>
+      <p style="color:#6b7280;font-size:13px">Korana Estate · Coffee &amp; Spice Marketplace</p>
+    </div>
+  `
+  return sendEmail({ to, subject, html })
+}
+
 type OfferNotificationInput = {
   buyerName: string
   buyerEmail: string

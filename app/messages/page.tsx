@@ -47,6 +47,8 @@ export default function MessagesPage() {
       const res = await fetch(`/api/chat/messages?conversationId=${selectedConversation.id}`)
       const data = await res.json()
       setMessages(data.messages || [])
+      // Notify Navbar to refresh unread badge
+      window.dispatchEvent(new Event('korana:messages-read'))
     } catch (error) {
       console.error('Failed to fetch messages:', error)
     }

@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { deriveUserNames } from '@/lib/user-name'
 import { isPrismaSchemaCompatibilityError } from '@/lib/prisma-compat'
 import { randomUUID } from 'crypto'
+import { sendMessageNotificationToRecipient, sendMessageSentConfirmation } from '@/lib/email'
 
 export const dynamic = 'force-dynamic'
 
@@ -304,6 +305,26 @@ export async function POST(request: NextRequest) {
         }
       })
 
+      // Fire-and-forget: email both parties
+      void (async () => {
+        try {
+          const siteUrl = (process.env.NEXTAUTH_URL ?? 'https://korana-estate.vercel.app').replace(/\/$/, '')
+          const conversationUrl = `${siteUrl}/messages?conversationId=${encodeURIComponent(conversationId)}`
+          const recipientUser = await prisma.user.findUnique({
+            where: { id: recipientId },
+            select: { email: true, name: true, fullName: true },
+          })
+          if (recipientUser) {
+            const senderName = user.name ?? user.fullName ?? user.email
+            const recipientName = recipientUser.name ?? recipientUser.fullName ?? recipientUser.email
+            void sendMessageNotificationToRecipient({ to: recipientUser.email, senderName, recipientName, messageContent: text, conversationUrl })
+            void sendMessageSentConfirmation({ to: user.email, senderName, recipientName, messageContent: text, conversationUrl })
+          }
+        } catch {
+          // Non-critical
+        }
+      })()
+
       return NextResponse.json({ conversationId, message }, { status: 200 })
     }
 
@@ -442,6 +463,30 @@ export async function POST(request: NextRequest) {
         return msg
       })
     }
+
+    // Fire-and-forget: email both parties
+    void (async () => {
+      try {
+        const siteUrl = (process.env.NEXTAUTH_URL ?? 'https://korana-estate.vercel.app').replace(/\/$/, '')
+        const conversationUrl = `${siteUrl}/messages?conversationId=${encodeURIComponent(conversationId)}`
+        const conv = await prisma.conversation.findUnique({
+          where: { id: conversationId },
+          include: {
+            buyer: { select: { id: true, email: true, name: true, fullName: true } },
+            seller: { select: { id: true, email: true, name: true, fullName: true } },
+          },
+        })
+        if (conv) {
+          const other = conv.buyerId === user.id ? conv.seller : conv.buyer
+          const senderName = user.name ?? user.fullName ?? user.email
+          const recipientName = other.name ?? other.fullName ?? other.email
+          void sendMessageNotificationToRecipient({ to: other.email, senderName, recipientName, messageContent: content, conversationUrl })
+          void sendMessageSentConfirmation({ to: user.email, senderName, recipientName, messageContent: content, conversationUrl })
+        }
+      } catch {
+        // Non-critical
+      }
+    })()
 
     return NextResponse.json({ message }, { status: 200 })
   } catch (error) {

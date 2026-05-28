@@ -113,6 +113,8 @@ export default function MessagesClient() {
           : []
 
       setMessages(rows)
+      // Notify Navbar to refresh unread badge immediately
+      window.dispatchEvent(new Event('korana:messages-read'))
     } catch (error) {
       if (signal?.aborted) {
         return
