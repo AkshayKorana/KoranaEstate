@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import type { RawListing, RawListingFilters, CreateRawListingInput } from '@/types/marketplace'
@@ -17,12 +17,20 @@ export default function RawMarketplacePage() {
   const { t } = useLanguage()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const [listings, setListings] = useState<RawListing[]>([])
+  const [allListings, setAllListings] = useState<RawListing[]>([])
   const [loading, setLoading] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showOfferModal, setShowOfferModal] = useState(false)
   const [selectedListing, setSelectedListing] = useState<RawListing | null>(null)
   const [filters, setFilters] = useState<RawListingFilters>({})
+
+  // Client-side filtering — instant, no re-fetch on every filter change
+  const listings = useMemo(() => {
+    let result = allListings
+    if (filters.commodity) result = result.filter(l => l.commodity === filters.commodity)
+    if (filters.location) result = result.filter(l => l.location.toLowerCase().includes(filters.location!.toLowerCase()))
+    return result
+  }, [allListings, filters])
 
   // Form states
   const [formData, setFormData] = useState<CreateRawListingInput>({
@@ -33,20 +41,18 @@ export default function RawMarketplacePage() {
   })
   const [offerData, setOfferData] = useState({ offerPrice: 0, quantity: 0, message: '' })
 
+  // Fetch ALL listings once on mount — filters are client-side
   useEffect(() => {
     fetchListings()
-  }, [filters])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function fetchListings() {
     try {
       setLoading(true)
-      const params = new URLSearchParams()
-      if (filters.commodity) params.set('commodity', filters.commodity)
-      if (filters.location) params.set('location', filters.location)
-      
-      const res = await fetch(`/api/raw/listings?${params}`)
+      const res = await fetch('/api/raw/listings?limit=200')
       const data = await res.json()
-      setListings(data.listings || [])
+      setAllListings(data.listings || [])
     } catch (error) {
       console.error('Failed to fetch listings:', error)
     } finally {

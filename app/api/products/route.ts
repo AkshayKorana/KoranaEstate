@@ -7,6 +7,7 @@ import { isPrismaSchemaCompatibilityError } from '@/lib/prisma-compat'
 import { randomUUID } from 'crypto'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0 // POST routes need dynamic; GET adds its own cache header
 
 // GET /api/products - Get all active products
 export async function GET(request: NextRequest) {
@@ -128,15 +129,10 @@ export async function GET(request: NextRequest) {
       }))
     }
 
-    return NextResponse.json({
-      products,
-      pagination: {
-        total,
-        limit,
-        offset,
-        hasMore: offset + products.length < total
-      }
-    })
+    return NextResponse.json(
+      { products, pagination: { total, limit, offset, hasMore: offset + products.length < total } },
+      { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' } }
+    )
   } catch (error) {
     console.error('Error fetching products:', error)
     return NextResponse.json(

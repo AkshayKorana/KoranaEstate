@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import type { Product, CreateProductInput, CreateOrderInput } from '@/types/marketplace'
@@ -17,13 +17,19 @@ export default function StorePage() {
   const { t } = useLanguage()
   const { theme } = useTheme()
   const isDark = theme === 'dark'
-  const [products, setProducts] = useState<Product[]>([])
+  const [allProducts, setAllProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
   const [initialLoad, setInitialLoad] = useState(true)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showOrderModal, setShowOrderModal] = useState(false)
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('')
+
+  // Client-side filtering — instant, no re-fetch
+  const products = useMemo(
+    () => selectedCategory ? allProducts.filter(p => p.category === selectedCategory) : allProducts,
+    [allProducts, selectedCategory]
+  )
 
   // Form states
   const [formData, setFormData] = useState<CreateProductInput>({
@@ -46,19 +52,18 @@ export default function StorePage() {
     return map[category] || category
   }
 
+  // Fetch ALL products once on mount — category filter is client-side
   useEffect(() => {
     fetchProducts()
-  }, [selectedCategory])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   async function fetchProducts() {
     try {
       setLoading(true)
-      const params = new URLSearchParams()
-      if (selectedCategory) params.set('category', selectedCategory)
-      
-      const res = await fetch(`/api/products?${params}`)
+      const res = await fetch('/api/products?limit=200')
       const data = await res.json()
-      setProducts(data.products || [])
+      setAllProducts(data.products || [])
     } catch (error) {
       console.error('Failed to fetch products:', error)
     } finally {

@@ -3,6 +3,7 @@ import { extractMessage, parseJsonSafely } from '@/app/lib/api-errors'
 import { attachRefreshedSession, fetchWithAuthRetry } from '@/app/api/_lib/auth'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0 // POST routes need dynamic; GET adds its own cache header
 
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, '') || 'http://localhost:4000/api/v1'
@@ -95,15 +96,10 @@ export async function GET(request: NextRequest) {
     const products = filteredProducts.slice(normalizedOffset, normalizedOffset + normalizedLimit)
     const total = filteredProducts.length
 
-    const response = NextResponse.json({
-      products,
-      pagination: {
-        total,
-        limit,
-        offset,
-        hasMore: offset + products.length < total,
-      },
-    })
+    const response = NextResponse.json(
+      { products, pagination: { total, limit, offset, hasMore: offset + products.length < total } },
+      { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' } },
+    )
     return attachRefreshedSession(request, response, upstreamResult.authToken, upstreamResult.refreshed)
   } catch (error) {
     console.error('apps/web products GET failed', error)

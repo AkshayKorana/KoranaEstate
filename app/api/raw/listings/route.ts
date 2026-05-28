@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { deriveUserNames } from '@/lib/user-name'
 
 export const dynamic = 'force-dynamic'
+export const revalidate = 0 // POST routes need dynamic; GET adds its own cache header
 
 // GET /api/raw/listings - Get all active listings
 export async function GET(request: NextRequest) {
@@ -33,7 +34,10 @@ export async function GET(request: NextRequest) {
       take: limit
     })
 
-    return NextResponse.json({ listings })
+    return NextResponse.json(
+      { listings },
+      { headers: { 'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120' } }
+    )
   } catch (error) {
     console.error('Error fetching listings:', error)
     return NextResponse.json(
