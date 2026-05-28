@@ -167,7 +167,7 @@ function StoreTab() {
     try {
       const res = await fetch(`/api/products/${productId}`, { method: 'DELETE' })
       if (res.ok) {
-        setProducts((prev) => prev.filter((p) => p.id !== productId))
+        setAllProducts((prev) => prev.filter((p) => p.id !== productId))
       } else {
         alert((await extractErrorMessage(res)) || t('Failed to delete product', 'ಉತ್ಪನ್ನ ಅಳಿಸಲು ವಿಫಲವಾಗಿದೆ'))
       }
